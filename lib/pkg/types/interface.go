@@ -33,7 +33,7 @@ type Input interface {
 type Processor interface {
 	Decode(EncodedPayload) (DecodedPayload, error)
 
-	Process(DecodedPayload) (EncodedPayload, error)
+	Process(DecodedPayload) (DecodedPayload, error)
 
 	Encode(DecodedPayload) (EncodedPayload, error)
 

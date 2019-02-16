@@ -12,15 +12,15 @@ type ImageData map[string]interface{}
 
 // DecodedPayload holds the Image bytes and accompanying Data
 type DecodedPayload struct {
-	Name string
-	ImageBytes
+	Name  string
+	Image interface{}
 	ImageData
 }
 
 // EncodedPayload holds the Image bytes and accompanying Data
 type EncodedPayload struct {
-	Name  string
-	Image interface{}
+	Name string
+	ImageBytes
 	ImageData
 }
 
