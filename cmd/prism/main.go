@@ -1,10 +1,10 @@
 package main
 
 import (
-	"github.com/sherifabdlnaby/prism/lib/pkg/input"
-	"github.com/sherifabdlnaby/prism/lib/pkg/output"
-	"github.com/sherifabdlnaby/prism/lib/pkg/processor"
-	"github.com/sherifabdlnaby/prism/lib/pkg/types"
+	"github.com/sherifabdlnaby/prism/internal/input"
+	"github.com/sherifabdlnaby/prism/internal/output"
+	"github.com/sherifabdlnaby/prism/internal/processor"
+	"github.com/sherifabdlnaby/prism/pkg/types"
 	"io/ioutil"
 	"time"
 )

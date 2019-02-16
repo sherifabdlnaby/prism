@@ -1,7 +1,7 @@
 package processor
 
 import (
-	"github.com/sherifabdlnaby/prism/lib/pkg/types"
+	"github.com/sherifabdlnaby/prism/pkg/types"
 	"log"
 	"time"
 )

@@ -1,5 +1,5 @@
-// Package errors define errors that are used throughout the codebase
-package errors
+// Package error define errors that are used throughout the codebase
+package error
 
 import (
 	"errors"

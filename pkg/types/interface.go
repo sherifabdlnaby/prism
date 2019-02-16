@@ -28,6 +28,8 @@ type Input interface {
 	Component
 }
 
+//------------------------------------------------------------------------------
+
 // Processor can decode, process, or encode a payload.
 // TODO more documentation ofc
 type Processor interface {
