@@ -5,6 +5,8 @@ import (
 	"github.com/sherifabdlnaby/prism/internal/output"
 	"github.com/sherifabdlnaby/prism/internal/processor"
 	"github.com/sherifabdlnaby/prism/pkg/types"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"io/ioutil"
 	"time"
 )
@@ -12,34 +14,42 @@ import (
 // USED FOR TESTING FOR NOW
 func main() {
 
-	// output
-	outputDummy := output.Dummy{}
+	// INIT LOGGER
+	config := zap.NewDevelopmentConfig()
+	config.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+	logger, _ := config.Build()
 
-	// output outputConfig
+	defer logger.Sync()
+
+	// output
+	var outputDummy types.Output = &output.Dummy{}
+	outputLogger := logger.Named("output")
 	outputConfig := types.Config{
 		"filename": "output.jpg",
 	}
 
 	// init & start output
-	_ = outputDummy.Init(outputConfig)
+	_ = outputDummy.Init(outputConfig, *outputLogger.Named("dummy"))
 	_ = outputDummy.Start()
 
 	// processor
 	processorDummy := processor.Dummy{}
+	processorLogger := logger.Named("processor")
 
 	// init & start processor
-	_ = processorDummy.Init(nil)
+	_ = processorDummy.Init(nil, *processorLogger.Named("dummy"))
 	_ = processorDummy.Start()
 
 	// input
 	var inputDummy types.Input = &input.Dummy{}
+	inputLogger := logger.Named("input")
 
 	// input outputConfig
 	inputConfig := types.Config{
 		"filename": "test.jpg",
 	}
 	// init & start input
-	_ = inputDummy.Init(inputConfig)
+	_ = inputDummy.Init(inputConfig, *inputLogger.Named("dummy"))
 	_ = inputDummy.Start()
 
 	outputNode := func(t types.Transaction) {
@@ -95,7 +105,7 @@ func main() {
 
 	time.Sleep(8 * time.Second)
 
-	_ = outputDummy.Close(1 * time.Second)
-	_ = processorDummy.Close(1 * time.Second)
 	_ = inputDummy.Close(1 * time.Second)
+	_ = processorDummy.Close(1 * time.Second)
+	_ = outputDummy.Close(1 * time.Second)
 }

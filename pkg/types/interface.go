@@ -1,13 +1,14 @@
 package types
 
 import (
+	"go.uber.org/zap"
 	"time"
 )
 
 // Component defines the basic prism component.
 type Component interface {
 	// Init Initializes Component's configuration
-	Init(Config) error
+	Init(Config, zap.Logger) error
 
 	// Start starts the component
 	Start() error

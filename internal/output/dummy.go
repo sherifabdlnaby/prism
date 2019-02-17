@@ -2,8 +2,8 @@ package output
 
 import (
 	"github.com/sherifabdlnaby/prism/pkg/types"
+	"go.uber.org/zap"
 	"io/ioutil"
-	"log"
 	"time"
 )
 
@@ -12,40 +12,41 @@ type Dummy struct {
 	FileName     string
 	Transactions chan types.Transaction
 	stopChan     chan struct{}
+	logger       zap.Logger
 }
 
 func (d *Dummy) TransactionChan() chan<- types.Transaction {
 	return d.Transactions
 }
 
-func (d *Dummy) Init(config types.Config) error {
+func (d *Dummy) Init(config types.Config, logger zap.Logger) error {
 	d.FileName = config["filename"].(string)
 	d.Transactions = make(chan types.Transaction, 1)
-	log.Println("Initialized dummy output.")
 	d.stopChan = make(chan struct{})
+	d.logger = logger
 	return nil
 }
 
 func (d *Dummy) Start() error {
-	log.Println("Started Output, Hooray!")
+	d.logger.Info("Started Output, Hooray!")
 
 	go func() {
 		for {
 			select {
 			case <-d.stopChan:
-				log.Println("Closing...")
+				d.logger.Info("Closing...")
 				break
 			case transaction := <-d.Transactions:
-				log.Println("RECEIVED OUTPUT TRANSACTION...")
+				d.logger.Info("RECEIVED OUTPUT TRANSACTION...")
 
 				err := ioutil.WriteFile(d.FileName, transaction.ImageBytes, 0644)
 
 				if err != nil {
-					log.Println("Error in output: ", err)
+					d.logger.Info("Error in output: ", zap.Error(err))
 					continue
 				}
 
-				log.Println("OUTPUT SUCCESSFUL, Sending Response. ")
+				d.logger.Info("OUTPUT SUCCESSFUL, Sending Response. ")
 
 				// send response
 				transaction.ResponseChan <- types.Response{
@@ -60,9 +61,9 @@ func (d *Dummy) Start() error {
 }
 
 func (d *Dummy) Close(time.Duration) error {
-	log.Println("Sending closing signal...")
+	d.logger.Info("Sending closing signal...")
 	d.stopChan <- struct{}{}
 	close(d.Transactions)
-	log.Println("Closed.")
+	d.logger.Info("Closed.")
 	return nil
 }
