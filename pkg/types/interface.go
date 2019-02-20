@@ -24,7 +24,7 @@ type Component interface {
 type Input interface {
 	// TransactionChan returns a channel used for consuming transactions from
 	// this type.
-	TransactionChan() <-chan StreamableTransaction
+	TransactionChan() <-chan Transaction
 
 	Component
 }
@@ -34,11 +34,11 @@ type Input interface {
 // Processor can decode, process, or encode a payload.
 // TODO more documentation ofc
 type Processor interface {
-	Decode(EncodedPayload) (DecodedPayload, error)
+	Decode(Payload) (DecodedPayload, error)
 
 	Process(DecodedPayload) (DecodedPayload, error)
 
-	Encode(DecodedPayload) (EncodedPayload, error)
+	Encode(DecodedPayload) (Payload, error)
 
 	Component
 }

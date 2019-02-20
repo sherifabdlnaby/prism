@@ -17,15 +17,8 @@ type DecodedPayload struct {
 	ImageData
 }
 
-// EncodedPayload holds the Image bytes and accompanying Data
-type EncodedPayload struct {
-	Name string
-	ImageBytes
-	ImageData
-}
-
-// StreamablePayload holds a reader to image bytes and accompanying Data.
-type StreamablePayload struct {
+// Payload holds a reader to image bytes and accompanying Data.
+type Payload struct {
 	Name string
 	io.Reader
 	ImageData

@@ -1,13 +1,12 @@
 package main
 
 import (
-	"github.com/sherifabdlnaby/prism/internal/input"
-	"github.com/sherifabdlnaby/prism/internal/output"
-	"github.com/sherifabdlnaby/prism/internal/processor"
+	input "github.com/sherifabdlnaby/prism/internal/input/dummy"
+	output "github.com/sherifabdlnaby/prism/internal/output/dummy"
+	processor "github.com/sherifabdlnaby/prism/internal/processor/dummy"
 	"github.com/sherifabdlnaby/prism/pkg/types"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"io/ioutil"
 	"time"
 )
 
@@ -40,15 +39,15 @@ func main() {
 	_ = processorDummy.Init(nil, *processorLogger.Named("dummy"))
 	_ = processorDummy.Start()
 
-	// input
+	// dummy
 	var inputDummy types.Input = &input.Dummy{}
-	inputLogger := logger.Named("input")
+	inputLogger := logger.Named("dummy")
 
-	// input outputConfig
+	// dummy outputConfig
 	inputConfig := types.Config{
 		"filename": "test.jpg",
 	}
-	// init & start input
+	// init & start dummy
 	_ = inputDummy.Init(inputConfig, *inputLogger.Named("dummy"))
 	_ = inputDummy.Start()
 
@@ -59,7 +58,7 @@ func main() {
 	processorNode := func(t types.Transaction) {
 
 		/// PROCESSING PART
-		decoded, _ := processorDummy.Decode(t.EncodedPayload)
+		decoded, _ := processorDummy.Decode(t.Payload)
 		decodedPayload, _ := processorDummy.Process(decoded)
 		encoded, _ := processorDummy.Encode(decodedPayload)
 		///
@@ -67,8 +66,8 @@ func main() {
 		responseChan := make(chan types.Response)
 
 		go outputNode(types.Transaction{
-			EncodedPayload: encoded,
-			ResponseChan:   responseChan,
+			Payload:      encoded,
+			ResponseChan: responseChan,
 		})
 
 		// forward response (no logic needed for now)
@@ -76,15 +75,13 @@ func main() {
 
 	}
 
-	pipeline := func(st types.StreamableTransaction) {
-		//Convert Streamable to non Streamable
-		bytes, _ := ioutil.ReadAll(st)
+	pipeline := func(st types.Transaction) {
 		responseChan := make(chan types.Response)
 		transaction := types.Transaction{
-			EncodedPayload: types.EncodedPayload{
-				Name:       "",
-				ImageBytes: bytes,
-				ImageData:  nil,
+			Payload: types.Payload{
+				Name:      "",
+				Reader:    st,
+				ImageData: nil,
 			},
 			ResponseChan: responseChan,
 		}
@@ -103,9 +100,11 @@ func main() {
 		}
 	}()
 
-	time.Sleep(8 * time.Second)
+	time.Sleep(2 * time.Second)
 
 	_ = inputDummy.Close(1 * time.Second)
 	_ = processorDummy.Close(1 * time.Second)
 	_ = outputDummy.Close(1 * time.Second)
+
+	time.Sleep(1 * time.Second)
 }

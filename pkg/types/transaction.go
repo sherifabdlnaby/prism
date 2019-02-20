@@ -1,22 +1,10 @@
 package types
 
-// Transaction represent a transaction containing a payload (the message) and a response channel,
+// Transaction represent a transaction containing a streamable payload (the message) and a response channel,
 // which is used to indicate whether the payload was successfully processed and propagated to the next destinations.
 type Transaction struct {
 	// Payload is the message payload of this transaction.
-	EncodedPayload
-
-	// ResponseChan should receive a response at the end of a transaction,
-	// The response itself indicates whether the payload was successfully processed and propagated
-	// to the next destinations.
-	ResponseChan chan<- Response
-}
-
-// StreamableTransaction represent a transaction containing a streamable payload (the message) and a response channel,
-// which is used to indicate whether the payload was successfully processed and propagated to the next destinations.
-type StreamableTransaction struct {
-	// Payload is the message payload of this transaction.
-	StreamablePayload
+	Payload
 
 	// ResponseChan should receive a response at the end of a transaction,
 	// The response itself indicates whether the payload was successfully processed and propagated
