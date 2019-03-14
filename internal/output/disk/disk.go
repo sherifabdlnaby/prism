@@ -11,6 +11,7 @@ import (
 	"time"
 )
 
+//Disk struct
 type Disk struct {
 	FileName       string
 	FilePath       string
@@ -21,10 +22,12 @@ type Disk struct {
 	FilePermission os.FileMode
 }
 
+//TransactionChan just return the channel of the transactions
 func (d *Disk) TransactionChan() chan<- types.Transaction {
 	return d.Transactions
 }
 
+// Initialize the disk output plugin
 func (d *Disk) Init(config types.Config, logger zap.Logger) error {
 	d.FileName = config["filename"].(string)
 	d.FilePath = config["filepath"].(string)
@@ -36,6 +39,7 @@ func (d *Disk) Init(config types.Config, logger zap.Logger) error {
 	return nil
 }
 
+// Start the plugin and be ready for taking transactions
 func (d *Disk) Start() error {
 	d.logger.Info("Started Disk Output!")
 
@@ -54,7 +58,7 @@ func (d *Disk) Start() error {
 						defer d.wg.Done()
 						d.logger.Info("RECEIVED OUTPUT TRANSACTION...")
 						bytes, _ := ioutil.ReadAll(transaction)
-						var err error = nil
+						var err error
 						if _, err = os.Stat(d.FilePath); os.IsNotExist(err) {
 							err = os.MkdirAll(d.FilePath, os.ModePerm)
 						}
@@ -90,11 +94,14 @@ func (d *Disk) Start() error {
 	return nil
 }
 
+// Send a close signal to stop chan
+// to stop taking transactions and Close everything safely
 func (d *Disk) Close(time.Duration) error {
 	d.logger.Info("Sending closing signal to Disk Output...")
 	d.stopChan <- struct{}{}
 	d.wg.Wait()
 	close(d.Transactions)
+	close(d.stopChan)
 	d.logger.Info("Closed Disk Output.")
 	return nil
 }
