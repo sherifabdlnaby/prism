@@ -1,25 +1,27 @@
 package disk
 
 import (
+	"github.com/pkg/errors"
 	"github.com/sherifabdlnaby/prism/pkg/types"
 	"go.uber.org/zap"
 	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"sync"
 	"time"
 )
 
 //Disk struct
 type Disk struct {
-	FileName       string
 	FilePath       string
+	FilePermission string
+	TypeCheck      bool
 	Transactions   chan types.Transaction
 	stopChan       chan struct{}
 	logger         zap.Logger
 	wg             sync.WaitGroup
-	FilePermission os.FileMode
 }
 
 //TransactionChan just return the channel of the transactions
@@ -29,33 +31,40 @@ func (d *Disk) TransactionChan() chan<- types.Transaction {
 
 //Init func Initialize the disk output plugin
 func (d *Disk) Init(config types.Config, logger zap.Logger) error {
-	d.FileName = config["filename"].(string)
-	d.FilePath = config["filepath"].(string)
+	if d.FilePath,d.TypeCheck = config["filepath"].(string); !d.TypeCheck {
+		return errors.New("FilePath must be a string")
+	}
 	path.Clean(d.FilePath)
-	d.FilePermission = config["permission"].(os.FileMode)
-	d.Transactions = make(chan types.Transaction, 1)
+	if d.FilePermission,d.TypeCheck = config["permission"].(string); !d.TypeCheck{
+		return errors.New("FilePermission must be from a string")
+	}
+	d.Transactions = make(chan types.Transaction)
 	d.stopChan = make(chan struct{})
 	d.logger = logger
 	return nil
 }
 
-//WriteOnDisk func takes the disk and the transaction
+//WriteOnDisk func takes the transaction
 //that to be written on the disk
-func WriteOnDisk(d *Disk, transaction types.Transaction) {
+func (d *Disk) WriteOnDisk(transaction types.Transaction) {
 	defer d.wg.Done()
-	var err error
 	ack := true
-	d.logger.Info("RECEIVED OUTPUT TRANSACTION...")
-	bytes, _ := ioutil.ReadAll(transaction)
-	if _, err = os.Stat(d.FilePath); os.IsNotExist(err) {
-		err = os.MkdirAll(d.FilePath, os.ModePerm)
+	bytes, err := ioutil.ReadAll(transaction)
+	if err==nil {
+		dir:=filepath.Dir(d.FilePath)
+		if _, err = os.Stat(dir); os.IsNotExist(err) {
+			err = os.MkdirAll(dir, os.ModePerm)
+		}
 	}
 	if err == nil {
-		FilePath := filepath.Join(d.FilePath, d.FileName)
-		err = ioutil.WriteFile(FilePath, bytes, d.FilePermission)
-		d.logger.Info("OUTPUT SUCCESSFUL, Sending Response. ")
-	} else {
-		d.logger.Info("Error in output: ", zap.Error(err))
+		perm32,errParse:=strconv.ParseUint(d.FilePermission,0,32)
+		err=errParse
+		if err == nil {
+			permission := os.FileMode(perm32)
+			err = ioutil.WriteFile(d.FilePath, bytes, permission)
+		}
+	}
+	if err!=nil {
 		ack = false
 	}
 	// send response
@@ -68,21 +77,16 @@ func WriteOnDisk(d *Disk, transaction types.Transaction) {
 
 // Start the plugin and be ready for taking transactions
 func (d *Disk) Start() error {
-	d.logger.Info("Started Disk Output!")
-
 	d.wg.Add(1)
 	go func() {
 		defer d.wg.Done()
 		for {
 			select {
 			case <-d.stopChan:
-				d.logger.Info("Closing Disk Output...")
 				return
-			case transaction, more := <-d.Transactions:
-				if more {
-					d.wg.Add(1)
-					go WriteOnDisk(d, transaction)
-				}
+			case transaction, _ := <-d.Transactions:
+				d.wg.Add(1)
+				go d.WriteOnDisk(transaction)
 			}
 		}
 	}()
@@ -93,11 +97,9 @@ func (d *Disk) Start() error {
 //Close func Send a close signal to stop chan
 // to stop taking transactions and Close everything safely
 func (d *Disk) Close(time.Duration) error {
-	d.logger.Info("Sending closing signal to Disk Output...")
 	d.stopChan <- struct{}{}
 	d.wg.Wait()
 	close(d.Transactions)
 	close(d.stopChan)
-	d.logger.Info("Closed Disk Output.")
 	return nil
 }

@@ -7,7 +7,6 @@ import (
 	"github.com/sherifabdlnaby/prism/pkg/types"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"os"
 	"time"
 )
 
@@ -25,9 +24,8 @@ func main() {
 	var outputDisk types.Output = &output.Disk{}
 	outputLogger := logger.Named("output")
 	outputConfig := types.Config{
-		"filename":   "output.jpg",
-		"filepath":   "/home/ref/Desktop/alo/test/bla",
-		"permission": os.FileMode(0644),
+		"filepath":   "/home/ref/Desktop/alo/test/bla/output.jpg",
+		"permission": "0644",
 	}
 
 	// init & start output
