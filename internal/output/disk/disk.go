@@ -1,7 +1,7 @@
 package disk
 
 import (
-	"github.com/pkg/errors"
+	"errors"
 	"github.com/sherifabdlnaby/prism/pkg/types"
 	"go.uber.org/zap"
 	"io/ioutil"
@@ -17,6 +17,7 @@ import (
 type Disk struct {
 	FilePath       string
 	FilePermission string
+	Permission     os.FileMode
 	TypeCheck      bool
 	Transactions   chan types.Transaction
 	stopChan       chan struct{}
@@ -38,6 +39,11 @@ func (d *Disk) Init(config types.Config, logger zap.Logger) error {
 	if d.FilePermission, d.TypeCheck = config["permission"].(string); !d.TypeCheck {
 		return errors.New("FilePermission must be from a string")
 	}
+	perm32, err := strconv.ParseUint(d.FilePermission, 0, 32)
+	if err != nil {
+		return err
+	}
+	d.Permission = os.FileMode(perm32)
 	d.Transactions = make(chan types.Transaction)
 	d.stopChan = make(chan struct{})
 	d.logger = logger
@@ -46,22 +52,19 @@ func (d *Disk) Init(config types.Config, logger zap.Logger) error {
 
 //WriteOnDisk func takes the transaction
 //that to be written on the disk
-func (d *Disk) WriteOnDisk(transaction types.Transaction) {
+func (d *Disk) writeOnDisk(transaction types.Transaction) {
 	defer d.wg.Done()
 	ack := true
-	bytes, err := ioutil.ReadAll(transaction)
-	if err == nil {
-		dir := filepath.Dir(d.FilePath)
-		if _, err = os.Stat(dir); os.IsNotExist(err) {
-			err = os.MkdirAll(dir, os.ModePerm)
-		}
+	dir := filepath.Dir(d.FilePath)
+	var err error
+	if _, err = os.Stat(dir); os.IsNotExist(err) {
+		err = os.MkdirAll(dir, os.ModePerm)
 	}
 	if err == nil {
-		perm32, errParse := strconv.ParseUint(d.FilePermission, 0, 32)
-		err = errParse
+		bytes, errRead := ioutil.ReadAll(transaction)
+		err = errRead
 		if err == nil {
-			permission := os.FileMode(perm32)
-			err = ioutil.WriteFile(d.FilePath, bytes, permission)
+			err = ioutil.WriteFile(d.FilePath, bytes, d.Permission)
 		}
 	}
 	if err != nil {
@@ -86,7 +89,7 @@ func (d *Disk) Start() error {
 				return
 			case transaction, _ := <-d.Transactions:
 				d.wg.Add(1)
-				go d.WriteOnDisk(transaction)
+				go d.writeOnDisk(transaction)
 			}
 		}
 	}()
