@@ -2,7 +2,7 @@ package main
 
 import (
 	input "github.com/sherifabdlnaby/prism/internal/input/dummy"
-	output "github.com/sherifabdlnaby/prism/internal/output/dummy"
+	output "github.com/sherifabdlnaby/prism/internal/output/disk"
 	processor "github.com/sherifabdlnaby/prism/internal/processor/dummy"
 	"github.com/sherifabdlnaby/prism/pkg/types"
 	"go.uber.org/zap"
@@ -21,15 +21,16 @@ func main() {
 	defer logger.Sync()
 
 	// output
-	var outputDummy types.Output = &output.Dummy{}
+	var outputDisk types.Output = &output.Disk{}
 	outputLogger := logger.Named("output")
 	outputConfig := types.Config{
-		"filename": "output.jpg",
+		"filepath":   "/home/ref/Desktop/alo/test/bla/output.jpg",
+		"permission": "0644",
 	}
 
 	// init & start output
-	_ = outputDummy.Init(outputConfig, *outputLogger.Named("dummy"))
-	_ = outputDummy.Start()
+	_ = outputDisk.Init(outputConfig, *outputLogger.Named("disk"))
+	_ = outputDisk.Start()
 
 	// processor
 	processorDummy := processor.Dummy{}
@@ -52,7 +53,7 @@ func main() {
 	_ = inputDummy.Start()
 
 	outputNode := func(t types.Transaction) {
-		outputDummy.TransactionChan() <- t
+		outputDisk.TransactionChan() <- t
 	}
 
 	processorNode := func(t types.Transaction) {
@@ -104,7 +105,7 @@ func main() {
 
 	_ = inputDummy.Close(1 * time.Second)
 	_ = processorDummy.Close(1 * time.Second)
-	_ = outputDummy.Close(1 * time.Second)
+	_ = outputDisk.Close(1 * time.Second)
 
 	time.Sleep(1 * time.Second)
 }
