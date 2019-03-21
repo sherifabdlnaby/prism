@@ -2,7 +2,7 @@ package main
 
 import (
 	input "github.com/sherifabdlnaby/prism/internal/input/dummy"
-	output "github.com/sherifabdlnaby/prism/internal/output/disk"
+	output "github.com/sherifabdlnaby/prism/internal/output/amazon-s3"
 	processor "github.com/sherifabdlnaby/prism/internal/processor/dummy"
 	"github.com/sherifabdlnaby/prism/pkg/types"
 	"go.uber.org/zap"
@@ -21,16 +21,17 @@ func main() {
 	defer logger.Sync()
 
 	// output
-	var outputDisk types.Output = &output.Disk{}
+	var outputAmazonS3 types.Output = &output.S3{}
 	outputLogger := logger.Named("output")
 	outputConfig := types.Config{
-		"filepath":   "/home/ref/Desktop/alo/test/bla/output.jpg",
-		"permission": "0644",
+		"filepath":  "/home/output.jpg",
+		"s3_region": "us-east-2",
+		"s3_bucket": "prism.test",
 	}
 
 	// init & start output
-	_ = outputDisk.Init(outputConfig, *outputLogger.Named("disk"))
-	_ = outputDisk.Start()
+	_ = outputAmazonS3.Init(outputConfig, *outputLogger.Named("s3"))
+	_ = outputAmazonS3.Start()
 
 	// processor
 	processorDummy := processor.Dummy{}
@@ -53,7 +54,7 @@ func main() {
 	_ = inputDummy.Start()
 
 	outputNode := func(t types.Transaction) {
-		outputDisk.TransactionChan() <- t
+		outputAmazonS3.TransactionChan() <- t
 	}
 
 	processorNode := func(t types.Transaction) {
@@ -105,7 +106,7 @@ func main() {
 
 	_ = inputDummy.Close(1 * time.Second)
 	_ = processorDummy.Close(1 * time.Second)
-	_ = outputDisk.Close(1 * time.Second)
+	_ = outputAmazonS3.Close(1 * time.Second)
 
 	time.Sleep(1 * time.Second)
 }
