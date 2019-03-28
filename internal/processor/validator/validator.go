@@ -15,10 +15,14 @@ import (
 	"time"
 )
 
+//Validator struct
+//defines file type
 type Validator struct {
 	logger zap.Logger
 }
 
+//Decode Payload
+//Just passes the payload for now
 func (d *Validator) Decode(ep types.Payload) (types.DecodedPayload, error) {
 	d.logger.Info("Decoding Payload... ", zap.String("name", ep.Name))
 
@@ -30,6 +34,8 @@ func (d *Validator) Decode(ep types.Payload) (types.DecodedPayload, error) {
 	}, nil
 }
 
+//Process Checks the file type
+//returns dp with the file info, along with the reset reader
 func (d *Validator) Process(dp types.DecodedPayload) (types.DecodedPayload, error) {
 	d.logger.Info("Processing Payload... ", zap.String("name", dp.Name))
 
@@ -51,7 +57,7 @@ func (d *Validator) Process(dp types.DecodedPayload) (types.DecodedPayload, erro
 		webp.DecodeConfig,
 	}
 
-	myReader := NewReader(tee)
+	myReader := newReader(tee)
 
 	for i, f := range fn {
 		conf, err := f(myReader)
@@ -65,9 +71,9 @@ func (d *Validator) Process(dp types.DecodedPayload) (types.DecodedPayload, erro
 
 			dp.Image = &buf
 			dp.ImageData = map[string]interface{}{
-				"type": imageType(i).String(),
+				"type":   imageType(i).String(),
 				"height": conf.Height,
-				"width": conf.Width,
+				"width":  conf.Width,
 			}
 			return dp, nil
 		}
@@ -80,6 +86,7 @@ func (d *Validator) Process(dp types.DecodedPayload) (types.DecodedPayload, erro
 	return dp, errors.New("unidentified type")
 }
 
+//Encode just passes the payload for now
 func (d *Validator) Encode(dp types.DecodedPayload) (types.Payload, error) {
 	d.logger.Info("Encoding Payload... ", zap.String("name", dp.Name))
 
@@ -90,16 +97,19 @@ func (d *Validator) Encode(dp types.DecodedPayload) (types.Payload, error) {
 	}, nil
 }
 
+//Init file validator
 func (d *Validator) Init(config types.Config, logger zap.Logger) error {
 	d.logger = logger
 	return nil
 }
 
+//Start the validator plugin
 func (d *Validator) Start() error {
 	d.logger.Info("Started Validator processor.")
 	return nil
 }
 
+//Close the validator plugin
 func (d *Validator) Close(time.Duration) error {
 	return nil
 }
