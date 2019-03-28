@@ -1,6 +1,8 @@
 package main
 
 import (
+	"time"
+
 	"github.com/sherifabdlnaby/prism/app/config"
 	input "github.com/sherifabdlnaby/prism/internal/input/dummy"
 	output "github.com/sherifabdlnaby/prism/internal/output/disk"
@@ -8,7 +10,6 @@ import (
 	"github.com/sherifabdlnaby/prism/pkg/types"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"time"
 )
 
 // USED FOR TESTING FOR NOW

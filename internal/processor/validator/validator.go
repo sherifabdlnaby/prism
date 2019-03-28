@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/sherifabdlnaby/prism/pkg/types"
 	"go.uber.org/zap"
+	"golang.org/x/image/webp"
 	"image"
 	"image/jpeg"
 	"image/png"
@@ -44,9 +45,10 @@ func (d *Validator) Process(dp types.DecodedPayload) (types.DecodedPayload, erro
 	tee := io.TeeReader(imageReader, &buf)
 
 	//Here we add the validation function for each type
-	fn := [2]func(io.Reader) (image.Config, error){
+	fn := []func(io.Reader) (image.Config, error){
 		jpeg.DecodeConfig,
 		png.DecodeConfig,
+		webp.DecodeConfig,
 	}
 
 	myReader := NewReader(tee)
