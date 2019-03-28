@@ -4,7 +4,7 @@ import (
 	"github.com/sherifabdlnaby/prism/app/config"
 	input "github.com/sherifabdlnaby/prism/internal/input/dummy"
 	output "github.com/sherifabdlnaby/prism/internal/output/disk"
-	processor "github.com/sherifabdlnaby/prism/internal/processor/dummy"
+	processor "github.com/sherifabdlnaby/prism/internal/processor/validator"
 	"github.com/sherifabdlnaby/prism/pkg/types"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -53,16 +53,16 @@ func main() {
 	}
 
 	// processor
-	processorDummy := processor.Dummy{}
+	processorValidator := processor.Validator{}
 	processorLogger := logger.Named("processor")
 	processorPluginConfig := types.NewConfig(processorConfig.Processors["dummyPlugin"].Config)
 
 	// init & start processor
-	err = processorDummy.Init(*processorPluginConfig, *processorLogger.Named("dummy"))
+	err = processorValidator.Init(*processorPluginConfig, *processorLogger.Named("validator"))
 	if err != nil {
 		panic(err)
 	}
-	err = processorDummy.Start()
+	err = processorValidator.Start()
 	if err != nil {
 		panic(err)
 	}
@@ -89,9 +89,9 @@ func main() {
 	processorNode := func(t types.Transaction) {
 
 		/// PROCESSING PART
-		decoded, _ := processorDummy.Decode(t.Payload)
-		decodedPayload, _ := processorDummy.Process(decoded)
-		encoded, _ := processorDummy.Encode(decodedPayload)
+		decoded, _ := processorValidator.Decode(t.Payload)
+		processedPayload, _ := processorValidator.Process(decoded)
+		encoded, _ := processorValidator.Encode(processedPayload)
 		///
 
 		responseChan := make(chan types.Response)
@@ -134,7 +134,7 @@ func main() {
 	time.Sleep(2 * time.Second)
 
 	_ = inputDummy.Close(1 * time.Second)
-	_ = processorDummy.Close(1 * time.Second)
+	_ = processorValidator.Close(1 * time.Second)
 	_ = outputDisk.Close(1 * time.Second)
 
 	time.Sleep(1 * time.Second)
