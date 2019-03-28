@@ -2,6 +2,7 @@ package validator
 
 type imageType int
 
+// Image types
 const (
 	JPEG imageType = iota
 	PNG

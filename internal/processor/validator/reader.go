@@ -8,7 +8,7 @@ type reader struct {
 	off    int
 }
 
-func NewReader(r io.Reader) *reader {
+func newReader(r io.Reader) *reader {
 	return &reader{r, []byte{}, 0}
 }
 
