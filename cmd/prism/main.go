@@ -24,8 +24,7 @@ func main() {
 	var outputDisk types.Output = &output.Disk{}
 	outputLogger := logger.Named("output")
 	outputConfig := types.Config{
-		"filepath":   "/home/ref/Desktop/alo/test/bla/output.jpg",
-		"permission": "0644",
+		"permission": "0777",
 	}
 
 	// init & start output
