@@ -1,7 +1,6 @@
 package config
 
 import (
-	"errors"
 	"fmt"
 	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/cast"
@@ -13,32 +12,39 @@ import (
 	"strings"
 )
 
+// Plugin used for YAML decoding
 type Plugin struct {
 	Plugin string                 `yaml:"plugin"`
 	Number int                    `yaml:"number"`
 	Config map[string]interface{} `yaml:"config"`
 }
 
+// Input used for YAML decoding
 type Input struct {
 	Plugin `yaml:",inline" mapstructure:",squash"`
 }
 
+// Processor used for YAML decoding
 type Processor struct {
 	Plugin `yaml:",inline" mapstructure:",squash"`
 }
 
+// Output used for YAML decoding
 type Output struct {
 	Plugin `yaml:",inline"`
 }
 
+// InputsConfig used for YAML decoding
 type InputsConfig struct {
 	Inputs map[string]Input `yaml:"inputs"`
 }
 
+// ProcessorsConfig used for YAML decoding
 type ProcessorsConfig struct {
 	Processors map[string]Input `yaml:"processors"`
 }
 
+// OutputsConfig used for YAML decoding
 type OutputsConfig struct {
 	Outputs map[string]Input `yaml:"outputs"`
 }
@@ -46,6 +52,7 @@ type OutputsConfig struct {
 // TODO support default values
 var envRegex = regexp.MustCompile(`\${([\w@.]+)}`)
 
+// Load loads a .yaml file into out. resolveEnv will replace ${ENV_VAR} with value of env variable "ENV_VAR"
 func Load(filePath string, out interface{}, resolveEnv bool) error {
 
 	fileBytes, err := ioutil.ReadFile(filePath)
@@ -156,7 +163,7 @@ func resolveEnvFromBytes(bytes []byte) ([]byte, error) {
 		value, isset := os.LookupEnv(envKey)
 
 		if !isset {
-			return nil, errors.New(fmt.Sprintf("ernvironment variable \"%s\" is not set.", envKey))
+			return nil, fmt.Errorf("environment variable \"%s\" is not set", envKey)
 		}
 		toString = strings.Replace(toString, submatches[0], value, -1)
 	}
