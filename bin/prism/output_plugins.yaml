@@ -1,0 +1,6 @@
+outputs:
+    dummyPlugin:
+        plugin: disk
+        config:
+            filepath: testing.jpg
+            permission: 0777
