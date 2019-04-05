@@ -8,9 +8,7 @@ import (
 	"strings"
 )
 
-// Config is the basic `static` config json.
-type Config map[string]interface{}
-
+// TODO evaluate defaults. (add ability to add default value)
 var fieldsRegex = regexp.MustCompile(`@{([\w@.]+)}`)
 
 type field struct {
@@ -24,22 +22,26 @@ type part struct {
 	eval   bool
 }
 
-type ConfigWrapper struct {
+type Config struct {
 	config objx.Map
 	cache  map[string]field
 }
 
-func NewConfigWrapper(config map[string]interface{}) *ConfigWrapper {
-	return &ConfigWrapper{config: objx.Map(config), cache: make(map[string]field)}
+func NewConfig(config map[string]interface{}) *Config {
+	return &Config{config: objx.Map(config), cache: make(map[string]field)}
 }
 
-func (cw *ConfigWrapper) Get(key string, data ImageData) (objx.Value, error) {
+func (cw *Config) Get(key string, data ImageData) (objx.Value, error) {
 	// Check cache
 	if val, ok := cw.cache[key]; ok {
 		return evaluate(&val, data)
 	}
 
 	val := cw.config.Get(key)
+	if val.IsNil() {
+		return objx.Value{}, errors.New(fmt.Sprintf("field \"%s\" is not found", key))
+	}
+
 	str := val.String()
 	parts := splitToParts(str)
 	isDynamic := false
@@ -60,7 +62,6 @@ func (cw *ConfigWrapper) Get(key string, data ImageData) (objx.Value, error) {
 }
 
 func splitToParts(str string) []part {
-	// TODO evaluate defaults. (add ability to add default value)
 	parts := make([]part, 0)
 	matches := fieldsRegex.FindAllStringSubmatch(str, -1)
 	if len(matches) == 0 {

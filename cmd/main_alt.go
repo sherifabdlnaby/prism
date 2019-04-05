@@ -11,15 +11,14 @@ import (
 func main() {
 
 	appConfig := config.InputsConfig{}
-	//appConfig := make(map[string]interface{})
-
 	err := config.Load("input_plugins.yaml", &appConfig, true)
+
 	fmt.Println(appConfig.Inputs)
 	if err != nil {
 		log.Fatalf("error: %v", err)
 	}
 
-	test := types.NewConfigWrapper(appConfig.Inputs["http_server"].Config)
+	test := types.NewConfig(appConfig.Inputs["http_server"].Config)
 
 	data := map[string]interface{}{
 		"port":   12,
@@ -36,7 +35,7 @@ func main() {
 		"nested": data,
 	}
 
-	val, err := test.Get("host", data2)
+	val, err := test.Get("port", data2)
 
 	if err != nil {
 		panic(err)

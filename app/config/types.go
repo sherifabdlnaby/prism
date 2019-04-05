@@ -1,20 +1,22 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"github.com/mitchellh/mapstructure"
-	"github.com/sherifabdlnaby/prism/pkg/types"
+	"github.com/spf13/cast"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"os"
+	"reflect"
 	"regexp"
 	"strings"
 )
 
 type Plugin struct {
-	Plugin string       `yaml:"plugin"`
-	Number int          `yaml:"number"`
-	Config types.Config `yaml:"config"`
+	Plugin string                 `yaml:"plugin"`
+	Number int                    `yaml:"number"`
+	Config map[string]interface{} `yaml:"config"`
 }
 
 type Input struct {
@@ -41,9 +43,10 @@ type OutputsConfig struct {
 	Outputs map[string]Input `yaml:"outputs"`
 }
 
+// TODO support default values
 var envRegex = regexp.MustCompile(`\${([\w@.]+)}`)
 
-func Load(filePath string, out interface{}, resloveEnv bool) error {
+func Load(filePath string, out interface{}, resolveEnv bool) error {
 
 	fileBytes, err := ioutil.ReadFile(filePath)
 
@@ -51,27 +54,14 @@ func Load(filePath string, out interface{}, resloveEnv bool) error {
 		return err
 	}
 
-	if resloveEnv {
-		fileBytes = resolveEnvFromBytes(fileBytes)
+	if resolveEnv {
+		fileBytes, err = resolveEnvFromBytes(fileBytes)
+		if err != nil {
+			return err
+		}
 	}
 
 	return unmarshal(fileBytes, out)
-}
-
-func resolveEnvFromBytes(bytes []byte) []byte {
-	toString := string(bytes)
-	matches := envRegex.FindAllStringSubmatch(toString, -1)
-	for _, submatches := range matches {
-		envKey := submatches[1]
-
-		value, isset := os.LookupEnv(envKey)
-
-		if isset {
-			toString = strings.Replace(toString, submatches[0], value, -1)
-		}
-	}
-	bytes = []byte(toString)
-	return bytes
 }
 
 func unmarshal(bytes []byte, out interface{}) error {
@@ -84,6 +74,7 @@ func unmarshal(bytes []byte, out interface{}) error {
 	config := &mapstructure.DecoderConfig{
 		WeaklyTypedInput: true,
 		Result:           &out,
+		DecodeHook:       resolveTypes,
 	}
 
 	decoder, err := mapstructure.NewDecoder(config)
@@ -126,4 +117,50 @@ func recursivelyTurnYAMLMaps(in interface{}) interface{} {
 	default:
 		return in
 	}
+}
+
+func resolveTypes(in reflect.Kind, out reflect.Kind, val interface{}) (interface{}, error) {
+
+	if in != reflect.String {
+		return val, nil
+	}
+
+	// try cast to number if possible
+	if out == reflect.Interface {
+		// Try to Int
+		toInt, err := cast.ToIntE(val)
+		if err == nil {
+			return toInt, nil
+		}
+
+		toIntFloat32, err := cast.ToFloat32E(val)
+		if err == nil {
+			return toIntFloat32, nil
+		}
+
+		toIntFloat64, err := cast.ToFloat64E(val)
+		if err == nil {
+			return toIntFloat64, nil
+		}
+	}
+
+	return val, nil
+}
+
+func resolveEnvFromBytes(bytes []byte) ([]byte, error) {
+	toString := string(bytes)
+	matches := envRegex.FindAllStringSubmatch(toString, -1)
+	for _, submatches := range matches {
+		envKey := submatches[1]
+
+		value, isset := os.LookupEnv(envKey)
+
+		if !isset {
+			return nil, errors.New(fmt.Sprintf("ernvironment variable \"%s\" is not set.", envKey))
+		}
+		toString = strings.Replace(toString, submatches[0], value, -1)
+	}
+	bytes = []byte(toString)
+
+	return bytes, nil
 }
