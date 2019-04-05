@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/sherifabdlnaby/prism/app/config"
-	"github.com/stretchr/objx"
+	"github.com/sherifabdlnaby/prism/pkg/types"
 	"gopkg.in/yaml.v2"
 	"log"
 )
@@ -18,19 +18,35 @@ func main() {
 	if err != nil {
 		log.Fatalf("error: %v", err)
 	}
-	intr := map[string]interface{}(appConfig.Inputs["http_server"].Config)
-	lol := objx.New(intr)
 
-	xx := lol.Get("host").String()
-	xx = lol.Get("urls./cover_picture.pipeline").String()
+	test := types.NewConfigWrapper(appConfig.Inputs["http_server"].Config)
 
-	intr2 := map[string]interface{}(appConfig.Inputs["http_server2"].Config)
-	lol2 := objx.New(intr2)
+	data := map[string]interface{}{
+		"port":   12,
+		"length": 1,
+		"width":  2,
+		"test":   2,
+	}
 
-	xx2 := lol2.Get("host").String()
+	data2 := map[string]interface{}{
+		"port":   3711,
+		"length": 2138,
+		"width":  1908,
+		"test":   912,
+		"nested": data,
+	}
 
-	fmt.Println(xx)
-	fmt.Println(xx2)
+	val, err := test.Get("host", data2)
+
+	if err != nil {
+		panic(err)
+	}
+
+	x := val.String()
+	y := val.Int()
+	z := val.Float32()
+
+	fmt.Println(x, y, z)
 
 	fmt.Printf("--- t:\n%v\n\n", appConfig)
 
