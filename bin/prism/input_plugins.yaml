@@ -1,0 +1,5 @@
+inputs:
+    dummyPlugin:
+        plugin: httpserver
+        config:
+            filename: "test.jpg"
