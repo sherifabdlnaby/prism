@@ -22,7 +22,13 @@ func (d *Dummy) TransactionChan() <-chan types.Transaction {
 }
 
 func (d *Dummy) Init(config types.Config, logger zap.Logger) error {
-	d.FileName = config["filename"].(string)
+	FileName, err := config.Get("filename", nil)
+	if err != nil {
+		return err
+	}
+
+	d.FileName = FileName.String()
+
 	d.Transactions = make(chan types.Transaction, 1)
 	d.stopChan = make(chan struct{})
 	d.logger = logger
