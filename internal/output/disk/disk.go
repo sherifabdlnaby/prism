@@ -1,7 +1,6 @@
 package disk
 
 import (
-	"errors"
 	"github.com/sherifabdlnaby/prism/pkg/types"
 	"go.uber.org/zap"
 	"io/ioutil"
@@ -32,21 +31,31 @@ func (d *Disk) TransactionChan() chan<- types.Transaction {
 
 //Init func Initialize the disk output plugin
 func (d *Disk) Init(config types.Config, logger zap.Logger) error {
-	if d.FilePath, d.TypeCheck = config["filepath"].(string); !d.TypeCheck {
-		return errors.New("FilePath must be a string")
-	}
-	path.Clean(d.FilePath)
-	if d.FilePermission, d.TypeCheck = config["permission"].(string); !d.TypeCheck {
-		return errors.New("FilePermission must be from a string")
-	}
-	perm32, err := strconv.ParseUint(d.FilePermission, 0, 32)
+
+	filePath, err := config.Get("filepath", nil)
 	if err != nil {
 		return err
 	}
+	d.FilePath = filePath.String()
+
+	FilePermission, err := config.Get("permission", nil)
+	if err != nil {
+		return err
+	}
+	d.FilePermission = FilePermission.String()
+
+	path.Clean(d.FilePath)
+	perm32, err := strconv.ParseUint(d.FilePermission, 0, 32)
+
+	if err != nil {
+		return err
+	}
+
 	d.Permission = os.FileMode(perm32)
 	d.Transactions = make(chan types.Transaction)
 	d.stopChan = make(chan struct{})
 	d.logger = logger
+
 	return nil
 }
 

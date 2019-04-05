@@ -1,0 +1,14 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="prism" type="GoApplicationRunConfiguration" factoryName="Go Application" show_console_on_std_err="true" show_console_on_std_out="true">
+    <module name="prism" />
+    <working_directory value="$PROJECT_DIR$/bin/prism" />
+    <go_parameters value="-i" />
+    <envs>
+      <env name="HTTP_SERVER_PORT" value="1337" />
+    </envs>
+    <kind value="DIRECTORY" />
+    <directory value="$PROJECT_DIR$/cmd/prism" />
+    <output_directory value="$PROJECT_DIR$/bin/prism" />
+    <method v="2" />
+  </configuration>
+</component>

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/sherifabdlnaby/prism/app/config"
 	input "github.com/sherifabdlnaby/prism/internal/input/dummy"
 	output "github.com/sherifabdlnaby/prism/internal/output/amazon-s3"
 	processor "github.com/sherifabdlnaby/prism/internal/processor/dummy"
@@ -14,47 +15,75 @@ import (
 func main() {
 
 	// INIT LOGGER
-	config := zap.NewDevelopmentConfig()
-	config.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
-	logger, _ := config.Build()
-
+	logConfig := zap.NewDevelopmentConfig()
+	logConfig.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+	logger, _ := logConfig.Build()
 	defer logger.Sync()
 
-	// output
-	var outputAmazonS3 types.Output = &output.S3{}
-	outputLogger := logger.Named("output")
-	outputConfig := types.Config{
-		"filepath":  "/home/output.jpg",
-		"s3_region": "us-east-2",
-		"s3_bucket": "prism.test",
+	// READ CONFIG MAIN FILES
+	inputConfig := config.InputsConfig{}
+	err := config.Load("input_plugins.yaml", &inputConfig, true)
+	if err != nil {
+		panic(err)
+	}
+	processorConfig := config.ProcessorsConfig{}
+	err = config.Load("processor_plugins.yaml", &processorConfig, true)
+	if err != nil {
+		panic(err)
+	}
+	outputConfig := config.OutputsConfig{}
+	err = config.Load("output_plugins.yaml", &outputConfig, true)
+	if err != nil {
+		panic(err)
 	}
 
+	// output
+	var outputDisk types.Output = &output.Disk{}
+	outputLogger := logger.Named("output")
+	outputPluginConfig := types.NewConfig(outputConfig.Outputs["dummyPlugin"].Config)
+
 	// init & start output
-	_ = outputAmazonS3.Init(outputConfig, *outputLogger.Named("s3"))
-	_ = outputAmazonS3.Start()
+	err = outputDisk.Init(*outputPluginConfig, *outputLogger.Named("disk"))
+	if err != nil {
+		panic(err)
+	}
+	err = outputDisk.Start()
+	if err != nil {
+		panic(err)
+	}
 
 	// processor
 	processorDummy := processor.Dummy{}
 	processorLogger := logger.Named("processor")
+	processorPluginConfig := types.NewConfig(processorConfig.Processors["dummyPlugin"].Config)
 
 	// init & start processor
-	_ = processorDummy.Init(nil, *processorLogger.Named("dummy"))
-	_ = processorDummy.Start()
+	err = processorDummy.Init(*processorPluginConfig, *processorLogger.Named("dummy"))
+	if err != nil {
+		panic(err)
+	}
+	err = processorDummy.Start()
+	if err != nil {
+		panic(err)
+	}
 
 	// dummy
 	var inputDummy types.Input = &input.Dummy{}
 	inputLogger := logger.Named("dummy")
+	inputPluginConfig := types.NewConfig(inputConfig.Inputs["dummyPlugin"].Config)
 
-	// dummy outputConfig
-	inputConfig := types.Config{
-		"filename": "test.jpg",
-	}
 	// init & start dummy
-	_ = inputDummy.Init(inputConfig, *inputLogger.Named("dummy"))
-	_ = inputDummy.Start()
+	err = inputDummy.Init(*inputPluginConfig, *inputLogger.Named("dummy"))
+	if err != nil {
+		panic(err)
+	}
+	err = inputDummy.Start()
+	if err != nil {
+		panic(err)
+	}
 
 	outputNode := func(t types.Transaction) {
-		outputAmazonS3.TransactionChan() <- t
+		outputDisk.TransactionChan() <- t
 	}
 
 	processorNode := func(t types.Transaction) {
@@ -106,7 +135,7 @@ func main() {
 
 	_ = inputDummy.Close(1 * time.Second)
 	_ = processorDummy.Close(1 * time.Second)
-	_ = outputAmazonS3.Close(1 * time.Second)
+	_ = outputDisk.Close(1 * time.Second)
 
 	time.Sleep(1 * time.Second)
 }

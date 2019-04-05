@@ -1,0 +1,5 @@
+processors:
+    dummyPlugin:
+        plugin: disk
+        config:
+            filename: testing.jpg
