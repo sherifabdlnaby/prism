@@ -1,7 +1,6 @@
 package types
 
 import (
-	"errors"
 	"fmt"
 	"github.com/sherifabdlnaby/objx"
 	"regexp"
@@ -22,15 +21,21 @@ type part struct {
 	eval   bool
 }
 
+// Config used to ease getting values from config using dot notation (obj.field.array[0].field), and used to resolve
+// dynamic values.
 type Config struct {
 	config objx.Map
 	cache  map[string]field
 }
 
+// NewConfig construct new Config from map[string]interface{}
 func NewConfig(config map[string]interface{}) *Config {
 	return &Config{config: objx.Map(config), cache: make(map[string]field)}
 }
 
+// Get gets value from config based on key, key access config using dot-notation (obj.field.array[0].field).
+// Get will also evaluate dynamic fields in config ( @{dynamic.field} ) using data, pass nill if you're sure that this
+// field is constant. returns error if key or dynamic field doesn't exist.
 func (cw *Config) Get(key string, data ImageData) (objx.Value, error) {
 	// Check cache
 	if val, ok := cw.cache[key]; ok {
@@ -39,7 +44,7 @@ func (cw *Config) Get(key string, data ImageData) (objx.Value, error) {
 
 	val := cw.config.Get(key)
 	if val.IsNil() {
-		return objx.Value{}, errors.New(fmt.Sprintf("field \"%s\" is not found", key))
+		return objx.Value{}, fmt.Errorf("field \"%s\" is not found", key)
 	}
 
 	str := val.String()
@@ -115,7 +120,7 @@ func evaluate(field *field, data ImageData) (objx.Value, error) {
 
 		partValue = dataMap.Get(part.string)
 		if partValue.IsNil() {
-			return objx.Value{}, errors.New(fmt.Sprintf("field \"%s\" is not found", part.string))
+			return objx.Value{}, fmt.Errorf("field \"%s\" is not found", part.string)
 		}
 
 		builder.WriteString(partValue.String())
