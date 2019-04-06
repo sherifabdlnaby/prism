@@ -48,6 +48,7 @@ func main() {
 		panic(err)
 	}
 	err = outputS3.Start()
+
 	if err != nil {
 		panic(err)
 	}
