@@ -38,16 +38,16 @@ func main() {
 	}
 
 	// output
-	var outputDisk types.Output = &output.Disk{}
+	var outputS3 types.Output = &output.S3{}
 	outputLogger := logger.Named("output")
 	outputPluginConfig := types.NewConfig(outputConfig.Outputs["dummyPlugin"].Config)
 
 	// init & start output
-	err = outputDisk.Init(*outputPluginConfig, *outputLogger.Named("disk"))
+	err = outputS3.Init(*outputPluginConfig, *outputLogger.Named("s3"))
 	if err != nil {
 		panic(err)
 	}
-	err = outputDisk.Start()
+	err = outputS3.Start()
 	if err != nil {
 		panic(err)
 	}
@@ -83,7 +83,7 @@ func main() {
 	}
 
 	outputNode := func(t types.Transaction) {
-		outputDisk.TransactionChan() <- t
+		outputS3.TransactionChan() <- t
 	}
 
 	processorNode := func(t types.Transaction) {
@@ -135,7 +135,7 @@ func main() {
 
 	_ = inputDummy.Close(1 * time.Second)
 	_ = processorDummy.Close(1 * time.Second)
-	_ = outputDisk.Close(1 * time.Second)
+	_ = outputS3.Close(1 * time.Second)
 
 	time.Sleep(1 * time.Second)
 }

@@ -1,6 +1,7 @@
 outputs:
     dummyPlugin:
-        plugin: disk
+        plugin: s3
         config:
             filepath: testing.jpg
-            permission: 0777
+            s3_region: us-east-2
+            s3_bucket: prism.test

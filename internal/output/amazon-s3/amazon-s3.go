@@ -35,24 +35,30 @@ func (s *S3) TransactionChan() chan<- types.Transaction {
 //Init func Initialize the S3 output plugin
 func (s *S3) Init(config types.Config, logger zap.Logger) error {
 	var err error
-	if s.FilePath, s.TypeCheck = config["filepath"].(string); !s.TypeCheck {
-		err = errors.New("FilePath must be a string")
+	value, dummyErr := config.Get("filepath", nil)
+	err = dummyErr
+	if err == nil {
+		s.FilePath = value.String()
+		if s.FilePath == "" && err == nil {
+			err = errors.New("FilePath cannot be empty")
+		}
+		path.Clean(s.FilePath)
 	}
-	if s.FilePath == "" && err == nil {
-		err = errors.New("FilePath cannot be empty")
+	if err == nil {
+		value, dummyErr := config.Get("s3_region", nil)
+		err = dummyErr
+		s.Region = value.String()
+		if s.Region == "" && err == nil {
+			err = errors.New("S3_Region cannot be empty")
+		}
 	}
-	path.Clean(s.FilePath)
-	if s.Region, s.TypeCheck = config["s3_region"].(string); !s.TypeCheck && err == nil {
-		err = errors.New("S3_Region must be a string")
-	}
-	if s.Region == "" && err == nil {
-		err = errors.New("S3_Region cannot be empty")
-	}
-	if s.Bucket, s.TypeCheck = config["s3_bucket"].(string); !s.TypeCheck && err == nil {
-		err = errors.New("S3_Bucket must be a string")
-	}
-	if s.Bucket == "" && err == nil {
-		err = errors.New("S3_Bucket cannot be empty")
+	if err == nil {
+		value, dummyErr := config.Get("s3_bucket", nil)
+		err = dummyErr
+		s.Bucket = value.String()
+		if s.Bucket == "" && err == nil {
+			err = errors.New("S3_Bucket cannot be empty")
+		}
 	}
 	s.Transactions = make(chan types.Transaction)
 	s.stopChan = make(chan struct{})
