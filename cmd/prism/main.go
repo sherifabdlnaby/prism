@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/sherifabdlnaby/prism/app"
 	"github.com/sherifabdlnaby/prism/app/config"
+	"github.com/sherifabdlnaby/prism/app/manager"
 	"github.com/sherifabdlnaby/prism/pkg/types"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -26,7 +27,7 @@ func bootstrap() (config.Config, error) {
 
 	// READ CONFIG MAIN FILES
 	inputConfig := config.InputsConfig{}
-	err = config.Load("input_plugins_BAK.yaml", &inputConfig, true)
+	err = config.Load("input_plugins.yaml", &inputConfig, true)
 	if err != nil {
 		return config.Config{}, err
 	}
@@ -60,48 +61,35 @@ func main() {
 
 	outputName := "disk"
 	processorName := "dummy_processor"
-	inputName := "dummy_input"
+	inputName := "http_server"
 
-	// output
-	outputLogger := config.Logger.Named("output")
-	outputDisk := app.Registry[outputName].Constructor().(types.Output)
-	outputPluginConfig := types.NewConfig(config.Outputs.Outputs[outputName].Config)
+	err = app.LoadPlugins(config)
 
-	// init & start output
-	err = outputDisk.Init(*outputPluginConfig, *outputLogger.Named(outputName))
 	if err != nil {
 		panic(err)
 	}
+
+	err = app.InitPlugins(config)
+	if err != nil {
+		panic(err)
+	}
+
+	// output
+	outputDisk := manager.Get(outputName).(types.Output)
 	err = outputDisk.Start()
 	if err != nil {
 		panic(err)
 	}
 
 	// processor
-	processorLogger := config.Logger.Named("processor")
-	processorDummy := app.Registry[processorName].Constructor().(types.Processor)
-	processorPluginConfig := types.NewConfig(config.Processors.Processors[processorName].Config)
-
-	// init & start processor
-	err = processorDummy.Init(*processorPluginConfig, *processorLogger.Named(processorName))
-	if err != nil {
-		panic(err)
-	}
+	processorDummy := manager.Get(processorName).(types.Processor)
 	err = processorDummy.Start()
 	if err != nil {
 		panic(err)
 	}
 
 	// dummy
-	inputLogger := config.Logger.Named("Input")
-	inputDummy := app.Registry[inputName].Constructor().(types.Input)
-	inputPluginConfig := types.NewConfig(config.Inputs.Inputs[inputName].Config)
-
-	// init & start dummy
-	err = inputDummy.Init(*inputPluginConfig, *inputLogger.Named(inputName))
-	if err != nil {
-		panic(err)
-	}
+	inputDummy := manager.Get(inputName).(types.Input)
 	err = inputDummy.Start()
 	if err != nil {
 		panic(err)
