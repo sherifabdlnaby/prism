@@ -1,5 +1,5 @@
 processors:
     dummy_processor:
-        plugin: disk
+        plugin: dummy_processor
         config:
             filename: testing.jpg

@@ -13,8 +13,8 @@ import (
 	"strings"
 )
 
-// Plugin used for YAML decoding
-type Plugin struct {
+// Component used for YAML decoding
+type Component struct {
 	Plugin string                 `yaml:"plugin"`
 	Number int                    `yaml:"number"`
 	Config map[string]interface{} `yaml:"config"`
@@ -22,17 +22,17 @@ type Plugin struct {
 
 // Input used for YAML decoding
 type Input struct {
-	Plugin `yaml:",inline" mapstructure:",squash"`
+	Component `yaml:",inline" mapstructure:",squash"`
 }
 
 // Processor used for YAML decoding
 type Processor struct {
-	Plugin `yaml:",inline" mapstructure:",squash"`
+	Component `yaml:",inline" mapstructure:",squash"`
 }
 
 // Output used for YAML decoding
 type Output struct {
-	Plugin `yaml:",inline"`
+	Component `yaml:",inline"`
 }
 
 // InputsConfig used for YAML decoding
@@ -129,7 +129,7 @@ func recursivelyTurnYAMLMaps(in interface{}) interface{} {
 			res[fmt.Sprintf("%v", k)] = recursivelyTurnYAMLMaps(v)
 		}
 		return res
-	case Plugin:
+	case Component:
 		res := make(map[string]interface{})
 		for k, v := range in.Config {
 			res[fmt.Sprintf("%v", k)] = recursivelyTurnYAMLMaps(v)
