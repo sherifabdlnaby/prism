@@ -20,8 +20,12 @@ type Disk struct {
 	TypeCheck      bool
 	Transactions   chan types.Transaction
 	stopChan       chan struct{}
-	logger         zap.Logger
+	logger         zap.SugaredLogger
 	wg             sync.WaitGroup
+}
+
+func NewComponent() types.Component {
+	return &Disk{}
 }
 
 //TransactionChan just return the channel of the transactions
@@ -30,7 +34,7 @@ func (d *Disk) TransactionChan() chan<- types.Transaction {
 }
 
 //Init func Initialize the disk output plugin
-func (d *Disk) Init(config types.Config, logger zap.Logger) error {
+func (d *Disk) Init(config types.Config, logger zap.SugaredLogger) error {
 
 	filePath, err := config.Get("filepath", nil)
 	if err != nil {

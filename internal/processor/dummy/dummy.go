@@ -8,11 +8,15 @@ import (
 )
 
 type Dummy struct {
-	logger zap.Logger
+	logger zap.SugaredLogger
+}
+
+func NewComponent() types.Component {
+	return &Dummy{}
 }
 
 func (d *Dummy) Decode(ep types.Payload) (types.DecodedPayload, error) {
-	d.logger.Info("Decoding Payload... ", zap.String("name", ep.Name))
+	d.logger.Infow("Decoding Payload... ", "name", ep.Name)
 
 	// Return it as it is (dummy).
 	return types.DecodedPayload{
@@ -23,13 +27,13 @@ func (d *Dummy) Decode(ep types.Payload) (types.DecodedPayload, error) {
 }
 
 func (d *Dummy) Process(dp types.DecodedPayload) (types.DecodedPayload, error) {
-	d.logger.Info("Processing Payload... ", zap.String("name", dp.Name))
+	d.logger.Infow("Processing Payload... ", "name", dp.Name)
 	return dp, nil
 }
 
 func (d *Dummy) Encode(dp types.DecodedPayload) (types.Payload, error) {
 
-	d.logger.Info("Encoding Payload... ", zap.String("name", dp.Name))
+	d.logger.Infow("Encoding Payload... ", "name", dp.Name)
 
 	return types.Payload{
 		Name:      "test",
@@ -38,7 +42,7 @@ func (d *Dummy) Encode(dp types.DecodedPayload) (types.Payload, error) {
 	}, nil
 }
 
-func (d *Dummy) Init(config types.Config, logger zap.Logger) error {
+func (d *Dummy) Init(config types.Config, logger zap.SugaredLogger) error {
 	d.logger = logger
 	return nil
 }

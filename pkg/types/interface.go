@@ -8,7 +8,7 @@ import (
 // Component defines the basic prism component.
 type Component interface {
 	// Init Initializes Component's configuration
-	Init(Config, zap.Logger) error
+	Init(Config, zap.SugaredLogger) error
 
 	// Start starts the component
 	Start() error
