@@ -35,7 +35,7 @@ func main() {
 		"nested": data,
 	}
 
-	val, err := test.Get("port", data2)
+	val, err := test.Get("host", data2)
 
 	if err != nil {
 		panic(err)

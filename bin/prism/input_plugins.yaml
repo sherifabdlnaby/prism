@@ -1,5 +1,11 @@
 inputs:
-    dummyPlugin:
+    http_server:
         plugin: httpserver
         config:
-            filename: "test.jpg"
+            host: -@{port}--@{nested.length}----@{length}--------@{nested.width}------------@{width}------
+            port: "${HTTP_SERVER_PORT}"
+            urls:
+                "/profile_picture":
+                    pipeline: profile_pic_pipeline
+                "/cover_picture":
+                    pipeline: cover_picture_pipeline

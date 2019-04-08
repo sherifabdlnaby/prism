@@ -1,49 +1,74 @@
 package main
 
 import (
+	"fmt"
+	"github.com/sherifabdlnaby/prism/app"
 	"github.com/sherifabdlnaby/prism/app/config"
-	input "github.com/sherifabdlnaby/prism/internal/input/dummy"
-	output "github.com/sherifabdlnaby/prism/internal/output/disk"
-	processor "github.com/sherifabdlnaby/prism/internal/processor/dummy"
 	"github.com/sherifabdlnaby/prism/pkg/types"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"time"
 )
 
-// USED FOR TESTING FOR NOW
-func main() {
+func bootstrap() (config.Config, error) {
+	// READ CONFIG MAIN FILES
+	appConfig := config.AppConfig{}
+	err := config.Load("prism.yaml", &appConfig, true)
+	if err != nil {
+		return config.Config{}, err
+	}
 
 	// INIT LOGGER
-	logConfig := zap.NewDevelopmentConfig()
-	logConfig.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
-	logger, _ := logConfig.Build()
-	defer logger.Sync()
+	logger, err := bootLogger(appConfig)
+	if err != nil {
+		return config.Config{}, err
+	}
 
 	// READ CONFIG MAIN FILES
 	inputConfig := config.InputsConfig{}
-	err := config.Load("input_plugins.yaml", &inputConfig, true)
+	err = config.Load("input_plugins_BAK.yaml", &inputConfig, true)
 	if err != nil {
-		panic(err)
+		return config.Config{}, err
 	}
+
 	processorConfig := config.ProcessorsConfig{}
 	err = config.Load("processor_plugins.yaml", &processorConfig, true)
 	if err != nil {
-		panic(err)
+		return config.Config{}, err
 	}
 	outputConfig := config.OutputsConfig{}
 	err = config.Load("output_plugins.yaml", &outputConfig, true)
 	if err != nil {
+		return config.Config{}, err
+	}
+
+	return config.Config{
+		Inputs:     inputConfig,
+		Processors: processorConfig,
+		Outputs:    outputConfig,
+		Logger:     logger,
+	}, nil
+}
+
+// USED FOR TESTING FOR NOW
+func main() {
+
+	config, err := bootstrap()
+	if err != nil {
 		panic(err)
 	}
 
+	outputName := "disk"
+	processorName := "dummy_processor"
+	inputName := "dummy_input"
+
 	// output
-	var outputDisk types.Output = &output.Disk{}
-	outputLogger := logger.Named("output")
-	outputPluginConfig := types.NewConfig(outputConfig.Outputs["dummyPlugin"].Config)
+	outputLogger := config.Logger.Named("output")
+	outputDisk := app.Registry[outputName].Constructor().(types.Output)
+	outputPluginConfig := types.NewConfig(config.Outputs.Outputs[outputName].Config)
 
 	// init & start output
-	err = outputDisk.Init(*outputPluginConfig, *outputLogger.Named("disk"))
+	err = outputDisk.Init(*outputPluginConfig, *outputLogger.Named(outputName))
 	if err != nil {
 		panic(err)
 	}
@@ -53,12 +78,12 @@ func main() {
 	}
 
 	// processor
-	processorDummy := processor.Dummy{}
-	processorLogger := logger.Named("processor")
-	processorPluginConfig := types.NewConfig(processorConfig.Processors["dummyPlugin"].Config)
+	processorLogger := config.Logger.Named("processor")
+	processorDummy := app.Registry[processorName].Constructor().(types.Processor)
+	processorPluginConfig := types.NewConfig(config.Processors.Processors[processorName].Config)
 
 	// init & start processor
-	err = processorDummy.Init(*processorPluginConfig, *processorLogger.Named("dummy"))
+	err = processorDummy.Init(*processorPluginConfig, *processorLogger.Named(processorName))
 	if err != nil {
 		panic(err)
 	}
@@ -68,12 +93,12 @@ func main() {
 	}
 
 	// dummy
-	var inputDummy types.Input = &input.Dummy{}
-	inputLogger := logger.Named("dummy")
-	inputPluginConfig := types.NewConfig(inputConfig.Inputs["dummyPlugin"].Config)
+	inputLogger := config.Logger.Named("Input")
+	inputDummy := app.Registry[inputName].Constructor().(types.Input)
+	inputPluginConfig := types.NewConfig(config.Inputs.Inputs[inputName].Config)
 
 	// init & start dummy
-	err = inputDummy.Init(*inputPluginConfig, *inputLogger.Named("dummy"))
+	err = inputDummy.Init(*inputPluginConfig, *inputLogger.Named(inputName))
 	if err != nil {
 		panic(err)
 	}
@@ -138,4 +163,25 @@ func main() {
 	_ = outputDisk.Close(1 * time.Second)
 
 	time.Sleep(1 * time.Second)
+}
+
+func bootLogger(appConfig config.AppConfig) (*zap.SugaredLogger, error) {
+	var logConfig zap.Config
+	if appConfig.Logger == "dev" {
+		logConfig = zap.NewDevelopmentConfig()
+		logConfig.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+	} else if appConfig.Logger == "prod" {
+		logConfig = zap.NewProductionConfig()
+	} else {
+		return nil, fmt.Errorf("logger config can be either \"dev\" or \"prod\"")
+	}
+
+	loggerBase, err := logConfig.Build()
+
+	if err != nil {
+		return nil, err
+	}
+
+	logger := loggerBase.Sugar()
+	return logger, nil
 }

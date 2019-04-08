@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/cast"
+	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"os"
@@ -39,6 +40,11 @@ type InputsConfig struct {
 	Inputs map[string]Input `yaml:"inputs"`
 }
 
+// AppConfig used for YAML decoding
+type AppConfig struct {
+	Logger string `yaml:"logger"`
+}
+
 // ProcessorsConfig used for YAML decoding
 type ProcessorsConfig struct {
 	Processors map[string]Input `yaml:"processors"`
@@ -47,6 +53,14 @@ type ProcessorsConfig struct {
 // OutputsConfig used for YAML decoding
 type OutputsConfig struct {
 	Outputs map[string]Input `yaml:"outputs"`
+}
+
+// Config is the collection of config needed for the engine to start.
+type Config struct {
+	Inputs     InputsConfig
+	Processors ProcessorsConfig
+	Outputs    OutputsConfig
+	Logger     *zap.SugaredLogger
 }
 
 // TODO support default values
