@@ -2,6 +2,8 @@ outputs:
     dummyPlugin:
         plugin: s3
         config:
+            access_key_id: "${aws_access_key_id}"
+            secret_access_key: "${aws_secret_access_key}"
             filepath: testing.jpg
             s3_region: us-east-2
             s3_bucket: prism.test

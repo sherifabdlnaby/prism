@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/sherifabdlnaby/prism/pkg/types"
@@ -17,14 +18,17 @@ import (
 
 //S3 struct
 type S3 struct {
-	FilePath     string
-	Region       string
-	Bucket       string
-	TypeCheck    bool
-	Transactions chan types.Transaction
-	stopChan     chan struct{}
-	logger       zap.Logger
-	wg           sync.WaitGroup
+	FilePath        string
+	Region          string
+	Bucket          string
+	AccessKeyId     string
+	SecretAccessKey string
+	Token           string
+	TypeCheck       bool
+	Transactions    chan types.Transaction
+	stopChan        chan struct{}
+	logger          zap.Logger
+	wg              sync.WaitGroup
 }
 
 //TransactionChan just return the channel of the transactions
@@ -60,6 +64,33 @@ func (s *S3) Init(config types.Config, logger zap.Logger) error {
 			err = errors.New("S3_Bucket cannot be empty")
 		}
 	}
+	if err == nil {
+		value, dummyErr := config.Get("access_key_id", nil)
+		if dummyErr == nil {
+			s.AccessKeyId = value.String()
+			if s.AccessKeyId == "" {
+				err = errors.New("S3 AWS acess key Id cannot be empty")
+			}
+		}
+	}
+	if err == nil {
+		value, dummyErr := config.Get("secret_access_key", nil)
+		if dummyErr == nil {
+			s.SecretAccessKey = value.String()
+			if s.SecretAccessKey == "" {
+				err = errors.New("S3 AWS secret acess key cannot be empty")
+			}
+		}
+	}
+	if err == nil {
+		value, dummyErr := config.Get("session_token", nil)
+		if dummyErr == nil {
+			s.Token = value.String()
+			if s.Token == "" {
+				err = errors.New("S3 Session Token cannot be empty")
+			}
+		}
+	}
 	s.Transactions = make(chan types.Transaction)
 	s.stopChan = make(chan struct{})
 	s.logger = logger
@@ -68,13 +99,13 @@ func (s *S3) Init(config types.Config, logger zap.Logger) error {
 
 //writeOnS3 func takes the transaction and session
 //that to be written on the amazon S3
-func (s *S3) writeOnS3(session *session.Session, transaction types.Transaction) {
+func (s *S3) writeOnS3(svc *s3.S3, transaction types.Transaction) {
 	defer s.wg.Done()
 	ack := true
 	buffer, err := ioutil.ReadAll(transaction)
 	size := int64(len(buffer))
 	if err == nil {
-		_, err = s3.New(session).PutObject(&s3.PutObjectInput{
+		_, err = svc.PutObject(&s3.PutObjectInput{
 			Bucket:               aws.String(s.Bucket),
 			Key:                  aws.String(s.FilePath),
 			ACL:                  aws.String("private"),
@@ -98,10 +129,24 @@ func (s *S3) writeOnS3(session *session.Session, transaction types.Transaction) 
 
 // Start the plugin and be ready for taking transactions
 func (s *S3) Start() error {
-	mySession, err := session.NewSession(&aws.Config{Region: aws.String(s.Region)})
+
+	staticCreds := credentials.NewStaticCredentials(s.AccessKeyId, s.SecretAccessKey, "")
+	val, _ := staticCreds.Get()
+	creds := credentials.NewChainCredentials(
+		[]credentials.Provider{
+			&credentials.EnvProvider{},
+			&credentials.SharedCredentialsProvider{},
+			&credentials.StaticProvider{
+				Value: val,
+			},
+		})
+	_, err := creds.Get()
 	if err != nil {
 		return err
 	}
+	cfg := aws.NewConfig().WithRegion(s.Region).WithCredentials(creds)
+	svc := s3.New(session.New(), cfg)
+
 	s.wg.Add(1)
 	go func() {
 		defer s.wg.Done()
@@ -111,7 +156,7 @@ func (s *S3) Start() error {
 				return
 			case transaction, _ := <-s.Transactions:
 				s.wg.Add(1)
-				go s.writeOnS3(mySession, transaction)
+				go s.writeOnS3(svc, transaction)
 			}
 		}
 	}()
