@@ -119,6 +119,14 @@ func (s *S3) Start() error {
 	cfg := aws.NewConfig().WithRegion(s.Settings["s3_region"]).WithCredentials(creds)
 	svc := s3.New(session.New(), cfg)
 
+	//Test if the given credentials are valid or not by getting the bucket logging
+	bucketName := s.Settings["s3_bucket"]
+	tst := s3.GetBucketLoggingInput{Bucket: &bucketName}
+	_, err = svc.GetBucketLogging(&tst)
+	if err != nil {
+		return err
+	}
+
 	s.wg.Add(1)
 	go func() {
 		defer s.wg.Done()
