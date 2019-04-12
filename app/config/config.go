@@ -32,7 +32,7 @@ type Processor struct {
 
 // Output used for YAML decoding
 type Output struct {
-	Component `yaml:",inline"`
+	Component `yaml:",inline" mapstructure:",squash"`
 }
 
 // InputsConfig used for YAML decoding
@@ -47,12 +47,12 @@ type AppConfig struct {
 
 // ProcessorsConfig used for YAML decoding
 type ProcessorsConfig struct {
-	Processors map[string]Input `yaml:"processors"`
+	Processors map[string]Processor `yaml:"processors"`
 }
 
 // OutputsConfig used for YAML decoding
 type OutputsConfig struct {
-	Outputs map[string]Input `yaml:"outputs"`
+	Outputs map[string]Output `yaml:"outputs"`
 }
 
 // Config is the collection of config needed for the engine to start.

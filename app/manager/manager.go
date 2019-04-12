@@ -9,9 +9,9 @@ import (
 
 /////////////
 
-var inputPlugins = make(map[string]InputWrapper)
-var processorPlugins = make(map[string]ProcessorWrapper)
-var outputPlugins = make(map[string]OutputWrapper)
+var InputPlugins = make(map[string]InputWrapper)
+var ProcessorPlugins = make(map[string]ProcessorWrapper)
+var OutputPlugins = make(map[string]OutputWrapper)
 
 ///////////////
 
@@ -43,14 +43,21 @@ type OutputWrapper struct {
 /////////////
 
 func LoadInput(name string, input config.Input) error {
-	_, ok := inputPlugins[input.Plugin]
+	_, ok := InputPlugins[name]
+	if !ok {
+		_, ok = ProcessorPlugins[name]
+		if !ok {
+			_, ok = OutputPlugins[name]
+		}
+	}
+
 	if ok {
-		return fmt.Errorf("input plugin instance with name [%s] is already loaded", name)
+		return fmt.Errorf("duplicate plugin instance with name [%s]", name)
 	}
 
 	component, ok := registered[input.Plugin]
 	if !ok {
-		return fmt.Errorf("input plugin type [%s] doesn't exist", input.Plugin)
+		return fmt.Errorf("plugin type [%s] doesn't exist", input.Plugin)
 	}
 
 	pluginInstance, ok := component().(types.Input)
@@ -59,7 +66,7 @@ func LoadInput(name string, input config.Input) error {
 		return fmt.Errorf("plugin type [%s] is not an input plugin", input.Plugin)
 	}
 
-	inputPlugins[input.Plugin] = InputWrapper{
+	InputPlugins[name] = InputWrapper{
 		Input:           pluginInstance,
 		ResourceManager: *NewResourceManager(input.Concurrency),
 	}
@@ -67,14 +74,21 @@ func LoadInput(name string, input config.Input) error {
 	return nil
 }
 
-func GetInput(name string) InputWrapper {
-	return inputPlugins[name]
+func GetInput(name string) (a InputWrapper, b bool) {
+	a, b = InputPlugins[name]
+	return
 }
 
 /////////////
 
 func LoadProcessor(name string, processor config.Processor) error {
-	_, ok := processorPlugins[processor.Plugin]
+	_, ok := InputPlugins[name]
+	if !ok {
+		_, ok = ProcessorPlugins[name]
+		if !ok {
+			_, ok = OutputPlugins[name]
+		}
+	}
 	if ok {
 		return fmt.Errorf("processor plugin instance with name [%s] is already loaded", name)
 	}
@@ -90,7 +104,7 @@ func LoadProcessor(name string, processor config.Processor) error {
 		return fmt.Errorf("plugin type [%s] is not a processor plugin", processor.Plugin)
 	}
 
-	processorPlugins[processor.Plugin] = ProcessorWrapper{
+	ProcessorPlugins[name] = ProcessorWrapper{
 		Processor:       pluginInstance,
 		ResourceManager: *NewResourceManager(processor.Concurrency),
 	}
@@ -98,14 +112,21 @@ func LoadProcessor(name string, processor config.Processor) error {
 	return nil
 }
 
-func GetProcessor(name string) ProcessorWrapper {
-	return processorPlugins[name]
+func GetProcessor(name string) (a ProcessorWrapper, b bool) {
+	a, b = ProcessorPlugins[name]
+	return
 }
 
 /////////////
 
-func LoadOutput(name string, output config.Processor) error {
-	_, ok := outputPlugins[output.Plugin]
+func LoadOutput(name string, output config.Output) error {
+	_, ok := InputPlugins[name]
+	if !ok {
+		_, ok = ProcessorPlugins[name]
+		if !ok {
+			_, ok = OutputPlugins[name]
+		}
+	}
 	if ok {
 		return fmt.Errorf("output plugin instance with name [%s] is already loaded", name)
 	}
@@ -121,7 +142,7 @@ func LoadOutput(name string, output config.Processor) error {
 		return fmt.Errorf("plugin type [%s] is not an output plugin", output.Plugin)
 	}
 
-	outputPlugins[output.Plugin] = OutputWrapper{
+	OutputPlugins[name] = OutputWrapper{
 		Output:          pluginInstance,
 		ResourceManager: *NewResourceManager(output.Concurrency),
 	}
@@ -129,6 +150,7 @@ func LoadOutput(name string, output config.Processor) error {
 	return nil
 }
 
-func GetOutput(name string) ProcessorWrapper {
-	return processorPlugins[name]
+func GetOutput(name string) (a OutputWrapper, b bool) {
+	a, b = OutputPlugins[name]
+	return
 }

@@ -76,6 +76,7 @@ func (d *Dummy) Start() error {
 
 					d.logger.Infow("RECEIVED RESPONSE.", zap.Any("response", response))
 				}()
+				return
 				time.Sleep(time.Millisecond * 500)
 			}
 		}

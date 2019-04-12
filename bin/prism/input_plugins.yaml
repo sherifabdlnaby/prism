@@ -1,6 +1,7 @@
 inputs:
     http_server:
         plugin: dummy_input
+        concurrency: 10
         config:
             filename: "test.jpg"
             host: -@{port}--@{nested.length}----@{length}--------@{nested.width}------------@{width}------
