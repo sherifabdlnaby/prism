@@ -11,24 +11,18 @@ import (
 	"go.uber.org/zap"
 	"io/ioutil"
 	"net/http"
-	"path"
 	"sync"
 	"time"
 )
 
 //S3 struct
 type S3 struct {
-	FilePath        string
-	Region          string
-	Bucket          string
-	AccessKeyId     string
-	SecretAccessKey string
-	Token           string
-	TypeCheck       bool
-	Transactions    chan types.Transaction
-	stopChan        chan struct{}
-	logger          zap.Logger
-	wg              sync.WaitGroup
+	Settings     map[string]string
+	TypeCheck    bool
+	Transactions chan types.Transaction
+	stopChan     chan struct{}
+	logger       zap.Logger
+	wg           sync.WaitGroup
 }
 
 //TransactionChan just return the channel of the transactions
@@ -38,63 +32,35 @@ func (s *S3) TransactionChan() chan<- types.Transaction {
 
 //Init func Initialize the S3 output plugin
 func (s *S3) Init(config types.Config, logger zap.Logger) error {
-	var err error
-	value, dummyErr := config.Get("filepath", nil)
-	err = dummyErr
-	if err == nil {
-		s.FilePath = value.String()
-		if s.FilePath == "" && err == nil {
-			err = errors.New("FilePath cannot be empty")
+	s.Settings = make(map[string]string)
+	requiredConfig := []string{"filepath", "s3_region", "s3_bucket"}
+	for _, rq := range requiredConfig {
+		value, err := config.Get(rq, nil)
+		if err != nil {
+			return err
 		}
-		path.Clean(s.FilePath)
+		if value.String() == "" {
+			err = errors.New(rq + " Cannot be empty")
+			return err
+		}
+		s.Settings[rq] = value.String()
 	}
-	if err == nil {
-		value, dummyErr := config.Get("s3_region", nil)
-		err = dummyErr
-		s.Region = value.String()
-		if s.Region == "" && err == nil {
-			err = errors.New("S3_Region cannot be empty")
+	optionalConfig := []string{"access_key_id", "secret_access_key", "session_token"}
+	for _, op := range optionalConfig {
+		value, err := config.Get(op, nil)
+		if err != nil {
+			continue
 		}
-	}
-	if err == nil {
-		value, dummyErr := config.Get("s3_bucket", nil)
-		err = dummyErr
-		s.Bucket = value.String()
-		if s.Bucket == "" && err == nil {
-			err = errors.New("S3_Bucket cannot be empty")
+		if value.String() == "" {
+			err = errors.New(op + " Cannot be empty")
+			return err
 		}
-	}
-	if err == nil {
-		value, dummyErr := config.Get("access_key_id", nil)
-		if dummyErr == nil {
-			s.AccessKeyId = value.String()
-			if s.AccessKeyId == "" {
-				err = errors.New("S3 AWS acess key Id cannot be empty")
-			}
-		}
-	}
-	if err == nil {
-		value, dummyErr := config.Get("secret_access_key", nil)
-		if dummyErr == nil {
-			s.SecretAccessKey = value.String()
-			if s.SecretAccessKey == "" {
-				err = errors.New("S3 AWS secret acess key cannot be empty")
-			}
-		}
-	}
-	if err == nil {
-		value, dummyErr := config.Get("session_token", nil)
-		if dummyErr == nil {
-			s.Token = value.String()
-			if s.Token == "" {
-				err = errors.New("S3 Session Token cannot be empty")
-			}
-		}
+		s.Settings[op] = value.String()
 	}
 	s.Transactions = make(chan types.Transaction)
 	s.stopChan = make(chan struct{})
 	s.logger = logger
-	return err
+	return nil
 }
 
 //writeOnS3 func takes the transaction and session
@@ -106,8 +72,8 @@ func (s *S3) writeOnS3(svc *s3.S3, transaction types.Transaction) {
 	size := int64(len(buffer))
 	if err == nil {
 		_, err = svc.PutObject(&s3.PutObjectInput{
-			Bucket:               aws.String(s.Bucket),
-			Key:                  aws.String(s.FilePath),
+			Bucket:               aws.String(s.Settings["s3_bucket"]),
+			Key:                  aws.String(s.Settings["filepath"]),
 			ACL:                  aws.String("private"),
 			Body:                 bytes.NewReader(buffer),
 			ContentLength:        aws.Int64(size),
@@ -130,21 +96,21 @@ func (s *S3) writeOnS3(svc *s3.S3, transaction types.Transaction) {
 // Start the plugin and be ready for taking transactions
 func (s *S3) Start() error {
 
-	staticCreds := credentials.NewStaticCredentials(s.AccessKeyId, s.SecretAccessKey, "")
+	staticCreds := credentials.NewStaticCredentials(s.Settings["access_key_id"], s.Settings["secret_access_key"], s.Settings["session_token"])
 	val, _ := staticCreds.Get()
 	creds := credentials.NewChainCredentials(
 		[]credentials.Provider{
-			&credentials.EnvProvider{},
-			&credentials.SharedCredentialsProvider{},
 			&credentials.StaticProvider{
 				Value: val,
 			},
+			&credentials.EnvProvider{},
+			&credentials.SharedCredentialsProvider{},
 		})
 	_, err := creds.Get()
 	if err != nil {
 		return err
 	}
-	cfg := aws.NewConfig().WithRegion(s.Region).WithCredentials(creds)
+	cfg := aws.NewConfig().WithRegion(s.Settings["s3_region"]).WithCredentials(creds)
 	svc := s3.New(session.New(), cfg)
 
 	s.wg.Add(1)
