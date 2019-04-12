@@ -8,10 +8,12 @@ import (
 )
 
 func LoadPlugins(c config.Config) error {
+	logger := c.Logger
+	logger.Info("loading plugins configuration...")
 
 	// Load Input Plugins
 	for name, plugin := range c.Inputs.Inputs {
-		err := manager.Load(name, plugin.Plugin)
+		err := manager.Load(name, plugin)
 		if err != nil {
 			return err
 		}
@@ -25,7 +27,7 @@ func LoadPlugins(c config.Config) error {
 
 	// Load Processor Plugins
 	for name, plugin := range c.Processors.Processors {
-		err := manager.Load(name, plugin.Plugin)
+		err := manager.Load(name, plugin)
 		if err != nil {
 			return err
 		}
@@ -39,7 +41,7 @@ func LoadPlugins(c config.Config) error {
 
 	// Load Output Plugins
 	for name, plugin := range c.Outputs.Outputs {
-		err := manager.Load(name, plugin.Plugin)
+		err := manager.Load(name, plugin)
 		if err != nil {
 			return err
 		}
@@ -57,6 +59,7 @@ func LoadPlugins(c config.Config) error {
 func InitPlugins(c config.Config) error {
 
 	logger := c.Logger
+	logger.Info("initializing plugins...")
 
 	// Init Input Plugins
 	inputLogger := logger.Named("input")

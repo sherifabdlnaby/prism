@@ -15,9 +15,9 @@ import (
 
 // Component used for YAML decoding
 type Component struct {
-	Plugin string                 `yaml:"plugin"`
-	Number int                    `yaml:"number"`
-	Config map[string]interface{} `yaml:"config"`
+	Plugin      string                 `yaml:"plugin"`
+	Concurrency int                    `yaml:"concurrency"`
+	Config      map[string]interface{} `yaml:"config"`
 }
 
 // Input used for YAML decoding
@@ -60,7 +60,24 @@ type Config struct {
 	Inputs     InputsConfig
 	Processors ProcessorsConfig
 	Outputs    OutputsConfig
+	Pipeline   PipelinesConfig
 	Logger     *zap.SugaredLogger
+}
+
+// Node is a single node in a pipeline
+type Node struct {
+	Async bool            `yaml:"async"`
+	Next  map[string]Node `yaml:",inline"`
+}
+
+// PipelinesConfig used for YAML decoding
+type PipelinesConfig struct {
+	Pipelines map[string]Pipeline `yaml:"pipelines"`
+}
+
+type Pipeline struct {
+	Concurrency int             `yaml:"concurrency"`
+	Pipeline    map[string]Node `yaml:"pipeline"`
 }
 
 // TODO support default values
@@ -88,7 +105,7 @@ func Load(filePath string, out interface{}, resolveEnv bool) error {
 func unmarshal(bytes []byte, out interface{}) error {
 	mapRaw := make(map[interface{}]interface{})
 
-	err := yaml.Unmarshal(bytes, mapRaw)
+	err := yaml.Unmarshal(bytes, &mapRaw)
 
 	mapString := recursivelyTurnYAMLMaps(mapRaw)
 
