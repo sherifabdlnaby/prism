@@ -43,10 +43,17 @@ func bootstrap() (config.Config, error) {
 		return config.Config{}, err
 	}
 
+	pipelineConfig := config.PipelinesConfig{}
+	err = config.Load("pipeline.yaml", &pipelineConfig, true)
+	if err != nil {
+		return config.Config{}, err
+	}
+
 	return config.Config{
 		Inputs:     inputConfig,
 		Processors: processorConfig,
 		Outputs:    outputConfig,
+		Pipeline:   pipelineConfig,
 		Logger:     logger,
 	}, nil
 }
@@ -66,33 +73,33 @@ func main() {
 	err = app.LoadPlugins(config)
 
 	if err != nil {
-		panic(err)
+		config.Logger.Panic(err)
 	}
 
 	err = app.InitPlugins(config)
 	if err != nil {
-		panic(err)
+		config.Logger.Panic(err)
 	}
 
 	// output
 	outputDisk := manager.Get(outputName).(types.Output)
 	err = outputDisk.Start()
 	if err != nil {
-		panic(err)
+		config.Logger.Panic(err)
 	}
 
 	// processor
 	processorDummy := manager.Get(processorName).(types.Processor)
 	err = processorDummy.Start()
 	if err != nil {
-		panic(err)
+		config.Logger.Panic(err)
 	}
 
 	// dummy
 	inputDummy := manager.Get(inputName).(types.Input)
 	err = inputDummy.Start()
 	if err != nil {
-		panic(err)
+		config.Logger.Panic(err)
 	}
 
 	outputNode := func(t types.Transaction) {

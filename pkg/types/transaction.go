@@ -21,3 +21,20 @@ type Response struct {
 	// processing the payload -, it should not be acknowledged.
 	Ack bool
 }
+
+var ResponseACK = Response{
+	Error: nil,
+	Ack:   true,
+}
+
+var ResponseNoACK = Response{
+	Error: nil,
+	Ack:   false,
+}
+
+func ResponseError(err error) Response {
+	return Response{
+		Error: err,
+		Ack:   false,
+	}
+}

@@ -3,49 +3,15 @@ package main
 import (
 	"fmt"
 	"github.com/sherifabdlnaby/prism/app/config"
-	"github.com/sherifabdlnaby/prism/pkg/types"
 	"gopkg.in/yaml.v2"
 	"log"
 )
 
 func main() {
 
-	appConfig := config.InputsConfig{}
-	err := config.Load("input_plugins.yaml", &appConfig, true)
+	appConfig := config.PipelinesConfig{}
 
-	fmt.Println(appConfig.Inputs)
-	if err != nil {
-		log.Fatalf("error: %v", err)
-	}
-
-	test := types.NewConfig(appConfig.Inputs["http_server"].Config)
-
-	data := map[string]interface{}{
-		"port":   12,
-		"length": 1,
-		"width":  2,
-		"test":   2,
-	}
-
-	data2 := map[string]interface{}{
-		"port":   3711,
-		"length": 2138,
-		"width":  1908,
-		"test":   912,
-		"nested": data,
-	}
-
-	val, err := test.Get("host", data2)
-
-	if err != nil {
-		panic(err)
-	}
-
-	x := val.String()
-	y := val.Int()
-	z := val.Float32()
-
-	fmt.Println(x, y, z)
+	err := config.Load("pipeline.yaml", &appConfig, true)
 
 	fmt.Printf("--- t:\n%v\n\n", appConfig)
 
