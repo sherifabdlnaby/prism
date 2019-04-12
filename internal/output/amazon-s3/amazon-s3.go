@@ -45,7 +45,11 @@ func (s *S3) Init(config types.Config, logger zap.Logger) error {
 		}
 		s.Settings[rq] = value.String()
 	}
-	optionalConfig := []string{"access_key_id", "secret_access_key", "session_token"}
+	optionalConfig := []string{"access_key_id", "secret_access_key", "session_token", "canned_acl", "encoding", "server_side_encryption_algorithm", "storage_class"}
+	s.Settings["canned_acl"] = "private"
+	s.Settings["encoding"] = "none"
+	s.Settings["server_side_encryption_algorithm"] = "AES256"
+	s.Settings["storage_class"] = "STANDARD"
 	for _, op := range optionalConfig {
 		value, err := config.Get(op, nil)
 		if err != nil {
@@ -74,12 +78,14 @@ func (s *S3) writeOnS3(svc *s3.S3, transaction types.Transaction) {
 		_, err = svc.PutObject(&s3.PutObjectInput{
 			Bucket:               aws.String(s.Settings["s3_bucket"]),
 			Key:                  aws.String(s.Settings["filepath"]),
-			ACL:                  aws.String("private"),
+			ACL:                  aws.String(s.Settings["canned_acl"]),
 			Body:                 bytes.NewReader(buffer),
 			ContentLength:        aws.Int64(size),
 			ContentType:          aws.String(http.DetectContentType(buffer)),
 			ContentDisposition:   aws.String("attachment"),
-			ServerSideEncryption: aws.String("AES256"),
+			ContentEncoding:      aws.String(s.Settings["encoding"]),
+			ServerSideEncryption: aws.String(s.Settings["server_side_encryption_algorithm"]),
+			StorageClass:         aws.String(s.Settings["storage_class"]),
 		})
 	}
 	if err != nil {
