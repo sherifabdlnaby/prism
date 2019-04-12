@@ -2,19 +2,20 @@ package pipeline
 
 import (
 	"context"
+	"github.com/sherifabdlnaby/prism/app/manager"
 	"github.com/sherifabdlnaby/prism/pkg/types"
-	"github.com/sherifabdlnaby/semaphore"
 )
 
-type NextNode struct {
-	async   bool
-	channel chan<- types.Transaction
-}
+//TODO refactor to make output and process close to each other.
 
 type Node struct {
 	RecieverChan chan types.Transaction
 	Next         []NextNode
-	Semp         semaphore.Weighted
+}
+
+type NextNode struct {
+	async bool
+	Node  NodeInterface
 }
 
 func (n Node) GetRecieverChan() chan types.Transaction {
@@ -27,11 +28,23 @@ type NodeInterface interface {
 	Job(t types.Transaction)
 }
 
-//TODO refactor to make output and process close to each other.
+///////////////
 
 type DummyNode struct {
 	Node
 }
+
+type ProcessingNode struct {
+	Node
+	manager.ProcessorWrapper
+}
+
+type OutputNode struct {
+	Node
+	manager.OutputWrapper
+}
+
+///////////////
 
 func (dn *DummyNode) Start() {
 	go func() {
@@ -47,7 +60,7 @@ func (dn *DummyNode) Job(t types.Transaction) {
 	responseChan := make(chan types.Response)
 	for _, next := range dn.Next {
 
-		next.channel <- types.Transaction{
+		next.Node.GetRecieverChan() <- types.Transaction{
 			Payload:      t.Payload,
 			ResponseChan: responseChan,
 		}
@@ -72,17 +85,6 @@ func (dn *DummyNode) Job(t types.Transaction) {
 	t.ResponseChan <- response
 }
 
-///////////////
-type ProcessingNode struct {
-	Node
-	types.Processor
-}
-
-type OutputNode struct {
-	Node
-	types.Output
-}
-
 //////////////
 
 func (pn *ProcessingNode) Start() {
@@ -95,14 +97,14 @@ func (pn *ProcessingNode) Start() {
 
 func (pn *ProcessingNode) Job(t types.Transaction) {
 
-	err := pn.Semp.Acquire(context.TODO(), 1)
+	err := pn.ProcessorWrapper.Acquire(context.TODO(), 1)
 	// TODO check err here
 
 	decoded, err := pn.Decode(t.Payload)
 
 	if err != nil {
 		t.ResponseChan <- types.ResponseError(err)
-		pn.Semp.Release(1)
+		pn.ProcessorWrapper.Release(1)
 		return
 	}
 
@@ -110,7 +112,7 @@ func (pn *ProcessingNode) Job(t types.Transaction) {
 
 	if err != nil {
 		t.ResponseChan <- types.ResponseError(err)
-		pn.Semp.Release(1)
+		pn.ProcessorWrapper.Release(1)
 		return
 	}
 
@@ -118,17 +120,17 @@ func (pn *ProcessingNode) Job(t types.Transaction) {
 
 	if err != nil {
 		t.ResponseChan <- types.ResponseError(err)
-		pn.Semp.Release(1)
+		pn.ProcessorWrapper.Release(1)
 		return
 	}
 
-	pn.Semp.Release(1)
+	pn.ProcessorWrapper.Release(1)
 
 	// SEND
 	responseChan := make(chan types.Response)
 	for _, next := range pn.Next {
 
-		next.channel <- types.Transaction{
+		next.Node.GetRecieverChan() <- types.Transaction{
 			Payload:      encoded,
 			ResponseChan: responseChan,
 		}
@@ -165,10 +167,10 @@ func (pn *OutputNode) Start() {
 
 func (pn *OutputNode) Job(t types.Transaction) {
 	// TODO assumes output don't have NEXT.
-	_ = pn.Semp.Acquire(context.TODO(), 1)
+	_ = pn.OutputWrapper.Acquire(context.TODO(), 1)
 	// TODO check err here
 
 	pn.TransactionChan() <- t
 
-	pn.Semp.Release(1)
+	pn.OutputWrapper.Release(1)
 }

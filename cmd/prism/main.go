@@ -5,7 +5,7 @@ import (
 	"github.com/sherifabdlnaby/prism/app"
 	"github.com/sherifabdlnaby/prism/app/config"
 	"github.com/sherifabdlnaby/prism/app/manager"
-	"github.com/sherifabdlnaby/prism/pkg/types"
+	"github.com/sherifabdlnaby/prism/app/pipeline"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"time"
@@ -62,13 +62,10 @@ func bootstrap() (config.Config, error) {
 func main() {
 
 	config, err := bootstrap()
+
 	if err != nil {
 		panic(err)
 	}
-
-	outputName := "disk"
-	processorName := "dummy_processor"
-	inputName := "http_server"
 
 	err = app.LoadPlugins(config)
 
@@ -81,83 +78,26 @@ func main() {
 		config.Logger.Panic(err)
 	}
 
-	// output
-	outputDisk := manager.Get(outputName).(types.Output)
-	err = outputDisk.Start()
+	err = app.StartPlugins(config)
 	if err != nil {
 		config.Logger.Panic(err)
 	}
 
-	// processor
-	processorDummy := manager.Get(processorName).(types.Processor)
-	err = processorDummy.Start()
-	if err != nil {
-		config.Logger.Panic(err)
-	}
+	inp, _ := manager.GetInput("http_server")
 
-	// dummy
-	inputDummy := manager.Get(inputName).(types.Input)
-	err = inputDummy.Start()
-	if err != nil {
-		config.Logger.Panic(err)
-	}
+	pipelineX := pipeline.NewPipeline(config.Pipeline.Pipelines["profile_pic_pipeline"])
 
-	outputNode := func(t types.Transaction) {
-		outputDisk.TransactionChan() <- t
-	}
-
-	processorNode := func(t types.Transaction) {
-
-		/// PROCESSING PART
-		decoded, _ := processorDummy.Decode(t.Payload)
-		decodedPayload, _ := processorDummy.Process(decoded)
-		encoded, _ := processorDummy.Encode(decodedPayload)
-		///
-
-		responseChan := make(chan types.Response)
-
-		go outputNode(types.Transaction{
-			Payload:      encoded,
-			ResponseChan: responseChan,
-		})
-
-		// forward response (no logic needed for now)
-		t.ResponseChan <- <-responseChan
-
-	}
-
-	pipeline := func(st types.Transaction) {
-		responseChan := make(chan types.Response)
-		transaction := types.Transaction{
-			Payload: types.Payload{
-				Name:      "",
-				Reader:    st,
-				ImageData: nil,
-			},
-			ResponseChan: responseChan,
-		}
-
-		go processorNode(transaction)
-
-		// wait for response from processor
-		st.ResponseChan <- <-responseChan
-	}
-
-	/// Harvest Input
 	go func() {
-		inputChan := inputDummy.TransactionChan()
-		for streamableInput := range inputChan {
-			go pipeline(streamableInput)
+		for value := range inp.TransactionChan() {
+			pipelineX.RecieveChan <- value
 		}
 	}()
 
-	time.Sleep(2 * time.Second)
+	pipelineX.Start()
 
-	_ = inputDummy.Close(1 * time.Second)
-	_ = processorDummy.Close(1 * time.Second)
-	_ = outputDisk.Close(1 * time.Second)
+	fmt.Println(pipelineX)
+	time.Sleep(100 * time.Second)
 
-	time.Sleep(1 * time.Second)
 }
 
 func bootLogger(appConfig config.AppConfig) (*zap.SugaredLogger, error) {

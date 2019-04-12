@@ -1,6 +1,19 @@
 outputs:
-    disk:
+    disk1:
         plugin: disk
+        concurrency: 10
         config:
-            filepath: testing.jpg
+            filepath: testing1.jpg
+            permission: 0777
+    disk2:
+        plugin: disk
+        concurrency: 10
+        config:
+            filepath: testing2.jpg
+            permission: 0777
+    disk3:
+        plugin: disk
+        concurrency: 10
+        config:
+            filepath: testing3.jpg
             permission: 0777
