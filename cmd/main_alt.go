@@ -2,58 +2,108 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
-	"io"
+	"log"
+	"strconv"
+	"time"
 )
 
-// buffer is just here to make bytes.Buffer an io.ReadWriteCloser.
-// Read about embedding to see how this works.
-type buffer struct {
+type Writer struct {
 	bytes.Buffer
+	eof      error
+	eofTotal int
 }
 
-// Add a Close method to our buffer so that we satisfy io.ReadWriteCloser.
-func (b *buffer) Close() error {
-	b.Buffer.Reset()
+func (r *Writer) Close() error {
+	r.eofTotal = r.Len()
+	r.eof = errors.New("EOF")
 	return nil
+}
+
+type Clone struct {
+	source *Writer
+	i      int
+}
+
+func NewClone(source *Writer) *Clone {
+	return &Clone{
+		source: source,
+		i:      0,
+	}
+}
+
+func (c *Clone) Read(p []byte) (read int, eof error) {
+	upperlimit := c.i + len(p)
+	if upperlimit > c.source.Len() {
+		upperlimit = c.source.Len()
+		// check if EOF
+		if upperlimit >= c.source.eofTotal {
+			eof = c.source.eof
+		}
+	}
+
+	copy(p, c.source.Bytes()[c.i:upperlimit])
+
+	read = upperlimit - c.i
+	c.i = upperlimit
+
+	return read, eof
 }
 
 func main() {
 
-	// Address the OP question.
-	var rwc io.ReadWriteCloser
+	r := Writer{}
 
-	// Make the io.ReadWriteCloser actually do something.
-	rwc = &buffer{}
+	go func() {
+		pulser := time.Tick(1000 * time.Millisecond)
+		breaker := time.After(10000 * time.Millisecond)
+		i := 0
+	outerloop:
+		for {
+			select {
+			case <-pulser:
+				_, _ = fmt.Fprint(&r, "xxxxxxxxx-xxxxxxxxx-xxxxxxxxx"+strconv.Itoa(i))
+				i++
+			case <-breaker:
+				log.Println("Done writing...")
+				break outerloop
 
-	// Write some bytes to the buffer. We could also do this by:
-	//  n, err := rwc.Write([]byte("hello")
-	// where n is the number of bytes successfully written and
-	// err is any error that happened during the write (fmt.Fprint
-	// will give these too if you want).
-	fmt.Fprint(rwc, "11111-")
-	fmt.Fprint(rwc, "22222-")
-	// Close the buffer. This could have been defer'd above.
-	rwc.Close()
-	fmt.Fprint(rwc, "33333----")
-
-	// This is a byte slice we will fill with the read.
-	// It is longer that the contents of the buffer.
-	// Try making it shorter to see what happens - will
-	// the following loop be correct? If not, how do you
-	// fix it?
-	buf := make([]byte, 10)
-
-	// Here we do two reads of the ReadWriteCloser
-	// and show all the returned values
-	// and the byte slice that is being filled.
-	for {
-		n, err := rwc.Read(buf)
-		fmt.Printf("read %d bytes %q got a %v error (total buffer is %v)\n", n, buf[:n], err, buf)
-		if err != nil {
-			break
+			}
 		}
+		r.Close()
+	}()
+
+	c1 := NewClone(&r)
+	c2 := NewClone(&r)
+
+	pulser := time.Tick(300 * time.Millisecond)
+	for {
+		select {
+		case <-pulser:
+			buff := make([]byte, 5)
+			n, eof := c1.Read(buff)
+			if eof != nil {
+				goto breakloop
+			}
+			if n > 0 {
+				log.Println("C1", n, eof)
+				log.Println(string(buff[:n]))
+			}
+			n, eof = c2.Read(buff)
+			if eof != nil {
+				goto breakloop
+			}
+			if n > 0 {
+				log.Println("C2", n, eof)
+				log.Println(string(buff[:n]))
+			}
+		}
+
 	}
+
+breakloop:
+	return
 
 	//appConfig := config.PipelinesConfig{}
 	//
