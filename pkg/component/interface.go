@@ -1,4 +1,4 @@
-package types
+package component
 
 import (
 	"go.uber.org/zap"
@@ -31,26 +31,40 @@ type Input interface {
 
 //------------------------------------------------------------------------------
 
-// Processor can decode, process, or encode a payload.
-// TODO more documentation ofc
-type Processor interface {
-	Decode(in InputPayload) (DecodedPayload, error)
-
-	Process(in DecodedPayload) (DecodedPayload, error)
-
-	Encode(in DecodedPayload, out *OutputPayload) error
-
-	Component
-}
-
-//------------------------------------------------------------------------------
-
 // Consumer is the higher level consumer type.
 type Output interface {
 	// TransactionChan returns a channel used to send transactions for saving.
 	TransactionChan() chan<- Transaction
 
 	Component
+}
+
+//------------------------------------------------------------------------------
+
+type Decoder interface {
+	Decode(in InputPayload, data ImageData) (interface{}, Response)
+}
+
+type Processor interface {
+	Process(in interface{}, data ImageData) (interface{}, Response)
+}
+
+type Encoder interface {
+	Encode(in interface{}, data ImageData, out *OutputPayload) Response
+}
+
+// Processor can decode, process, or encode a payload.
+type ProcessorReadWrite interface {
+	Component
+	Encoder
+	Processor
+	Decoder
+}
+
+type ProcessorReadOnly interface {
+	Component
+	Processor
+	Decoder
 }
 
 //------------------------------------------------------------------------------

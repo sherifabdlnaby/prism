@@ -1,4 +1,4 @@
-package types
+package component
 
 import (
 	"fmt"
@@ -44,7 +44,7 @@ func (cw *Config) Get(key string, data ImageData) (objx.Value, error) {
 
 	val := cw.config.Get(key)
 	if val.IsNil() {
-		return objx.Value{}, fmt.Errorf("field \"%s\" is not found", key)
+		return objx.Value{}, fmt.Errorf("field [%s] is not found", key)
 	}
 
 	str := val.String()
@@ -64,6 +64,21 @@ func (cw *Config) Get(key string, data ImageData) (objx.Value, error) {
 	cw.cache["key"] = cacheField
 
 	return evaluate(&cacheField, data)
+}
+
+// IsSet check if value exists in config
+func (cw *Config) IsSet(key string) bool {
+	// Check cache
+	if _, ok := cw.cache[key]; ok {
+		return true
+	}
+
+	val := cw.config.Get(key)
+	if val.IsNil() {
+		return false
+	}
+
+	return true
 }
 
 func splitToParts(str string) []part {
@@ -120,7 +135,7 @@ func evaluate(field *field, data ImageData) (objx.Value, error) {
 
 		partValue = dataMap.Get(part.string)
 		if partValue.IsNil() {
-			return objx.Value{}, fmt.Errorf("field \"%s\" is not found", part.string)
+			return objx.Value{}, fmt.Errorf("field [%s] is not found", part.string)
 		}
 
 		builder.WriteString(partValue.String())
