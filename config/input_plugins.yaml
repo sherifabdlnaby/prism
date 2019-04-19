@@ -1,9 +1,12 @@
 inputs:
-    dummyPlugin:
-        plugin: httpserver
+    http_server:
+        plugin: dummy_input
+        concurrency: 10
         config:
+            filename: "test.jpg"
             host: -@{port}--@{nested.length}----@{length}--------@{nested.width}------------@{width}------
             port: "${HTTP_SERVER_PORT}"
+            filepath: /asdfa/asdg/asd/asgd@{name}.jpg
             urls:
                 "/profile_picture":
                     pipeline: profile_pic_pipeline

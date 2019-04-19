@@ -95,8 +95,7 @@ func main() {
 
 	pipelineX.Start()
 
-	fmt.Println(pipelineX)
-	time.Sleep(100 * time.Second)
+	time.Sleep(12 * time.Second)
 
 }
 
