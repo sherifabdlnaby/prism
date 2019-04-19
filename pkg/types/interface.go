@@ -34,11 +34,11 @@ type Input interface {
 // Processor can decode, process, or encode a payload.
 // TODO more documentation ofc
 type Processor interface {
-	Decode(Payload) (DecodedPayload, error)
+	Decode(in InputPayload) (DecodedPayload, error)
 
-	Process(DecodedPayload) (DecodedPayload, error)
+	Process(in DecodedPayload) (DecodedPayload, error)
 
-	Encode(DecodedPayload) (Payload, error)
+	Encode(in DecodedPayload, out *OutputPayload) error
 
 	Component
 }

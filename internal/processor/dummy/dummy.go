@@ -3,7 +3,7 @@ package dummy
 import (
 	"github.com/sherifabdlnaby/prism/pkg/types"
 	"go.uber.org/zap"
-	"io"
+	"io/ioutil"
 	"time"
 )
 
@@ -15,31 +15,39 @@ func NewComponent() types.Component {
 	return &Dummy{}
 }
 
-func (d *Dummy) Decode(ep types.Payload) (types.DecodedPayload, error) {
-	d.logger.Infow("Decoding Payload... ", "name", ep.Name)
+func (d *Dummy) Decode(ep types.InputPayload) (types.DecodedPayload, error) {
+	d.logger.Debugw("Decoding InputPayload... ")
+
+	imgBytes, err := ioutil.ReadAll(ep)
+
+	if err != nil {
+		return types.DecodedPayload{}, nil
+	}
 
 	// Return it as it is (dummy).
 	return types.DecodedPayload{
-		Name:      "test",
-		Image:     ep.Reader,
-		ImageData: nil,
+		Image:     imgBytes,
+		ImageData: ep.ImageData,
 	}, nil
 }
 
 func (d *Dummy) Process(dp types.DecodedPayload) (types.DecodedPayload, error) {
-	d.logger.Infow("Processing Payload... ", "name", dp.Name)
+	d.logger.Debugw("Processing InputPayload... ")
 	return dp, nil
 }
 
-func (d *Dummy) Encode(dp types.DecodedPayload) (types.Payload, error) {
-
-	d.logger.Infow("Encoding Payload... ", "name", dp.Name)
-
-	return types.Payload{
-		Name:      "test",
-		Reader:    dp.Image.(io.Reader),
-		ImageData: nil,
-	}, nil
+func (d *Dummy) Encode(in types.DecodedPayload, out *types.OutputPayload) error {
+	d.logger.Debugw("Encoding InputPayload... ")
+	out.ImageBytes = in.Image.([]byte)
+	_, err := out.Write(out.ImageBytes)
+	if err != nil {
+		return err
+	}
+	err = out.Close()
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (d *Dummy) Init(config types.Config, logger zap.SugaredLogger) error {
