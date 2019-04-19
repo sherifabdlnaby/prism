@@ -40,7 +40,7 @@ func (d *Dummy) Init(config types.Config, logger zap.SugaredLogger) error {
 }
 
 func (d *Dummy) Start() error {
-	d.logger.Infow("Started Input, Hooray!")
+	d.logger.Debugw("Started Input, Hooray!")
 
 	d.wg.Add(1)
 	go func() {
@@ -48,23 +48,22 @@ func (d *Dummy) Start() error {
 		for {
 			select {
 			case <-d.stopChan:
-				d.logger.Infow("Closing...")
+				d.logger.Debugw("Closing...")
 				return
 			default:
 				go func() {
-					d.logger.Infow("SENDING A TRANSACTION...")
+					d.logger.Debugw("SENDING A TRANSACTION...")
 					reader, err := os.Open(d.FileName)
 					responseChan := make(chan types.Response)
 
 					if err != nil {
-						d.logger.Infow("Error in dummy: ", zap.Error(err))
+						d.logger.Debugw("Error in dummy: ", zap.Error(err))
 						return
 					}
 
 					// Send Transaction
 					d.Transactions <- types.Transaction{
-						Payload: types.Payload{
-							Name:      "test",
+						InputPayload: types.InputPayload{
 							Reader:    reader,
 							ImageData: nil,
 						},
@@ -74,9 +73,8 @@ func (d *Dummy) Start() error {
 					// Wait Transaction
 					response := <-responseChan
 
-					d.logger.Infow("RECEIVED RESPONSE.", zap.Any("response", response))
+					d.logger.Debugw("RECEIVED RESPONSE.", zap.Any("response", response))
 				}()
-				return
 				time.Sleep(time.Millisecond * 500)
 			}
 		}
@@ -86,10 +84,10 @@ func (d *Dummy) Start() error {
 }
 
 func (d *Dummy) Close(time.Duration) error {
-	d.logger.Infow("Sending closing signal...")
+	d.logger.Debugw("Sending closing signal...")
 	d.stopChan <- struct{}{}
 	d.wg.Wait()
 	close(d.Transactions)
-	d.logger.Infow("Closed.")
+	d.logger.Debugw("Closed.")
 	return nil
 }

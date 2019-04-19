@@ -3,6 +3,7 @@ package pipeline
 import (
 	"context"
 	"github.com/sherifabdlnaby/prism/app/manager"
+	"github.com/sherifabdlnaby/prism/pkg/mirror"
 	"github.com/sherifabdlnaby/prism/pkg/types"
 )
 
@@ -61,7 +62,7 @@ func (dn *DummyNode) Job(t types.Transaction) {
 	for _, next := range dn.Next {
 
 		next.Node.GetRecieverChan() <- types.Transaction{
-			Payload:      t.Payload,
+			InputPayload: t.InputPayload,
 			ResponseChan: responseChan,
 		}
 	}
@@ -100,7 +101,7 @@ func (pn *ProcessingNode) Job(t types.Transaction) {
 	err := pn.ProcessorWrapper.Acquire(context.TODO(), 1)
 	// TODO check err here
 
-	decoded, err := pn.Decode(t.Payload)
+	decoded, err := pn.Decode(t.InputPayload)
 
 	if err != nil {
 		t.ResponseChan <- types.ResponseError(err)
@@ -116,7 +117,16 @@ func (pn *ProcessingNode) Job(t types.Transaction) {
 		return
 	}
 
-	encoded, err := pn.Encode(decodedPayload)
+	///BASE READER
+	buffer := mirror.Writer{}
+
+	baseOutput := types.OutputPayload{
+		WriteCloser: &buffer,
+		ImageBytes:  nil,
+		ImageData:   nil,
+	}
+
+	err = pn.Encode(decodedPayload, &baseOutput)
 
 	if err != nil {
 		t.ResponseChan <- types.ResponseError(err)
@@ -131,7 +141,11 @@ func (pn *ProcessingNode) Job(t types.Transaction) {
 	for _, next := range pn.Next {
 
 		next.Node.GetRecieverChan() <- types.Transaction{
-			Payload:      encoded,
+			InputPayload: types.InputPayload{
+				Reader:     buffer.NewReader(),
+				ImageBytes: baseOutput.ImageBytes,
+				ImageData:  baseOutput.ImageData,
+			},
 			ResponseChan: responseChan,
 		}
 	}

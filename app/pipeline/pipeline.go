@@ -23,7 +23,7 @@ func (p *Pipeline) Start() {
 				_ = p.Sema.Acquire(context.TODO(), 1)
 				responseChan := make(chan types.Response)
 				p.Next.GetRecieverChan() <- types.Transaction{
-					Payload:      transaction.Payload,
+					InputPayload: transaction.InputPayload,
 					ResponseChan: responseChan,
 				}
 				transaction.ResponseChan <- <-responseChan
