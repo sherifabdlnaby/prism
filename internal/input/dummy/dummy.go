@@ -1,7 +1,7 @@
 package dummy
 
 import (
-	"github.com/sherifabdlnaby/prism/pkg/types"
+	"github.com/sherifabdlnaby/prism/pkg/component"
 	"go.uber.org/zap"
 	"os"
 	"sync"
@@ -11,21 +11,22 @@ import (
 // Dummy Input that read a file from root just for testing.
 type Dummy struct {
 	FileName     string
-	Transactions chan types.Transaction
+	Transactions chan component.Transaction
 	stopChan     chan struct{}
 	logger       zap.SugaredLogger
 	wg           sync.WaitGroup
+	metric       int
 }
 
-func NewComponent() types.Component {
+func NewComponent() component.Component {
 	return &Dummy{}
 }
 
-func (d *Dummy) TransactionChan() <-chan types.Transaction {
+func (d *Dummy) TransactionChan() <-chan component.Transaction {
 	return d.Transactions
 }
 
-func (d *Dummy) Init(config types.Config, logger zap.SugaredLogger) error {
+func (d *Dummy) Init(config component.Config, logger zap.SugaredLogger) error {
 	FileName, err := config.Get("filename", nil)
 	if err != nil {
 		return err
@@ -33,7 +34,7 @@ func (d *Dummy) Init(config types.Config, logger zap.SugaredLogger) error {
 
 	d.FileName = FileName.String()
 
-	d.Transactions = make(chan types.Transaction, 1)
+	d.Transactions = make(chan component.Transaction, 1)
 	d.stopChan = make(chan struct{})
 	d.logger = logger
 	return nil
@@ -51,10 +52,11 @@ func (d *Dummy) Start() error {
 				d.logger.Debugw("Closing...")
 				return
 			default:
-				go func() {
+
+				go func(i int) {
 					d.logger.Debugw("SENDING A TRANSACTION...")
 					reader, err := os.Open(d.FileName)
-					responseChan := make(chan types.Response)
+					responseChan := make(chan component.Response)
 
 					if err != nil {
 						d.logger.Debugw("Error in dummy: ", zap.Error(err))
@@ -62,19 +64,21 @@ func (d *Dummy) Start() error {
 					}
 
 					// Send Transaction
-					d.Transactions <- types.Transaction{
-						InputPayload: types.InputPayload{
-							Reader:    reader,
-							ImageData: nil,
+					d.Transactions <- component.Transaction{
+						InputPayload: component.InputPayload{
+							Reader: reader,
 						},
+						ImageData:    component.ImageData{"count": i},
 						ResponseChan: responseChan,
 					}
 
 					// Wait Transaction
 					response := <-responseChan
 
-					d.logger.Debugw("RECEIVED RESPONSE.", zap.Any("response", response))
-				}()
+					d.logger.Debugw("RECEIVED RESPONSE.", "ack", response.Ack, "error", response.Error)
+				}(d.metric)
+
+				d.metric++
 				time.Sleep(time.Millisecond * 500)
 			}
 		}
