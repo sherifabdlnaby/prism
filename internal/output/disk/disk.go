@@ -24,6 +24,7 @@ type Disk struct {
 	config         component.Config
 }
 
+// NewComponent Return a new Component
 func NewComponent() component.Component {
 	return &Disk{}
 }

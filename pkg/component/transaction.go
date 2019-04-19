@@ -25,16 +25,19 @@ type Response struct {
 	Ack bool
 }
 
+//ResponseACK A Successful Ack
 var ResponseACK = Response{
 	Error: nil,
 	Ack:   true,
 }
 
+//ResponseNoACK A Successful No-Ack with no error.
 var ResponseNoACK = Response{
 	Error: nil,
 	Ack:   false,
 }
 
+//ResponseError Return a no-ack with an error.
 func ResponseError(err error) Response {
 	return Response{
 		Error: err,

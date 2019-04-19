@@ -18,14 +18,17 @@ type Dummy struct {
 	metric       int
 }
 
+// NewComponent Return a new Component
 func NewComponent() component.Component {
 	return &Dummy{}
 }
 
+// TransactionChan Return Transaction Chan used to send transaction to this Component
 func (d *Dummy) TransactionChan() <-chan component.Transaction {
 	return d.Transactions
 }
 
+// Init Initializes Plugin
 func (d *Dummy) Init(config component.Config, logger zap.SugaredLogger) error {
 	FileName, err := config.Get("filename", nil)
 	if err != nil {
@@ -40,6 +43,7 @@ func (d *Dummy) Init(config component.Config, logger zap.SugaredLogger) error {
 	return nil
 }
 
+// Start Starts Plugin
 func (d *Dummy) Start() error {
 	d.logger.Debugw("Started Input, Hooray!")
 
@@ -87,6 +91,7 @@ func (d *Dummy) Start() error {
 	return nil
 }
 
+// Close closes the plugin gracefully
 func (d *Dummy) Close(time.Duration) error {
 	d.logger.Debugw("Sending closing signal...")
 	d.stopChan <- struct{}{}

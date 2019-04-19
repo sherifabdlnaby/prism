@@ -15,12 +15,13 @@ type DecodedPayload struct {
 	Image interface{}
 }
 
-// InputPayload holds a reader to image bytes and accompanying Data.
+// InputPayload holds a reader to image bytes OR a byte slice of the image.
 type InputPayload struct {
 	io.Reader
 	ImageBytes
 }
 
+// OutputPayload can either be used to write the image asynchronously OR just pass the whole ImageBytes.
 type OutputPayload struct {
 	io.WriteCloser
 	ImageBytes

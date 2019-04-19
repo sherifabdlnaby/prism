@@ -9,58 +9,58 @@ import (
 
 //TODO refactor to make output and process close to each other.
 
-type Node struct {
+type node struct {
 	RecieverChan chan component.Transaction
-	Next         []NextNode
+	Next         []nextNode
 }
 
-type NextNode struct {
+type nextNode struct {
 	async bool
-	Node  NodeInterface
+	node  nodeInterface
 }
 
-func (n Node) GetRecieverChan() chan component.Transaction {
+func (n node) getReceiverChan() chan component.Transaction {
 	return n.RecieverChan
 }
 
-type NodeInterface interface {
-	Start()
-	GetRecieverChan() chan component.Transaction
-	Job(t component.Transaction)
+type nodeInterface interface {
+	start()
+	getReceiverChan() chan component.Transaction
+	job(t component.Transaction)
 }
 
 ///////////////
 
 type dummyNode struct {
-	Node
+	node
 }
 
-type ProcessingNode struct {
-	Node
+type processingNode struct {
+	node
 	manager.ProcessorWrapper
 }
 
-type OutputNode struct {
-	Node
+type outputNode struct {
+	node
 	manager.OutputWrapper
 }
 
 ///////////////
 
-func (dn *dummyNode) Start() {
+func (dn *dummyNode) start() {
 	go func() {
 		for value := range dn.RecieverChan {
-			go dn.Job(value)
+			go dn.job(value)
 		}
 	}()
 }
 
-func (dn *dummyNode) Job(t component.Transaction) {
+func (dn *dummyNode) job(t component.Transaction) {
 
 	// SEND
 	responseChan := make(chan component.Response)
 
-	dn.Next[0].Node.GetRecieverChan() <- component.Transaction{
+	dn.Next[0].node.getReceiverChan() <- component.Transaction{
 		InputPayload: t.InputPayload,
 		ImageData:    t.ImageData,
 		ResponseChan: responseChan,
@@ -72,15 +72,15 @@ func (dn *dummyNode) Job(t component.Transaction) {
 
 //////////////
 
-func (pn *ProcessingNode) Start() {
+func (pn *processingNode) start() {
 	go func() {
 		for value := range pn.RecieverChan {
-			go pn.Job(value)
+			go pn.job(value)
 		}
 	}()
 }
 
-func (pn *ProcessingNode) Job(t component.Transaction) {
+func (pn *processingNode) job(t component.Transaction) {
 
 	err := pn.ProcessorWrapper.Acquire(context.TODO(), 1)
 	if err != nil {
@@ -107,14 +107,12 @@ func (pn *ProcessingNode) Job(t component.Transaction) {
 
 	///BASE READER
 	buffer := mirror.Writer{}
-
 	baseOutput := component.OutputPayload{
 		WriteCloser: &buffer,
 		ImageBytes:  nil,
 	}
 
 	response = pn.Encode(decodedPayload, t.ImageData, &baseOutput)
-
 	if !response.Ack {
 		t.ResponseChan <- response
 		pn.ProcessorWrapper.Release(1)
@@ -127,7 +125,7 @@ func (pn *ProcessingNode) Job(t component.Transaction) {
 	responseChan := make(chan component.Response)
 	for _, next := range pn.Next {
 
-		next.Node.GetRecieverChan() <- component.Transaction{
+		next.node.getReceiverChan() <- component.Transaction{
 			InputPayload: component.InputPayload{
 				Reader:     buffer.NewReader(),
 				ImageBytes: baseOutput.ImageBytes,
@@ -137,10 +135,9 @@ func (pn *ProcessingNode) Job(t component.Transaction) {
 		}
 	}
 
-	count, total := 0, len(pn.Next)
-
 	// AWAIT RESPONSEEs
 	response = component.Response{}
+	count, total := 0, len(pn.Next)
 	for ; count < total; count++ {
 		select {
 		case response = <-responseChan:
@@ -157,15 +154,15 @@ func (pn *ProcessingNode) Job(t component.Transaction) {
 
 //////////////
 
-func (pn *OutputNode) Start() {
+func (pn *outputNode) start() {
 	go func() {
 		for value := range pn.RecieverChan {
-			go pn.Job(value)
+			go pn.job(value)
 		}
 	}()
 }
 
-func (pn *OutputNode) Job(t component.Transaction) {
+func (pn *outputNode) job(t component.Transaction) {
 	// TODO assumes output don't have NEXT.
 	_ = pn.OutputWrapper.Acquire(context.TODO(), 1)
 	// TODO check err here

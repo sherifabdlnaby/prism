@@ -2,19 +2,22 @@ package pipeline
 
 import (
 	"context"
+	"fmt"
 	"github.com/sherifabdlnaby/prism/app/config"
 	"github.com/sherifabdlnaby/prism/app/manager"
 	"github.com/sherifabdlnaby/prism/pkg/component"
 	"github.com/sherifabdlnaby/semaphore"
 )
 
+//Pipeline Holds the recursive tree of Nodes and their next nodes, etc
 type Pipeline struct {
 	RecieveChan chan component.Transaction
-	Next        NodeInterface
+	Next        nodeInterface
 	Sema        semaphore.Weighted
-	NodesList   []*NodeInterface
+	NodesList   []*nodeInterface
 }
 
+//Start starts the pipeline and start accepting Input
 func (p *Pipeline) Start() {
 	go func() {
 		for value := range p.RecieveChan {
@@ -22,7 +25,7 @@ func (p *Pipeline) Start() {
 				// TODO handle context error
 				_ = p.Sema.Acquire(context.TODO(), 1)
 				responseChan := make(chan component.Response)
-				p.Next.GetRecieverChan() <- component.Transaction{
+				p.Next.getReceiverChan() <- component.Transaction{
 					InputPayload: transaction.InputPayload,
 					ImageData:    transaction.ImageData,
 					ResponseChan: responseChan,
@@ -34,29 +37,36 @@ func (p *Pipeline) Start() {
 	}()
 }
 
-func NewPipeline(pc config.Pipeline) *Pipeline {
+//NewPipeline Construct a NewPipeline using config.
+func NewPipeline(pc config.Pipeline) (*Pipeline, error) {
 
-	next := make([]NextNode, 0)
-	NodesList := make([]*NodeInterface, 0)
+	next := make([]nextNode, 0)
+	NodesList := make([]*nodeInterface, 0)
 
 	beginNode := dummyNode{
-		Node: Node{
+		node: node{
 			RecieverChan: make(chan component.Transaction),
 		},
 	}
 
-	var node NodeInterface = &beginNode
+	var node nodeInterface = &beginNode
 	NodesList = append(NodesList, &node)
 
 	for key, value := range pc.Pipeline {
-		next = append(next, NextNode{
+		Node, err := buildTree(key, value, &NodesList)
+
+		if err != nil {
+			return &Pipeline{}, err
+		}
+
+		next = append(next, nextNode{
 			async: value.Async,
-			Node:  buildTree(key, value, &NodesList),
+			node:  Node,
 		})
 	}
 
 	beginNode.Next = next
-	beginNode.Start()
+	beginNode.start()
 
 	pip := Pipeline{
 		RecieveChan: make(chan component.Transaction),
@@ -65,22 +75,28 @@ func NewPipeline(pc config.Pipeline) *Pipeline {
 		NodesList:   NodesList,
 	}
 
-	return &pip
+	return &pip, nil
 }
 
-func buildTree(name string, n config.Node, NodesList *[]*NodeInterface) NodeInterface {
+func buildTree(name string, n config.Node, NodesList *[]*nodeInterface) (nodeInterface, error) {
 
-	next := make([]NextNode, 0)
+	next := make([]nextNode, 0)
 
-	var node NodeInterface = nil
+	var currNode nodeInterface
 
-	*NodesList = append(*NodesList, &node)
+	*NodesList = append(*NodesList, &currNode)
 
 	if n.Next != nil {
 		for key, value := range n.Next {
-			next = append(next, NextNode{
+			Node, err := buildTree(key, value, NodesList)
+
+			if err != nil {
+				return nil, err
+			}
+
+			next = append(next, nextNode{
 				async: value.Async,
-				Node:  buildTree(key, value, NodesList),
+				node:  Node,
 			})
 		}
 	}
@@ -88,8 +104,8 @@ func buildTree(name string, n config.Node, NodesList *[]*NodeInterface) NodeInte
 	// processor plugins
 	processor, ok := manager.GetProcessor(name)
 	if ok {
-		node = &ProcessingNode{
-			Node: Node{
+		currNode = &processingNode{
+			node: node{
 				RecieverChan: make(chan component.Transaction),
 				Next:         next,
 			},
@@ -98,19 +114,19 @@ func buildTree(name string, n config.Node, NodesList *[]*NodeInterface) NodeInte
 	} else {
 		output, ok := manager.GetOutput(name)
 		if ok {
-			node = &OutputNode{
-				Node: Node{
+			currNode = &outputNode{
+				node: node{
 					RecieverChan: make(chan component.Transaction),
 					Next:         next,
 				},
 				OutputWrapper: output,
 			}
 		} else {
-			panic("PLUGINS DOESN'T EXIT")
-			//TODO return error instead
+			return nil, fmt.Errorf("plugin [%s] doesn't exists", name)
 		}
 	}
 
-	node.Start()
-	return node
+	currNode.start()
+
+	return currNode, nil
 }
