@@ -75,6 +75,7 @@ type PipelinesConfig struct {
 	Pipelines map[string]Pipeline `yaml:"pipelines"`
 }
 
+// Pipeline used for YAML decoding
 type Pipeline struct {
 	Concurrency int             `yaml:"concurrency"`
 	Pipeline    map[string]Node `yaml:"pipeline"`

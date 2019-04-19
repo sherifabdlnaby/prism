@@ -9,48 +9,43 @@ import (
 
 /////////////
 
-var InputPlugins = make(map[string]InputWrapper)
-var ProcessorPlugins = make(map[string]ProcessorWrapper)
-var OutputPlugins = make(map[string]OutputWrapper)
-
 ///////////////
 
-type ResourceManager struct {
+type resourceManager struct {
 	semaphore.Weighted
 }
 
-func NewResourceManager(concurrency int) *ResourceManager {
-	return &ResourceManager{
+func newResourceManager(concurrency int) *resourceManager {
+	return &resourceManager{
 		Weighted: *semaphore.NewWeighted(int64(concurrency)),
 	}
 }
 
 //////////////
 
+// InputWrapper Wraps and Input Plugin Instance
 type InputWrapper struct {
 	component.Input
-	ResourceManager
+	resourceManager
 }
+
+// ProcessorWrapper Wraps and Input Plugin Instance
 type ProcessorWrapper struct {
 	component.ProcessorReadWrite
-	ResourceManager
+	resourceManager
 }
+
+// OutputWrapper Wraps and Input Plugin Instance
 type OutputWrapper struct {
 	component.Output
-	ResourceManager
+	resourceManager
 }
 
 /////////////
 
+// LoadInput Load Input Plugin in the loaded registry, according to the parsed config.
 func LoadInput(name string, input config.Input) error {
-	_, ok := InputPlugins[name]
-	if !ok {
-		_, ok = ProcessorPlugins[name]
-		if !ok {
-			_, ok = OutputPlugins[name]
-		}
-	}
-
+	ok := exists(name)
 	if ok {
 		return fmt.Errorf("duplicate plugin instance with name [%s]", name)
 	}
@@ -61,34 +56,29 @@ func LoadInput(name string, input config.Input) error {
 	}
 
 	pluginInstance, ok := componentConst().(component.Input)
-
 	if !ok {
 		return fmt.Errorf("plugin type [%s] is not an input plugin", input.Plugin)
 	}
 
-	InputPlugins[name] = InputWrapper{
+	inputPlugins[name] = InputWrapper{
 		Input:           pluginInstance,
-		ResourceManager: *NewResourceManager(input.Concurrency),
+		resourceManager: *newResourceManager(input.Concurrency),
 	}
 
 	return nil
 }
 
+// GetInput Get Input Plugin from the loaded plugins.
 func GetInput(name string) (a InputWrapper, b bool) {
-	a, b = InputPlugins[name]
+	a, b = inputPlugins[name]
 	return
 }
 
 /////////////
 
+// LoadProcessor Load Processor Plugin in the loaded registry, according to the parsed config.
 func LoadProcessor(name string, processor config.Processor) error {
-	_, ok := InputPlugins[name]
-	if !ok {
-		_, ok = ProcessorPlugins[name]
-		if !ok {
-			_, ok = OutputPlugins[name]
-		}
-	}
+	ok := exists(name)
 	if ok {
 		return fmt.Errorf("processor plugin instance with name [%s] is already loaded", name)
 	}
@@ -99,34 +89,29 @@ func LoadProcessor(name string, processor config.Processor) error {
 	}
 
 	pluginInstance, ok := componentConst().(component.ProcessorReadWrite)
-
 	if !ok {
 		return fmt.Errorf("plugin type [%s] is not a processor plugin", processor.Plugin)
 	}
 
-	ProcessorPlugins[name] = ProcessorWrapper{
+	processorPlugins[name] = ProcessorWrapper{
 		ProcessorReadWrite: pluginInstance,
-		ResourceManager:    *NewResourceManager(processor.Concurrency),
+		resourceManager:    *newResourceManager(processor.Concurrency),
 	}
 
 	return nil
 }
 
+// GetProcessor Get Processor Plugin from the loaded plugins.
 func GetProcessor(name string) (a ProcessorWrapper, b bool) {
-	a, b = ProcessorPlugins[name]
+	a, b = processorPlugins[name]
 	return
 }
 
 /////////////
 
+// LoadOutput Load Output Plugin in the loaded registry, according to the parsed config.
 func LoadOutput(name string, output config.Output) error {
-	_, ok := InputPlugins[name]
-	if !ok {
-		_, ok = ProcessorPlugins[name]
-		if !ok {
-			_, ok = OutputPlugins[name]
-		}
-	}
+	ok := exists(name)
 	if ok {
 		return fmt.Errorf("output plugin instance with name [%s] is already loaded", name)
 	}
@@ -137,20 +122,31 @@ func LoadOutput(name string, output config.Output) error {
 	}
 
 	pluginInstance, ok := componentConst().(component.Output)
-
 	if !ok {
 		return fmt.Errorf("plugin type [%s] is not an output plugin", output.Plugin)
 	}
 
-	OutputPlugins[name] = OutputWrapper{
+	outputPlugins[name] = OutputWrapper{
 		Output:          pluginInstance,
-		ResourceManager: *NewResourceManager(output.Concurrency),
+		resourceManager: *newResourceManager(output.Concurrency),
 	}
 
 	return nil
 }
 
+// GetOutput Get Output Plugin from the loaded plugins.
 func GetOutput(name string) (a OutputWrapper, b bool) {
-	a, b = OutputPlugins[name]
+	a, b = outputPlugins[name]
 	return
+}
+
+func exists(name string) bool {
+	_, ok := inputPlugins[name]
+	if !ok {
+		_, ok = processorPlugins[name]
+		if !ok {
+			_, ok = outputPlugins[name]
+		}
+	}
+	return ok
 }

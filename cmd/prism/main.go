@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"github.com/sherifabdlnaby/prism/app"
 	"github.com/sherifabdlnaby/prism/app/config"
 	"github.com/sherifabdlnaby/prism/app/manager"
 	"github.com/sherifabdlnaby/prism/app/pipeline"
@@ -67,25 +66,29 @@ func main() {
 		panic(err)
 	}
 
-	err = app.LoadPlugins(config)
+	err = manager.LoadPlugins(config)
 
 	if err != nil {
 		config.Logger.Panic(err)
 	}
 
-	err = app.InitPlugins(config)
+	err = manager.InitPlugins(config)
 	if err != nil {
 		config.Logger.Panic(err)
 	}
 
-	err = app.StartPlugins(config)
+	err = manager.StartPlugins(config)
 	if err != nil {
 		config.Logger.Panic(err)
 	}
 
 	inp, _ := manager.GetInput("http_server")
 
-	pipelineX := pipeline.NewPipeline(config.Pipeline.Pipelines["profile_pic_pipeline"])
+	pipelineX, err := pipeline.NewPipeline(config.Pipeline.Pipelines["profile_pic_pipeline"])
+
+	if err != nil {
+		config.Logger.Panic(err)
+	}
 
 	go func() {
 		for value := range inp.TransactionChan() {

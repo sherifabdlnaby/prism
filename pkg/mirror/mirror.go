@@ -6,12 +6,20 @@ import (
 	"sync/atomic"
 )
 
+//Writer A Writing buffer that can be used to create multiple readers that all can read *the same* data written.
 type Writer struct {
 	internal bytes.Buffer
 	error    error
 	eofTotal int64
 }
 
+// Writer is the interface that wraps the basic Write method.
+//
+// Write writes len(p) bytes from p to the underlying data stream.
+// It returns the number of bytes written from p (0 <= n <= len(p))
+// and any error encountered that caused the write to stop early.
+// Write must return a non-nil error if it returns n < len(p).
+// Write must not modify the slice data, even temporarily.
 func (r *Writer) Write(p []byte) (n int, err error) {
 	n, err = r.internal.Write(p)
 	if err != nil {
@@ -20,6 +28,7 @@ func (r *Writer) Write(p []byte) (n int, err error) {
 	return
 }
 
+//Close Signal that the writer should no longer accept any input. and return EOF to readers.
 func (r *Writer) Close() error {
 
 	atomic.SwapInt64(&r.eofTotal, int64(r.internal.Len()))
@@ -33,6 +42,7 @@ type writerCloner struct {
 	i int
 }
 
+//NewReader A reader that can read all the data written.
 func (r *Writer) NewReader() io.Reader {
 	return &writerCloner{
 		Writer: r,
