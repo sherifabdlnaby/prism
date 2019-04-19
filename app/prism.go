@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/sherifabdlnaby/prism/app/config"
 	"github.com/sherifabdlnaby/prism/app/manager"
-	"github.com/sherifabdlnaby/prism/pkg/types"
+	"github.com/sherifabdlnaby/prism/pkg/component"
 )
 
 // TODO move these to manager
@@ -49,7 +49,7 @@ func InitPlugins(c config.Config) error {
 	inputLogger := logger.Named("input")
 	for name, input := range c.Inputs.Inputs {
 		plugin, _ := manager.GetInput(name)
-		pluginConfig := *types.NewConfig(input.Config)
+		pluginConfig := *component.NewConfig(input.Config)
 		err := plugin.Init(pluginConfig, *inputLogger.Named(name))
 		if err != nil {
 			return fmt.Errorf("failed to initalize plugin [%s]: %s", name, err.Error())
@@ -60,7 +60,7 @@ func InitPlugins(c config.Config) error {
 	processorLogger := logger.Named("processor")
 	for name, processor := range c.Processors.Processors {
 		plugin, _ := manager.GetProcessor(name)
-		pluginConfig := *types.NewConfig(processor.Config)
+		pluginConfig := *component.NewConfig(processor.Config)
 		err := plugin.Init(pluginConfig, *processorLogger.Named(name))
 		if err != nil {
 			return fmt.Errorf("failed to initalize plugin [%s]: %s", name, err.Error())
@@ -71,7 +71,7 @@ func InitPlugins(c config.Config) error {
 	outputLogger := logger.Named("output")
 	for name, output := range c.Outputs.Outputs {
 		plugin, _ := manager.GetOutput(name)
-		pluginConfig := *types.NewConfig(output.Config)
+		pluginConfig := *component.NewConfig(output.Config)
 		err := plugin.Init(pluginConfig, *outputLogger.Named(name))
 		if err != nil {
 			return fmt.Errorf("failed to initalize plugin [%s]: %s", name, err.Error())

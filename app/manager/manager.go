@@ -3,7 +3,7 @@ package manager
 import (
 	"fmt"
 	"github.com/sherifabdlnaby/prism/app/config"
-	"github.com/sherifabdlnaby/prism/pkg/types"
+	"github.com/sherifabdlnaby/prism/pkg/component"
 	"github.com/sherifabdlnaby/semaphore"
 )
 
@@ -28,15 +28,15 @@ func NewResourceManager(concurrency int) *ResourceManager {
 //////////////
 
 type InputWrapper struct {
-	types.Input
+	component.Input
 	ResourceManager
 }
 type ProcessorWrapper struct {
-	types.Processor
+	component.ProcessorReadWrite
 	ResourceManager
 }
 type OutputWrapper struct {
-	types.Output
+	component.Output
 	ResourceManager
 }
 
@@ -55,12 +55,12 @@ func LoadInput(name string, input config.Input) error {
 		return fmt.Errorf("duplicate plugin instance with name [%s]", name)
 	}
 
-	component, ok := registered[input.Plugin]
+	componentConst, ok := registered[input.Plugin]
 	if !ok {
 		return fmt.Errorf("plugin type [%s] doesn't exist", input.Plugin)
 	}
 
-	pluginInstance, ok := component().(types.Input)
+	pluginInstance, ok := componentConst().(component.Input)
 
 	if !ok {
 		return fmt.Errorf("plugin type [%s] is not an input plugin", input.Plugin)
@@ -93,20 +93,20 @@ func LoadProcessor(name string, processor config.Processor) error {
 		return fmt.Errorf("processor plugin instance with name [%s] is already loaded", name)
 	}
 
-	component, ok := registered[processor.Plugin]
+	componentConst, ok := registered[processor.Plugin]
 	if !ok {
 		return fmt.Errorf("processor plugin type [%s] doesn't exist", processor.Plugin)
 	}
 
-	pluginInstance, ok := component().(types.Processor)
+	pluginInstance, ok := componentConst().(component.ProcessorReadWrite)
 
 	if !ok {
 		return fmt.Errorf("plugin type [%s] is not a processor plugin", processor.Plugin)
 	}
 
 	ProcessorPlugins[name] = ProcessorWrapper{
-		Processor:       pluginInstance,
-		ResourceManager: *NewResourceManager(processor.Concurrency),
+		ProcessorReadWrite: pluginInstance,
+		ResourceManager:    *NewResourceManager(processor.Concurrency),
 	}
 
 	return nil
@@ -131,12 +131,12 @@ func LoadOutput(name string, output config.Output) error {
 		return fmt.Errorf("output plugin instance with name [%s] is already loaded", name)
 	}
 
-	component, ok := registered[output.Plugin]
+	componentConst, ok := registered[output.Plugin]
 	if !ok {
 		return fmt.Errorf("output plugin type [%s] doesn't exist", output.Plugin)
 	}
 
-	pluginInstance, ok := component().(types.Output)
+	pluginInstance, ok := componentConst().(component.Output)
 
 	if !ok {
 		return fmt.Errorf("plugin type [%s] is not an output plugin", output.Plugin)

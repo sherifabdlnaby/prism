@@ -3,14 +3,14 @@ package pipeline
 import (
 	"context"
 	"github.com/sherifabdlnaby/prism/app/manager"
+	"github.com/sherifabdlnaby/prism/pkg/component"
 	"github.com/sherifabdlnaby/prism/pkg/mirror"
-	"github.com/sherifabdlnaby/prism/pkg/types"
 )
 
 //TODO refactor to make output and process close to each other.
 
 type Node struct {
-	RecieverChan chan types.Transaction
+	RecieverChan chan component.Transaction
 	Next         []NextNode
 }
 
@@ -19,19 +19,19 @@ type NextNode struct {
 	Node  NodeInterface
 }
 
-func (n Node) GetRecieverChan() chan types.Transaction {
+func (n Node) GetRecieverChan() chan component.Transaction {
 	return n.RecieverChan
 }
 
 type NodeInterface interface {
 	Start()
-	GetRecieverChan() chan types.Transaction
-	Job(t types.Transaction)
+	GetRecieverChan() chan component.Transaction
+	Job(t component.Transaction)
 }
 
 ///////////////
 
-type DummyNode struct {
+type dummyNode struct {
 	Node
 }
 
@@ -47,7 +47,7 @@ type OutputNode struct {
 
 ///////////////
 
-func (dn *DummyNode) Start() {
+func (dn *dummyNode) Start() {
 	go func() {
 		for value := range dn.RecieverChan {
 			go dn.Job(value)
@@ -55,35 +55,19 @@ func (dn *DummyNode) Start() {
 	}()
 }
 
-func (dn *DummyNode) Job(t types.Transaction) {
+func (dn *dummyNode) Job(t component.Transaction) {
 
 	// SEND
-	responseChan := make(chan types.Response)
-	for _, next := range dn.Next {
+	responseChan := make(chan component.Response)
 
-		next.Node.GetRecieverChan() <- types.Transaction{
-			InputPayload: t.InputPayload,
-			ResponseChan: responseChan,
-		}
-	}
-
-	count, total := 0, len(dn.Next)
-
-	// AWAIT RESPONSEEs
-	response := types.Response{}
-	for ; count < total; count++ {
-		select {
-		case response = <-responseChan:
-			if !response.Ack {
-				break
-			}
-
-			// TODO case context canceled.
-		}
+	dn.Next[0].Node.GetRecieverChan() <- component.Transaction{
+		InputPayload: t.InputPayload,
+		ImageData:    t.ImageData,
+		ResponseChan: responseChan,
 	}
 
 	// Send Response back.
-	t.ResponseChan <- response
+	t.ResponseChan <- <-responseChan
 }
 
 //////////////
@@ -96,23 +80,27 @@ func (pn *ProcessingNode) Start() {
 	}()
 }
 
-func (pn *ProcessingNode) Job(t types.Transaction) {
+func (pn *ProcessingNode) Job(t component.Transaction) {
 
 	err := pn.ProcessorWrapper.Acquire(context.TODO(), 1)
-	// TODO check err here
-
-	decoded, err := pn.Decode(t.InputPayload)
-
 	if err != nil {
-		t.ResponseChan <- types.ResponseError(err)
+		t.ResponseChan <- component.ResponseError(err)
 		pn.ProcessorWrapper.Release(1)
 		return
 	}
 
-	decodedPayload, err := pn.Process(decoded)
+	decoded, response := pn.Decode(t.InputPayload, t.ImageData)
 
-	if err != nil {
-		t.ResponseChan <- types.ResponseError(err)
+	if !response.Ack {
+		t.ResponseChan <- response
+		pn.ProcessorWrapper.Release(1)
+		return
+	}
+
+	decodedPayload, response := pn.Process(decoded, t.ImageData)
+
+	if !response.Ack {
+		t.ResponseChan <- response
 		pn.ProcessorWrapper.Release(1)
 		return
 	}
@@ -120,16 +108,15 @@ func (pn *ProcessingNode) Job(t types.Transaction) {
 	///BASE READER
 	buffer := mirror.Writer{}
 
-	baseOutput := types.OutputPayload{
+	baseOutput := component.OutputPayload{
 		WriteCloser: &buffer,
 		ImageBytes:  nil,
-		ImageData:   nil,
 	}
 
-	err = pn.Encode(decodedPayload, &baseOutput)
+	response = pn.Encode(decodedPayload, t.ImageData, &baseOutput)
 
-	if err != nil {
-		t.ResponseChan <- types.ResponseError(err)
+	if !response.Ack {
+		t.ResponseChan <- response
 		pn.ProcessorWrapper.Release(1)
 		return
 	}
@@ -137,15 +124,15 @@ func (pn *ProcessingNode) Job(t types.Transaction) {
 	pn.ProcessorWrapper.Release(1)
 
 	// SEND
-	responseChan := make(chan types.Response)
+	responseChan := make(chan component.Response)
 	for _, next := range pn.Next {
 
-		next.Node.GetRecieverChan() <- types.Transaction{
-			InputPayload: types.InputPayload{
+		next.Node.GetRecieverChan() <- component.Transaction{
+			InputPayload: component.InputPayload{
 				Reader:     buffer.NewReader(),
 				ImageBytes: baseOutput.ImageBytes,
-				ImageData:  baseOutput.ImageData,
 			},
+			ImageData:    t.ImageData,
 			ResponseChan: responseChan,
 		}
 	}
@@ -153,14 +140,13 @@ func (pn *ProcessingNode) Job(t types.Transaction) {
 	count, total := 0, len(pn.Next)
 
 	// AWAIT RESPONSEEs
-	response := types.Response{}
+	response = component.Response{}
 	for ; count < total; count++ {
 		select {
 		case response = <-responseChan:
 			if !response.Ack {
 				break
 			}
-
 			// TODO case context canceled.
 		}
 	}
@@ -179,7 +165,7 @@ func (pn *OutputNode) Start() {
 	}()
 }
 
-func (pn *OutputNode) Job(t types.Transaction) {
+func (pn *OutputNode) Job(t component.Transaction) {
 	// TODO assumes output don't have NEXT.
 	_ = pn.OutputWrapper.Acquire(context.TODO(), 1)
 	// TODO check err here

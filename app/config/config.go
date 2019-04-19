@@ -194,7 +194,7 @@ func resolveEnvFromBytes(bytes []byte) ([]byte, error) {
 		value, isset := os.LookupEnv(envKey)
 
 		if !isset {
-			return nil, fmt.Errorf("environment variable \"%s\" is not set", envKey)
+			return nil, fmt.Errorf("environment variable [%s] is not set", envKey)
 		}
 		toString = strings.Replace(toString, submatches[0], value, -1)
 	}

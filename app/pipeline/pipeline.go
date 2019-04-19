@@ -4,12 +4,12 @@ import (
 	"context"
 	"github.com/sherifabdlnaby/prism/app/config"
 	"github.com/sherifabdlnaby/prism/app/manager"
-	"github.com/sherifabdlnaby/prism/pkg/types"
+	"github.com/sherifabdlnaby/prism/pkg/component"
 	"github.com/sherifabdlnaby/semaphore"
 )
 
 type Pipeline struct {
-	RecieveChan chan types.Transaction
+	RecieveChan chan component.Transaction
 	Next        NodeInterface
 	Sema        semaphore.Weighted
 	NodesList   []*NodeInterface
@@ -18,12 +18,13 @@ type Pipeline struct {
 func (p *Pipeline) Start() {
 	go func() {
 		for value := range p.RecieveChan {
-			go func(transaction types.Transaction) {
+			go func(transaction component.Transaction) {
 				// TODO handle context error
 				_ = p.Sema.Acquire(context.TODO(), 1)
-				responseChan := make(chan types.Response)
-				p.Next.GetRecieverChan() <- types.Transaction{
+				responseChan := make(chan component.Response)
+				p.Next.GetRecieverChan() <- component.Transaction{
 					InputPayload: transaction.InputPayload,
+					ImageData:    transaction.ImageData,
 					ResponseChan: responseChan,
 				}
 				transaction.ResponseChan <- <-responseChan
@@ -38,9 +39,9 @@ func NewPipeline(pc config.Pipeline) *Pipeline {
 	next := make([]NextNode, 0)
 	NodesList := make([]*NodeInterface, 0)
 
-	beginNode := DummyNode{
+	beginNode := dummyNode{
 		Node: Node{
-			RecieverChan: make(chan types.Transaction),
+			RecieverChan: make(chan component.Transaction),
 		},
 	}
 
@@ -58,7 +59,7 @@ func NewPipeline(pc config.Pipeline) *Pipeline {
 	beginNode.Start()
 
 	pip := Pipeline{
-		RecieveChan: make(chan types.Transaction),
+		RecieveChan: make(chan component.Transaction),
 		Next:        &beginNode,
 		Sema:        *semaphore.NewWeighted(int64(pc.Concurrency)),
 		NodesList:   NodesList,
@@ -89,7 +90,7 @@ func buildTree(name string, n config.Node, NodesList *[]*NodeInterface) NodeInte
 	if ok {
 		node = &ProcessingNode{
 			Node: Node{
-				RecieverChan: make(chan types.Transaction),
+				RecieverChan: make(chan component.Transaction),
 				Next:         next,
 			},
 			ProcessorWrapper: processor,
@@ -99,7 +100,7 @@ func buildTree(name string, n config.Node, NodesList *[]*NodeInterface) NodeInte
 		if ok {
 			node = &OutputNode{
 				Node: Node{
-					RecieverChan: make(chan types.Transaction),
+					RecieverChan: make(chan component.Transaction),
 					Next:         next,
 				},
 				OutputWrapper: output,
