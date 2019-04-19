@@ -16,12 +16,12 @@ pipelines:
                             dummy_processor3:
                                 async: false
                                 next:
-                                    disk1:
+                                    disk2:
                                         async: false
                             dummy_processor1:
                                 async: false
                                 next:
-                                    disk1:
+                                    disk3:
                                         async: false
                     dummy_processor2:
                         async: true
@@ -31,7 +31,7 @@ pipelines:
                     dummy_processor3:
                         async: true
                         next:
-                            disk1:
+                            disk2:
                                 async: false
 
 #pipelines:
