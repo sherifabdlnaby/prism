@@ -1,7 +1,7 @@
 package dummy
 
 import (
-	"github.com/sherifabdlnaby/prism/pkg/types"
+	"github.com/sherifabdlnaby/prism/pkg/component"
 	"go.uber.org/zap"
 	"io/ioutil"
 	"time"
@@ -11,46 +11,52 @@ type Dummy struct {
 	logger zap.SugaredLogger
 }
 
-func NewComponent() types.Component {
+type internalImage struct {
+	internal []byte
+}
+
+func NewComponent() component.Component {
 	return &Dummy{}
 }
 
-func (d *Dummy) Decode(ep types.InputPayload) (types.DecodedPayload, error) {
+func (d *Dummy) Decode(in component.InputPayload, data component.ImageData) (interface{}, component.Response) {
 	d.logger.Debugw("Decoding InputPayload... ")
 
-	imgBytes, err := ioutil.ReadAll(ep)
+	imgBytes, err := ioutil.ReadAll(in)
 
 	if err != nil {
-		return types.DecodedPayload{}, nil
+		return component.DecodedPayload{}, component.ResponseError(err)
+	}
+
+	// create internal object (varies with each plugin)
+	out := internalImage{
+		internal: imgBytes,
 	}
 
 	// Return it as it is (dummy).
-	return types.DecodedPayload{
-		Image:     imgBytes,
-		ImageData: ep.ImageData,
-	}, nil
+	return out, component.ResponseACK
 }
 
-func (d *Dummy) Process(dp types.DecodedPayload) (types.DecodedPayload, error) {
+func (d *Dummy) Process(dp interface{}, data component.ImageData) (interface{}, component.Response) {
 	d.logger.Debugw("Processing InputPayload... ")
-	return dp, nil
+	return dp, component.ResponseACK
 }
 
-func (d *Dummy) Encode(in types.DecodedPayload, out *types.OutputPayload) error {
+func (d *Dummy) Encode(in interface{}, data component.ImageData, out *component.OutputPayload) component.Response {
 	d.logger.Debugw("Encoding InputPayload... ")
-	out.ImageBytes = in.Image.([]byte)
+	out.ImageBytes = in.(internalImage).internal
 	_, err := out.Write(out.ImageBytes)
 	if err != nil {
-		return err
+		return component.ResponseError(err)
 	}
 	err = out.Close()
 	if err != nil {
-		return err
+		return component.ResponseError(err)
 	}
-	return nil
+	return component.ResponseACK
 }
 
-func (d *Dummy) Init(config types.Config, logger zap.SugaredLogger) error {
+func (d *Dummy) Init(config component.Config, logger zap.SugaredLogger) error {
 	d.logger = logger
 	return nil
 }
