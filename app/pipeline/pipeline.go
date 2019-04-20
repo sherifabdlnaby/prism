@@ -104,12 +104,25 @@ func buildTree(name string, n config.Node, NodesList *[]*nodeInterface) (nodeInt
 	// processor plugins
 	processor, ok := manager.GetProcessor(name)
 	if ok {
-		currNode = &processingNode{
-			node: node{
-				RecieverChan: make(chan component.Transaction),
-				Next:         next,
-			},
-			ProcessorWrapper: processor,
+		switch p := processor.ProcessorBase.(type) {
+		case component.ProcessorReadOnly:
+			currNode = &processingReadOnlyNode{
+				node: node{
+					RecieverChan: make(chan component.Transaction),
+					Next:         next,
+				},
+				ResourceManager:   processor.ResourceManager,
+				ProcessorReadOnly: p,
+			}
+		case component.ProcessorReadWrite:
+			currNode = &processingReadWriteNode{
+				node: node{
+					RecieverChan: make(chan component.Transaction),
+					Next:         next,
+				},
+				ResourceManager:    processor.ResourceManager,
+				ProcessorReadWrite: p,
+			}
 		}
 	} else {
 		output, ok := manager.GetOutput(name)
@@ -119,7 +132,8 @@ func buildTree(name string, n config.Node, NodesList *[]*nodeInterface) (nodeInt
 					RecieverChan: make(chan component.Transaction),
 					Next:         next,
 				},
-				OutputWrapper: output,
+				ResourceManager: output.ResourceManager,
+				Output:          output.Output,
 			}
 		} else {
 			return nil, fmt.Errorf("plugin [%s] doesn't exists", name)
