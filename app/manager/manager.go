@@ -9,36 +9,35 @@ import (
 
 /////////////
 
-///////////////
-
-type resourceManager struct {
-	semaphore.Weighted
+//ResourceManager contains types required to control access to a resource
+type ResourceManager struct {
+	*semaphore.Weighted
 }
 
-func newResourceManager(concurrency int) *resourceManager {
-	return &resourceManager{
-		Weighted: *semaphore.NewWeighted(int64(concurrency)),
+func newResourceManager(concurrency int) *ResourceManager {
+	return &ResourceManager{
+		Weighted: semaphore.NewWeighted(int64(concurrency)),
 	}
 }
 
 //////////////
 
-// InputWrapper Wraps and Input Plugin Instance
+// InputWrapper Wraps an Input Plugin Instance
 type InputWrapper struct {
 	component.Input
-	resourceManager
+	ResourceManager
 }
 
-// ProcessorWrapper Wraps and Input Plugin Instance
+// ProcessorWrapper wraps a processor Plugin Instance
 type ProcessorWrapper struct {
-	component.ProcessorReadWrite
-	resourceManager
+	component.ProcessorBase
+	ResourceManager
 }
 
 // OutputWrapper Wraps and Input Plugin Instance
 type OutputWrapper struct {
 	component.Output
-	resourceManager
+	ResourceManager
 }
 
 /////////////
@@ -62,7 +61,7 @@ func LoadInput(name string, input config.Input) error {
 
 	inputPlugins[name] = InputWrapper{
 		Input:           pluginInstance,
-		resourceManager: *newResourceManager(input.Concurrency),
+		ResourceManager: *newResourceManager(input.Concurrency),
 	}
 
 	return nil
@@ -88,14 +87,14 @@ func LoadProcessor(name string, processor config.Processor) error {
 		return fmt.Errorf("processor plugin type [%s] doesn't exist", processor.Plugin)
 	}
 
-	pluginInstance, ok := componentConst().(component.ProcessorReadWrite)
+	pluginInstance, ok := componentConst().(component.ProcessorBase)
 	if !ok {
 		return fmt.Errorf("plugin type [%s] is not a processor plugin", processor.Plugin)
 	}
 
 	processorPlugins[name] = ProcessorWrapper{
-		ProcessorReadWrite: pluginInstance,
-		resourceManager:    *newResourceManager(processor.Concurrency),
+		ProcessorBase:   pluginInstance,
+		ResourceManager: *newResourceManager(processor.Concurrency),
 	}
 
 	return nil
@@ -128,7 +127,7 @@ func LoadOutput(name string, output config.Output) error {
 
 	outputPlugins[name] = OutputWrapper{
 		Output:          pluginInstance,
-		resourceManager: *newResourceManager(output.Concurrency),
+		ResourceManager: *newResourceManager(output.Concurrency),
 	}
 
 	return nil

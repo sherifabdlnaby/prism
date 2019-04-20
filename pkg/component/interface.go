@@ -51,9 +51,20 @@ type Processor interface {
 	Process(in interface{}, data ImageData) (interface{}, Response)
 }
 
+//ProcessorRead A base component that can process images in read-only mode (no-output)
+type ProcessorRead interface {
+	Process(in interface{}, data ImageData) Response
+}
+
 //Encoder A Component that encode an Image
 type Encoder interface {
 	Encode(in interface{}, data ImageData, out *OutputPayload) Response
+}
+
+// ProcessorBase can process a payload.
+type ProcessorBase interface {
+	Component
+	Decoder
 }
 
 // ProcessorReadWrite can decode, process, or encode a payload.
@@ -67,7 +78,7 @@ type ProcessorReadWrite interface {
 // ProcessorReadOnly can decode, process, and image but doesn't output any data.
 type ProcessorReadOnly interface {
 	Component
-	Processor
+	ProcessorRead
 	Decoder
 }
 
