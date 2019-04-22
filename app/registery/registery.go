@@ -1,6 +1,7 @@
 package registery
 
 import (
+	"github.com/sherifabdlnaby/prism/app/registery/wrapper"
 	dummyinput "github.com/sherifabdlnaby/prism/internal/input/dummy"
 	"github.com/sherifabdlnaby/prism/internal/output/disk"
 	dummyprocessor "github.com/sherifabdlnaby/prism/internal/processor/dummy"
@@ -14,16 +15,16 @@ var registered = map[string]func() component.Component{
 	"disk":            disk.NewComponent,
 }
 
-type Local struct {
-	InputPlugins     map[string]InputWrapper
-	ProcessorPlugins map[string]ProcessorWrapper
-	OutputPlugins    map[string]OutputWrapper
+type Registry struct {
+	InputPlugins     map[string]wrapper.Input
+	ProcessorPlugins map[string]wrapper.Processor
+	OutputPlugins    map[string]wrapper.Output
 }
 
-func NewLocal() *Local {
-	return &Local{
-		InputPlugins:     make(map[string]InputWrapper),
-		ProcessorPlugins: make(map[string]ProcessorWrapper),
-		OutputPlugins:    make(map[string]OutputWrapper),
+func NewRegistry() *Registry {
+	return &Registry{
+		InputPlugins:     make(map[string]wrapper.Input),
+		ProcessorPlugins: make(map[string]wrapper.Processor),
+		OutputPlugins:    make(map[string]wrapper.Output),
 	}
 }

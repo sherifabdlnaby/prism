@@ -1,8 +1,8 @@
-package node
+package pipeline
 
 import (
 	"context"
-	"github.com/sherifabdlnaby/prism/app/registery"
+	"github.com/sherifabdlnaby/prism/app/registery/wrapper"
 	"github.com/sherifabdlnaby/prism/pkg/component"
 	"github.com/sherifabdlnaby/prism/pkg/mirror"
 )
@@ -33,19 +33,19 @@ type DummyNode struct {
 
 type ProcessingReadWriteNode struct {
 	Node
-	registery.ResourceManager
+	wrapper.Resource
 	component.ProcessorReadWrite
 }
 
 type ProcessingReadOnlyNode struct {
 	Node
-	registery.ResourceManager
+	wrapper.Resource
 	component.ProcessorReadOnly
 }
 
 type OutputNode struct {
 	Node
-	registery.ResourceManager
+	wrapper.Resource
 	component.Output
 }
 
@@ -86,10 +86,10 @@ func (pn *ProcessingReadWriteNode) Start() {
 
 func (pn *ProcessingReadWriteNode) Job(t component.Transaction) {
 
-	err := pn.ResourceManager.Acquire(context.TODO(), 1)
+	err := pn.Resource.Acquire(context.TODO(), 1)
 	if err != nil {
 		t.ResponseChan <- component.ResponseError(err)
-		pn.ResourceManager.Release(1)
+		pn.Resource.Release(1)
 		return
 	}
 
@@ -97,7 +97,7 @@ func (pn *ProcessingReadWriteNode) Job(t component.Transaction) {
 
 	if !response.Ack {
 		t.ResponseChan <- response
-		pn.ResourceManager.Release(1)
+		pn.Resource.Release(1)
 		return
 	}
 
@@ -105,7 +105,7 @@ func (pn *ProcessingReadWriteNode) Job(t component.Transaction) {
 
 	if !response.Ack {
 		t.ResponseChan <- response
-		pn.ResourceManager.Release(1)
+		pn.Resource.Release(1)
 		return
 	}
 
@@ -120,11 +120,11 @@ func (pn *ProcessingReadWriteNode) Job(t component.Transaction) {
 
 	if !response.Ack {
 		t.ResponseChan <- response
-		pn.ResourceManager.Release(1)
+		pn.Resource.Release(1)
 		return
 	}
 
-	pn.ResourceManager.Release(1)
+	pn.Resource.Release(1)
 
 	// SEND
 	responseChan := make(chan component.Response)
@@ -169,10 +169,10 @@ func (pn *ProcessingReadOnlyNode) Start() {
 
 func (pn *ProcessingReadOnlyNode) Job(t component.Transaction) {
 
-	err := pn.ResourceManager.Acquire(context.TODO(), 1)
+	err := pn.Resource.Acquire(context.TODO(), 1)
 	if err != nil {
 		t.ResponseChan <- component.ResponseError(err)
-		pn.ResourceManager.Release(1)
+		pn.Resource.Release(1)
 		return
 	}
 
@@ -187,7 +187,7 @@ func (pn *ProcessingReadOnlyNode) Job(t component.Transaction) {
 
 	if !response.Ack {
 		t.ResponseChan <- response
-		pn.ResourceManager.Release(1)
+		pn.Resource.Release(1)
 		return
 	}
 
@@ -195,11 +195,11 @@ func (pn *ProcessingReadOnlyNode) Job(t component.Transaction) {
 
 	if !response.Ack {
 		t.ResponseChan <- response
-		pn.ResourceManager.Release(1)
+		pn.Resource.Release(1)
 		return
 	}
 
-	pn.ResourceManager.Release(1)
+	pn.Resource.Release(1)
 
 	// SEND
 	responseChan := make(chan component.Response)
@@ -244,12 +244,12 @@ func (on *OutputNode) Start() {
 
 func (on *OutputNode) Job(t component.Transaction) {
 	// TODO assumes output don't have NEXT.
-	_ = on.ResourceManager.Acquire(context.TODO(), 1)
+	_ = on.Resource.Acquire(context.TODO(), 1)
 	// TODO check err here
 
 	on.TransactionChan() <- t
 
-	on.ResourceManager.Release(1)
+	on.Resource.Release(1)
 }
 
 //////////////

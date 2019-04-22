@@ -3,11 +3,12 @@ package registery
 import (
 	"fmt"
 	"github.com/sherifabdlnaby/prism/app/config"
+	"github.com/sherifabdlnaby/prism/app/registery/wrapper"
 	"github.com/sherifabdlnaby/prism/pkg/component"
 )
 
-// LoadInput Load Input Plugin in the loaded registry, according to the parsed config.
-func (m *Local) LoadInput(name string, input config.Input) error {
+// LoadInput Load wrapper.Input Plugin in the loaded registry, according to the parsed config.
+func (m *Registry) LoadInput(name string, input config.Input) error {
 	ok := m.exists(name)
 	if ok {
 		return fmt.Errorf("duplicate plugin instance with name [%s]", name)
@@ -23,23 +24,23 @@ func (m *Local) LoadInput(name string, input config.Input) error {
 		return fmt.Errorf("plugin type [%s] is not an input plugin", input.Plugin)
 	}
 
-	m.InputPlugins[name] = InputWrapper{
-		Input:           pluginInstance,
-		ResourceManager: *NewResourceManager(input.Concurrency),
+	m.InputPlugins[name] = wrapper.Input{
+		Input:    pluginInstance,
+		Resource: *wrapper.NewResource(input.Concurrency),
 	}
 	return nil
 }
 
-// GetInput Get Input Plugin from the loaded plugins.
-func (m *Local) GetInput(name string) (a InputWrapper, b bool) {
+// GetInput Get wrapper.Input Plugin from the loaded plugins.
+func (m *Registry) GetInput(name string) (a wrapper.Input, b bool) {
 	a, b = m.InputPlugins[name]
 	return
 }
 
 /////////////
 
-// LoadProcessor Load Processor Plugin in the loaded registry, according to the parsed config.
-func (m *Local) LoadProcessor(name string, processor config.Processor) error {
+// LoadProcessor Load wrapper.Processor Plugin in the loaded registry, according to the parsed config.
+func (m *Registry) LoadProcessor(name string, processor config.Processor) error {
 	ok := m.exists(name)
 	if ok {
 		return fmt.Errorf("processor plugin instance with name [%s] is already loaded", name)
@@ -55,24 +56,24 @@ func (m *Local) LoadProcessor(name string, processor config.Processor) error {
 		return fmt.Errorf("plugin type [%s] is not a processor plugin", processor.Plugin)
 	}
 
-	m.ProcessorPlugins[name] = ProcessorWrapper{
-		ProcessorBase:   pluginInstance,
-		ResourceManager: *NewResourceManager(processor.Concurrency),
+	m.ProcessorPlugins[name] = wrapper.Processor{
+		ProcessorBase: pluginInstance,
+		Resource:      *wrapper.NewResource(processor.Concurrency),
 	}
 
 	return nil
 }
 
-// GetProcessor Get Processor Plugin from the loaded plugins.
-func (m *Local) GetProcessor(name string) (a ProcessorWrapper, b bool) {
+// GetProcessor Get wrapper.Processor Plugin from the loaded plugins.
+func (m *Registry) GetProcessor(name string) (a wrapper.Processor, b bool) {
 	a, b = m.ProcessorPlugins[name]
 	return
 }
 
 /////////////
 
-// LoadOutput Load Output Plugin in the loaded registry, according to the parsed config.
-func (m *Local) LoadOutput(name string, output config.Output) error {
+// LoadOutput Load wrapper.Output Plugin in the loaded registry, according to the parsed config.
+func (m *Registry) LoadOutput(name string, output config.Output) error {
 	ok := m.exists(name)
 	if ok {
 		return fmt.Errorf("output plugin instance with name [%s] is already loaded", name)
@@ -88,21 +89,21 @@ func (m *Local) LoadOutput(name string, output config.Output) error {
 		return fmt.Errorf("plugin type [%s] is not an output plugin", output.Plugin)
 	}
 
-	m.OutputPlugins[name] = OutputWrapper{
-		Output:          pluginInstance,
-		ResourceManager: *NewResourceManager(output.Concurrency),
+	m.OutputPlugins[name] = wrapper.Output{
+		Output:   pluginInstance,
+		Resource: *wrapper.NewResource(output.Concurrency),
 	}
 
 	return nil
 }
 
-// GetOutput Get Output Plugin from the loaded plugins.
-func (m *Local) GetOutput(name string) (a OutputWrapper, b bool) {
+// GetOutput Get wrapper.Output Plugin from the loaded plugins.
+func (m *Registry) GetOutput(name string) (a wrapper.Output, b bool) {
 	a, b = m.OutputPlugins[name]
 	return
 }
 
-func (m *Local) exists(name string) bool {
+func (m *Registry) exists(name string) bool {
 	_, ok := m.InputPlugins[name]
 	if !ok {
 		_, ok = m.ProcessorPlugins[name]
