@@ -3,149 +3,165 @@ package manager
 import (
 	"fmt"
 	"github.com/sherifabdlnaby/prism/app/config"
+	"github.com/sherifabdlnaby/prism/app/pipeline"
+	"github.com/sherifabdlnaby/prism/app/registery"
 	"github.com/sherifabdlnaby/prism/pkg/component"
-	"github.com/sherifabdlnaby/semaphore"
+	"go.uber.org/zap"
 )
 
-/////////////
-
-//ResourceManager contains types required to control access to a resource
-type ResourceManager struct {
-	*semaphore.Weighted
+type Manager struct {
+	baseLogger       zap.SugaredLogger
+	inputLogger      zap.SugaredLogger
+	processingLogger zap.SugaredLogger
+	outputLogger     zap.SugaredLogger
+	pipelineLogger   zap.SugaredLogger
+	registery.Local
+	Pipelines map[string]pipeline.Pipeline
 }
 
-func newResourceManager(concurrency int) *ResourceManager {
-	return &ResourceManager{
-		Weighted: semaphore.NewWeighted(int64(concurrency)),
-	}
+func NewManager(c config.Config) *Manager {
+	m := Manager{}
+	m.baseLogger = *c.Logger.Named("prism")
+	m.inputLogger = *m.baseLogger.Named("input")
+	m.processingLogger = *m.baseLogger.Named("processor")
+	m.outputLogger = *m.baseLogger.Named("output")
+	m.pipelineLogger = *m.baseLogger.Named("pipeline")
+	m.Local = *registery.NewLocal()
+	m.Pipelines = make(map[string]pipeline.Pipeline)
+	return &m
 }
 
-//////////////
+//LoadPlugins Load all plugins in Config
+func (m *Manager) LoadPlugins(c config.Config) error {
+	m.baseLogger.Info("loading plugins configuration...")
 
-// InputWrapper Wraps an Input Plugin Instance
-type InputWrapper struct {
-	component.Input
-	ResourceManager
-}
-
-// ProcessorWrapper wraps a processor Plugin Instance
-type ProcessorWrapper struct {
-	component.ProcessorBase
-	ResourceManager
-}
-
-// OutputWrapper Wraps and Input Plugin Instance
-type OutputWrapper struct {
-	component.Output
-	ResourceManager
-}
-
-/////////////
-
-// LoadInput Load Input Plugin in the loaded registry, according to the parsed config.
-func LoadInput(name string, input config.Input) error {
-	ok := exists(name)
-	if ok {
-		return fmt.Errorf("duplicate plugin instance with name [%s]", name)
-	}
-
-	componentConst, ok := registered[input.Plugin]
-	if !ok {
-		return fmt.Errorf("plugin type [%s] doesn't exist", input.Plugin)
-	}
-
-	pluginInstance, ok := componentConst().(component.Input)
-	if !ok {
-		return fmt.Errorf("plugin type [%s] is not an input plugin", input.Plugin)
-	}
-
-	inputPlugins[name] = InputWrapper{
-		Input:           pluginInstance,
-		ResourceManager: *newResourceManager(input.Concurrency),
-	}
-
-	return nil
-}
-
-// GetInput Get Input Plugin from the loaded plugins.
-func GetInput(name string) (a InputWrapper, b bool) {
-	a, b = inputPlugins[name]
-	return
-}
-
-/////////////
-
-// LoadProcessor Load Processor Plugin in the loaded registry, according to the parsed config.
-func LoadProcessor(name string, processor config.Processor) error {
-	ok := exists(name)
-	if ok {
-		return fmt.Errorf("processor plugin instance with name [%s] is already loaded", name)
-	}
-
-	componentConst, ok := registered[processor.Plugin]
-	if !ok {
-		return fmt.Errorf("processor plugin type [%s] doesn't exist", processor.Plugin)
-	}
-
-	pluginInstance, ok := componentConst().(component.ProcessorBase)
-	if !ok {
-		return fmt.Errorf("plugin type [%s] is not a processor plugin", processor.Plugin)
-	}
-
-	processorPlugins[name] = ProcessorWrapper{
-		ProcessorBase:   pluginInstance,
-		ResourceManager: *newResourceManager(processor.Concurrency),
-	}
-
-	return nil
-}
-
-// GetProcessor Get Processor Plugin from the loaded plugins.
-func GetProcessor(name string) (a ProcessorWrapper, b bool) {
-	a, b = processorPlugins[name]
-	return
-}
-
-/////////////
-
-// LoadOutput Load Output Plugin in the loaded registry, according to the parsed config.
-func LoadOutput(name string, output config.Output) error {
-	ok := exists(name)
-	if ok {
-		return fmt.Errorf("output plugin instance with name [%s] is already loaded", name)
-	}
-
-	componentConst, ok := registered[output.Plugin]
-	if !ok {
-		return fmt.Errorf("output plugin type [%s] doesn't exist", output.Plugin)
-	}
-
-	pluginInstance, ok := componentConst().(component.Output)
-	if !ok {
-		return fmt.Errorf("plugin type [%s] is not an output plugin", output.Plugin)
-	}
-
-	outputPlugins[name] = OutputWrapper{
-		Output:          pluginInstance,
-		ResourceManager: *newResourceManager(output.Concurrency),
-	}
-
-	return nil
-}
-
-// GetOutput Get Output Plugin from the loaded plugins.
-func GetOutput(name string) (a OutputWrapper, b bool) {
-	a, b = outputPlugins[name]
-	return
-}
-
-func exists(name string) bool {
-	_, ok := inputPlugins[name]
-	if !ok {
-		_, ok = processorPlugins[name]
-		if !ok {
-			_, ok = outputPlugins[name]
+	// Load Input Plugins
+	for name, plugin := range c.Inputs.Inputs {
+		err := m.LoadInput(name, plugin)
+		if err != nil {
+			return err
 		}
 	}
-	return ok
+
+	// Load Processor Plugins
+	for name, plugin := range c.Processors.Processors {
+		err := m.LoadProcessor(name, plugin)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Load Output Plugins
+	for name, plugin := range c.Outputs.Outputs {
+		err := m.LoadOutput(name, plugin)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+//InitPlugins Init all plugins in Config by calling their Init() function
+func (m *Manager) InitPlugins(c config.Config) error {
+	m.baseLogger.Info("initializing plugins...")
+
+	// Init Input Plugins
+	for name, input := range c.Inputs.Inputs {
+		plugin, _ := m.GetInput(name)
+		pluginConfig := *component.NewConfig(input.Config)
+		err := plugin.Init(pluginConfig, *m.inputLogger.Named(name))
+		if err != nil {
+			return fmt.Errorf("failed to initalize plugin [%s]: %s", name, err.Error())
+		}
+	}
+
+	// Load Processor Plugins
+	for name, processor := range c.Processors.Processors {
+		plugin, _ := m.GetProcessor(name)
+		pluginConfig := *component.NewConfig(processor.Config)
+		err := plugin.Init(pluginConfig, *m.processingLogger.Named(name))
+		if err != nil {
+			return fmt.Errorf("failed to initalize plugin [%s]: %s", name, err.Error())
+		}
+	}
+
+	// Load Output Plugins
+	for name, output := range c.Outputs.Outputs {
+		plugin, _ := m.GetOutput(name)
+		pluginConfig := *component.NewConfig(output.Config)
+		err := plugin.Init(pluginConfig, *m.outputLogger.Named(name))
+		if err != nil {
+			return fmt.Errorf("failed to initalize plugin [%s]: %s", name, err.Error())
+		}
+	}
+
+	return nil
+}
+
+//StartPlugins Start all plugins in Config by calling their Start() function
+func (m *Manager) StartPlugins(c config.Config) error {
+	m.baseLogger.Info("starting plugins...")
+
+	for _, value := range m.InputPlugins {
+		err := value.Start()
+		if err != nil {
+			return err
+		}
+	}
+
+	for _, value := range m.ProcessorPlugins {
+		err := value.Start()
+		if err != nil {
+			return err
+		}
+	}
+
+	for _, value := range m.OutputPlugins {
+		err := value.Start()
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+//InitPipelines Start all plugins in Config by calling their Start() function
+func (m *Manager) InitPipelines(c config.Config) error {
+	m.baseLogger.Info("initializing pipelines...")
+
+	for key, value := range c.Pipeline.Pipelines {
+
+		// check if pipeline already exists
+		_, ok := m.Pipelines[key]
+		if ok {
+			return fmt.Errorf("pipeline with name [%s] already declared", key)
+		}
+
+		pip, err := pipeline.NewPipeline(value, m.Local, *m.processingLogger.Named(key))
+
+		if err != nil {
+			return fmt.Errorf("error occured when constructing pipeline [%s]: %s", key, err.Error())
+		}
+
+		m.Pipelines[key] = *pip
+	}
+
+	return nil
+}
+
+func (m *Manager) StartPipelines(c config.Config) error {
+
+	logger := c.Logger
+	logger.Info("starting pipelines...")
+
+	for _, value := range m.Pipelines {
+		err := value.Start()
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
