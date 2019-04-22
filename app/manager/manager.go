@@ -6,27 +6,18 @@ import (
 	"github.com/sherifabdlnaby/prism/app/pipeline"
 	"github.com/sherifabdlnaby/prism/app/registery"
 	"github.com/sherifabdlnaby/prism/pkg/component"
-	"go.uber.org/zap"
 )
 
 type Manager struct {
-	baseLogger       zap.SugaredLogger
-	inputLogger      zap.SugaredLogger
-	processingLogger zap.SugaredLogger
-	outputLogger     zap.SugaredLogger
-	pipelineLogger   zap.SugaredLogger
-	registery.Local
+	logger
+	registery.Registry
 	Pipelines map[string]pipeline.Pipeline
 }
 
 func NewManager(c config.Config) *Manager {
 	m := Manager{}
-	m.baseLogger = *c.Logger.Named("prism")
-	m.inputLogger = *m.baseLogger.Named("input")
-	m.processingLogger = *m.baseLogger.Named("processor")
-	m.outputLogger = *m.baseLogger.Named("output")
-	m.pipelineLogger = *m.baseLogger.Named("pipeline")
-	m.Local = *registery.NewLocal()
+	m.logger = *newLoggers(c)
+	m.Registry = *registery.NewRegistry()
 	m.Pipelines = make(map[string]pipeline.Pipeline)
 	return &m
 }
@@ -139,7 +130,7 @@ func (m *Manager) InitPipelines(c config.Config) error {
 			return fmt.Errorf("pipeline with name [%s] already declared", key)
 		}
 
-		pip, err := pipeline.NewPipeline(value, m.Local, *m.processingLogger.Named(key))
+		pip, err := pipeline.NewPipeline(value, m.Registry, *m.processingLogger.Named(key))
 
 		if err != nil {
 			return fmt.Errorf("error occured when constructing pipeline [%s]: %s", key, err.Error())
@@ -153,8 +144,7 @@ func (m *Manager) InitPipelines(c config.Config) error {
 
 func (m *Manager) StartPipelines(c config.Config) error {
 
-	logger := c.Logger
-	logger.Info("starting pipelines...")
+	m.baseLogger.Info("starting pipelines...")
 
 	for _, value := range m.Pipelines {
 		err := value.Start()

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/sherifabdlnaby/prism/app/config"
-	"github.com/sherifabdlnaby/prism/app/node"
 	"github.com/sherifabdlnaby/prism/app/registery"
 	"github.com/sherifabdlnaby/prism/pkg/component"
 	"github.com/sherifabdlnaby/semaphore"
@@ -14,9 +13,9 @@ import (
 //Pipeline Holds the recursive tree of Nodes and their next nodes, etc
 type Pipeline struct {
 	RecieveChan chan component.Transaction
-	Next        node.Interface
+	Next        Interface
 	Sema        semaphore.Weighted
-	NodesList   []*node.Interface
+	NodesList   []*Interface
 	Logger      zap.SugaredLogger
 }
 
@@ -49,18 +48,18 @@ func (p *Pipeline) Start() error {
 }
 
 //NewPipeline Construct a NewPipeline using config.
-func NewPipeline(pc config.Pipeline, registry registery.Local, logger zap.SugaredLogger) (*Pipeline, error) {
+func NewPipeline(pc config.Pipeline, registry registery.Registry, logger zap.SugaredLogger) (*Pipeline, error) {
 
-	next := make([]node.NextNode, 0)
-	NodesList := make([]*node.Interface, 0)
+	next := make([]NextNode, 0)
+	NodesList := make([]*Interface, 0)
 
-	beginNode := node.DummyNode{
-		Node: node.Node{
+	beginNode := DummyNode{
+		Node: Node{
 			RecieverChan: make(chan component.Transaction),
 		},
 	}
 
-	var currNode node.Interface = &beginNode
+	var currNode Interface = &beginNode
 	NodesList = append(NodesList, &currNode)
 
 	for key, value := range pc.Pipeline {
@@ -70,7 +69,7 @@ func NewPipeline(pc config.Pipeline, registry registery.Local, logger zap.Sugare
 			return &Pipeline{}, err
 		}
 
-		next = append(next, node.NextNode{
+		next = append(next, NextNode{
 			Async: value.Async,
 			Node:  Node,
 		})
@@ -89,11 +88,11 @@ func NewPipeline(pc config.Pipeline, registry registery.Local, logger zap.Sugare
 	return &pip, nil
 }
 
-func buildTree(name string, n config.Node, registry registery.Local, NodesList *[]*node.Interface) (node.Interface, error) {
+func buildTree(name string, n config.Node, registry registery.Registry, NodesList *[]*Interface) (Interface, error) {
 
-	next := make([]node.NextNode, 0)
+	next := make([]NextNode, 0)
 
-	var currNode node.Interface
+	var currNode Interface
 
 	*NodesList = append(*NodesList, &currNode)
 
@@ -105,7 +104,7 @@ func buildTree(name string, n config.Node, registry registery.Local, NodesList *
 				return nil, err
 			}
 
-			next = append(next, node.NextNode{
+			next = append(next, NextNode{
 				Async: value.Async,
 				Node:  Node,
 			})
@@ -117,34 +116,34 @@ func buildTree(name string, n config.Node, registry registery.Local, NodesList *
 	if ok {
 		switch p := processor.ProcessorBase.(type) {
 		case component.ProcessorReadOnly:
-			currNode = &node.ProcessingReadOnlyNode{
-				Node: node.Node{
+			currNode = &ProcessingReadOnlyNode{
+				Node: Node{
 					RecieverChan: make(chan component.Transaction),
 					Next:         next,
 				},
-				ResourceManager:   processor.ResourceManager,
+				Resource:          processor.Resource,
 				ProcessorReadOnly: p,
 			}
 		case component.ProcessorReadWrite:
-			currNode = &node.ProcessingReadWriteNode{
-				Node: node.Node{
+			currNode = &ProcessingReadWriteNode{
+				Node: Node{
 					RecieverChan: make(chan component.Transaction),
 					Next:         next,
 				},
-				ResourceManager:    processor.ResourceManager,
+				Resource:           processor.Resource,
 				ProcessorReadWrite: p,
 			}
 		}
 	} else {
 		output, ok := registry.GetOutput(name)
 		if ok {
-			currNode = &node.OutputNode{
-				Node: node.Node{
+			currNode = &OutputNode{
+				Node: Node{
 					RecieverChan: make(chan component.Transaction),
 					Next:         next,
 				},
-				ResourceManager: output.ResourceManager,
-				Output:          output.Output,
+				Resource: output.Resource,
+				Output:   output.Output,
 			}
 		} else {
 			return nil, fmt.Errorf("plugin [%s] doesn't exists", name)
