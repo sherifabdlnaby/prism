@@ -23,7 +23,7 @@ func NewComponent() component.Component {
 
 //Decode Simulate Decoding the Image
 func (d *Dummy) Decode(in component.InputPayload, data component.ImageData) (interface{}, component.Response) {
-	d.logger.Debugw("Decoding InputPayload... ")
+	//d.logger.Debugw("Decoding InputPayload... ")
 
 	imgBytes, err := ioutil.ReadAll(in)
 
@@ -42,13 +42,13 @@ func (d *Dummy) Decode(in component.InputPayload, data component.ImageData) (int
 
 //Process Simulate Processing the Image
 func (d *Dummy) Process(dp interface{}, data component.ImageData) (interface{}, component.Response) {
-	d.logger.Debugw("Processing InputPayload... ")
+	//d.logger.Debugw("Processing InputPayload... ")
 	return dp, component.ResponseACK
 }
 
 //Encode Simulate Encoding the Image
 func (d *Dummy) Encode(in interface{}, data component.ImageData, out *component.OutputPayload) component.Response {
-	d.logger.Debugw("Encoding InputPayload... ")
+	//d.logger.Debugw("Encoding InputPayload... ")
 	out.ImageBytes = in.(internalImage).internal
 	_, err := out.Write(out.ImageBytes)
 	if err != nil {

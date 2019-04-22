@@ -24,7 +24,7 @@ type Component interface {
 type Input interface {
 	// TransactionChan returns a channel used for consuming transactions from
 	// this type.
-	TransactionChan() <-chan Transaction
+	TransactionChan() <-chan InputTransaction
 
 	Component
 }

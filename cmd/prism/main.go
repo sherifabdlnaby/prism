@@ -72,6 +72,7 @@ func main() {
 	err = app.InitializePipelines(config)
 	err = app.StartComponents(config)
 	err = app.StartPipelines(config)
+	err = app.StartMux(config)
 
 	time.Sleep(12 * time.Second)
 
