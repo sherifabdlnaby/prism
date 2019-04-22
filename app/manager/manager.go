@@ -3,6 +3,7 @@ package manager
 import (
 	"fmt"
 	"github.com/sherifabdlnaby/prism/app/config"
+	"github.com/sherifabdlnaby/prism/app/mux"
 	"github.com/sherifabdlnaby/prism/app/pipeline"
 	"github.com/sherifabdlnaby/prism/app/registery"
 	"github.com/sherifabdlnaby/prism/pkg/component"
@@ -12,6 +13,7 @@ type Manager struct {
 	logger
 	registery.Registry
 	Pipelines map[string]pipeline.Pipeline
+	Mux       mux.Mux
 }
 
 func NewManager(c config.Config) *Manager {
@@ -19,6 +21,10 @@ func NewManager(c config.Config) *Manager {
 	m.logger = *newLoggers(c)
 	m.Registry = *registery.NewRegistry()
 	m.Pipelines = make(map[string]pipeline.Pipeline)
+	m.Mux = mux.Mux{
+		Pipelines: m.Pipelines,
+		Inputs:    m.Registry.InputPlugins,
+	}
 	return &m
 }
 
@@ -153,5 +159,11 @@ func (m *Manager) StartPipelines(c config.Config) error {
 		}
 	}
 
+	return nil
+}
+
+func (m *Manager) StartMux() error {
+	m.baseLogger.Info("starting forwarding input to pipelines...")
+	m.Mux.Start()
 	return nil
 }

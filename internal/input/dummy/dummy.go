@@ -11,7 +11,8 @@ import (
 // Dummy Input that read a file from root just for testing.
 type Dummy struct {
 	FileName     string
-	Transactions chan component.Transaction
+	Pipeline     string
+	Transactions chan component.InputTransaction
 	stopChan     chan struct{}
 	logger       zap.SugaredLogger
 	wg           sync.WaitGroup
@@ -24,7 +25,7 @@ func NewComponent() component.Component {
 }
 
 // TransactionChan Return Transaction Chan used to send transaction to this Component
-func (d *Dummy) TransactionChan() <-chan component.Transaction {
+func (d *Dummy) TransactionChan() <-chan component.InputTransaction {
 	return d.Transactions
 }
 
@@ -35,9 +36,15 @@ func (d *Dummy) Init(config component.Config, logger zap.SugaredLogger) error {
 		return err
 	}
 
-	d.FileName = FileName.String()
+	Pipeline, err := config.Get("pipeline", nil)
+	if err != nil {
+		return err
+	}
 
-	d.Transactions = make(chan component.Transaction, 1)
+	d.FileName = FileName.String()
+	d.Pipeline = Pipeline.String()
+
+	d.Transactions = make(chan component.InputTransaction, 1)
 	d.stopChan = make(chan struct{})
 	d.logger = logger
 	return nil
@@ -68,12 +75,16 @@ func (d *Dummy) Start() error {
 					}
 
 					// Send Transaction
-					d.Transactions <- component.Transaction{
-						InputPayload: component.InputPayload{
-							Reader: reader,
+					d.Transactions <- component.InputTransaction{
+						Transaction: component.Transaction{
+							InputPayload: component.InputPayload{
+								Reader:     reader,
+								ImageBytes: nil,
+							},
+							ImageData:    component.ImageData{"count": i},
+							ResponseChan: responseChan,
 						},
-						ImageData:    component.ImageData{"count": i},
-						ResponseChan: responseChan,
+						PipelineTag: d.Pipeline,
 					}
 
 					// Wait Transaction

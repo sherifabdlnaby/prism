@@ -60,3 +60,13 @@ func (a *App) StartPipelines(config config.Config) error {
 
 	return err
 }
+
+func (a *App) StartMux(config config.Config) error {
+	err := a.manager.StartMux()
+
+	if err != nil {
+		config.Logger.Panic(err)
+	}
+
+	return err
+}

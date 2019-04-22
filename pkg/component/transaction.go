@@ -15,6 +15,13 @@ type Transaction struct {
 	ResponseChan chan<- Response
 }
 
+// Transaction represent a transaction containing a streamable payload (the message) and a response channel,
+// which is used to indicate whether the payload was successfully processed and propagated to the next destinations.
+type InputTransaction struct {
+	Transaction
+	PipelineTag string
+}
+
 // Response indicate whether the payload was successfully processed and propagated to the next destinations.
 type Response struct {
 	// Error is a non-nil error if the payload failed to process.
