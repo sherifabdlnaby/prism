@@ -6,13 +6,14 @@ import (
 	"github.com/sherifabdlnaby/prism/app/config"
 	"github.com/sherifabdlnaby/prism/app/registery"
 	"github.com/sherifabdlnaby/prism/pkg/component"
+	"github.com/sherifabdlnaby/prism/pkg/transaction"
 	"github.com/sherifabdlnaby/semaphore"
 	"go.uber.org/zap"
 )
 
 //Pipeline Holds the recursive tree of Nodes and their next nodes, etc
 type Pipeline struct {
-	RecieveChan chan component.Transaction
+	RecieveChan chan transaction.Transaction
 	Next        Interface
 	Sema        semaphore.Weighted
 	NodesList   []*Interface
@@ -28,16 +29,16 @@ func (p *Pipeline) Start() error {
 
 	go func() {
 		for value := range p.RecieveChan {
-			go func(transaction component.Transaction) {
+			go func(txn transaction.Transaction) {
 				// TODO handle context error
 				_ = p.Sema.Acquire(context.TODO(), 1)
-				responseChan := make(chan component.Response)
-				p.Next.GetReceiverChan() <- component.Transaction{
-					InputPayload: transaction.InputPayload,
-					ImageData:    transaction.ImageData,
+				responseChan := make(chan transaction.Response)
+				p.Next.GetReceiverChan() <- transaction.Transaction{
+					Payload:      txn.Payload,
+					ImageData:    txn.ImageData,
 					ResponseChan: responseChan,
 				}
-				transaction.ResponseChan <- <-responseChan
+				txn.ResponseChan <- <-responseChan
 				p.Sema.Release(1)
 			}(value)
 		}
@@ -55,7 +56,7 @@ func NewPipeline(pc config.Pipeline, registry registery.Registry, logger zap.Sug
 
 	beginNode := DummyNode{
 		Node: Node{
-			RecieverChan: make(chan component.Transaction),
+			RecieverChan: make(chan transaction.Transaction),
 		},
 	}
 
@@ -78,7 +79,7 @@ func NewPipeline(pc config.Pipeline, registry registery.Registry, logger zap.Sug
 	beginNode.Next = next
 
 	pip := Pipeline{
-		RecieveChan: make(chan component.Transaction),
+		RecieveChan: make(chan transaction.Transaction),
 		Next:        &beginNode,
 		Sema:        *semaphore.NewWeighted(int64(pc.Concurrency)),
 		NodesList:   NodesList,
@@ -118,7 +119,7 @@ func buildTree(name string, n config.Node, registry registery.Registry, NodesLis
 		case component.ProcessorReadOnly:
 			currNode = &ProcessingReadOnlyNode{
 				Node: Node{
-					RecieverChan: make(chan component.Transaction),
+					RecieverChan: make(chan transaction.Transaction),
 					Next:         next,
 				},
 				Resource:          processor.Resource,
@@ -127,7 +128,7 @@ func buildTree(name string, n config.Node, registry registery.Registry, NodesLis
 		case component.ProcessorReadWrite:
 			currNode = &ProcessingReadWriteNode{
 				Node: Node{
-					RecieverChan: make(chan component.Transaction),
+					RecieverChan: make(chan transaction.Transaction),
 					Next:         next,
 				},
 				Resource:           processor.Resource,
@@ -139,7 +140,7 @@ func buildTree(name string, n config.Node, registry registery.Registry, NodesLis
 		if ok {
 			currNode = &OutputNode{
 				Node: Node{
-					RecieverChan: make(chan component.Transaction),
+					RecieverChan: make(chan transaction.Transaction),
 					Next:         next,
 				},
 				Resource: output.Resource,

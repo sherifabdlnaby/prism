@@ -1,4 +1,4 @@
-package component
+package transaction
 
 import (
 	"io"
@@ -15,8 +15,8 @@ type DecodedPayload struct {
 	Image interface{}
 }
 
-// InputPayload holds a reader to image bytes OR a byte slice of the image.
-type InputPayload struct {
+// Payload holds a reader to image bytes OR a byte slice of the image.
+type Payload struct {
 	io.Reader
 	ImageBytes
 }

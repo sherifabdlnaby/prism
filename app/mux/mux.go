@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/sherifabdlnaby/prism/app/pipeline"
 	"github.com/sherifabdlnaby/prism/app/registery/wrapper"
-	"github.com/sherifabdlnaby/prism/pkg/component"
+	"github.com/sherifabdlnaby/prism/pkg/transaction"
 )
 
 type Mux struct {
@@ -23,7 +23,7 @@ func (m *Mux) forwardPerInput(input wrapper.Input) {
 
 		_, ok := m.Pipelines[Tchan.PipelineTag]
 		if !ok {
-			Tchan.ResponseChan <- component.ResponseError(
+			Tchan.ResponseChan <- transaction.ResponseError(
 				fmt.Errorf("pipeline [%s] is not defined", Tchan.PipelineTag),
 			)
 			continue

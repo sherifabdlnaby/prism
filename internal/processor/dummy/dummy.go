@@ -2,6 +2,8 @@ package dummy
 
 import (
 	"github.com/sherifabdlnaby/prism/pkg/component"
+	"github.com/sherifabdlnaby/prism/pkg/config"
+	"github.com/sherifabdlnaby/prism/pkg/transaction"
 	"go.uber.org/zap"
 	"io/ioutil"
 	"time"
@@ -22,47 +24,47 @@ func NewComponent() component.Component {
 }
 
 //Decode Simulate Decoding the Image
-func (d *Dummy) Decode(in component.InputPayload, data component.ImageData) (interface{}, component.Response) {
-	//d.logger.Debugw("Decoding InputPayload... ")
+func (d *Dummy) Decode(in transaction.Payload, data transaction.ImageData) (interface{}, transaction.Response) {
+	//d.logger.Debugw("Decoding Payload... ")
 
 	imgBytes, err := ioutil.ReadAll(in)
 
 	if err != nil {
-		return component.DecodedPayload{}, component.ResponseError(err)
+		return transaction.DecodedPayload{}, transaction.ResponseError(err)
 	}
 
-	// create internal object (varies with each plugin)
+	// create internal object (varies with each plugin)`
 	out := internalImage{
 		internal: imgBytes,
 	}
 
 	// Return it as it is (dummy).
-	return out, component.ResponseACK
+	return out, transaction.ResponseACK
 }
 
 //Process Simulate Processing the Image
-func (d *Dummy) Process(dp interface{}, data component.ImageData) (interface{}, component.Response) {
-	//d.logger.Debugw("Processing InputPayload... ")
-	return dp, component.ResponseACK
+func (d *Dummy) Process(dp interface{}, data transaction.ImageData) (interface{}, transaction.Response) {
+	//d.logger.Debugw("Processing Payload... ")
+	return dp, transaction.ResponseACK
 }
 
 //Encode Simulate Encoding the Image
-func (d *Dummy) Encode(in interface{}, data component.ImageData, out *component.OutputPayload) component.Response {
-	//d.logger.Debugw("Encoding InputPayload... ")
+func (d *Dummy) Encode(in interface{}, data transaction.ImageData, out *transaction.OutputPayload) transaction.Response {
+	//d.logger.Debugw("Encoding Payload... ")
 	out.ImageBytes = in.(internalImage).internal
 	_, err := out.Write(out.ImageBytes)
 	if err != nil {
-		return component.ResponseError(err)
+		return transaction.ResponseError(err)
 	}
 	err = out.Close()
 	if err != nil {
-		return component.ResponseError(err)
+		return transaction.ResponseError(err)
 	}
-	return component.ResponseACK
+	return transaction.ResponseACK
 }
 
 //Init Initialize Plugin based on parsed config
-func (d *Dummy) Init(config component.Config, logger zap.SugaredLogger) error {
+func (d *Dummy) Init(config config.Config, logger zap.SugaredLogger) error {
 	d.logger = logger
 	return nil
 }

@@ -2,6 +2,8 @@ package dummy
 
 import (
 	"github.com/sherifabdlnaby/prism/pkg/component"
+	"github.com/sherifabdlnaby/prism/pkg/config"
+	"github.com/sherifabdlnaby/prism/pkg/transaction"
 	"go.uber.org/zap"
 	"os"
 	"sync"
@@ -10,9 +12,9 @@ import (
 
 // Dummy Input that read a file from root just for testing.
 type Dummy struct {
-	FileName     string
-	Pipeline     string
-	Transactions chan component.InputTransaction
+	FileName     config.Value
+	Pipeline     config.Value
+	Transactions chan transaction.InputTransaction
 	stopChan     chan struct{}
 	logger       zap.SugaredLogger
 	wg           sync.WaitGroup
@@ -25,12 +27,12 @@ func NewComponent() component.Component {
 }
 
 // TransactionChan Return Transaction Chan used to send transaction to this Component
-func (d *Dummy) TransactionChan() <-chan component.InputTransaction {
+func (d *Dummy) TransactionChan() <-chan transaction.InputTransaction {
 	return d.Transactions
 }
 
 // Init Initializes Plugin
-func (d *Dummy) Init(config component.Config, logger zap.SugaredLogger) error {
+func (d *Dummy) Init(config config.Config, logger zap.SugaredLogger) error {
 	FileName, err := config.Get("filename", nil)
 	if err != nil {
 		return err
@@ -41,10 +43,10 @@ func (d *Dummy) Init(config component.Config, logger zap.SugaredLogger) error {
 		return err
 	}
 
-	d.FileName = FileName.String()
-	d.Pipeline = Pipeline.String()
+	d.FileName = FileName
+	d.Pipeline = Pipeline
 
-	d.Transactions = make(chan component.InputTransaction, 1)
+	d.Transactions = make(chan transaction.InputTransaction, 1)
 	d.stopChan = make(chan struct{})
 	d.logger = logger
 	return nil
@@ -66,25 +68,28 @@ func (d *Dummy) Start() error {
 
 				go func(i int) {
 					d.logger.Debugw("SENDING A TRANSACTION...")
-					reader, err := os.Open(d.FileName)
-					responseChan := make(chan component.Response)
+					filename, _ := d.FileName.Evaluate(nil)
 
+					reader, err := os.Open(filename.String())
+					responseChan := make(chan transaction.Response)
 					if err != nil {
 						d.logger.Debugw("Error in dummy: ", zap.Error(err))
 						return
 					}
 
+					pipeline, _ := d.Pipeline.Evaluate(nil)
+
 					// Send Transaction
-					d.Transactions <- component.InputTransaction{
-						Transaction: component.Transaction{
-							InputPayload: component.InputPayload{
+					d.Transactions <- transaction.InputTransaction{
+						Transaction: transaction.Transaction{
+							Payload: transaction.Payload{
 								Reader:     reader,
 								ImageBytes: nil,
 							},
-							ImageData:    component.ImageData{"count": i},
+							ImageData:    transaction.ImageData{"count": i},
 							ResponseChan: responseChan,
 						},
-						PipelineTag: d.Pipeline,
+						PipelineTag: pipeline.String(),
 					}
 
 					// Wait Transaction

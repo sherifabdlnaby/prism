@@ -1,8 +1,9 @@
 package disk
 
 import (
-	"fmt"
 	"github.com/sherifabdlnaby/prism/pkg/component"
+	"github.com/sherifabdlnaby/prism/pkg/config"
+	"github.com/sherifabdlnaby/prism/pkg/transaction"
 	"go.uber.org/zap"
 	"io/ioutil"
 	"os"
@@ -14,14 +15,14 @@ import (
 
 //Disk struct
 type Disk struct {
-	FilePermission string
+	FilePermission config.Value
+	FilePath       config.Value
 	Permission     os.FileMode
 	TypeCheck      bool
-	Transactions   chan component.Transaction
+	Transactions   chan transaction.Transaction
 	stopChan       chan struct{}
 	logger         zap.SugaredLogger
 	wg             sync.WaitGroup
-	config         component.Config
 }
 
 // NewComponent Return a new Component
@@ -30,31 +31,32 @@ func NewComponent() component.Component {
 }
 
 //TransactionChan just return the channel of the transactions
-func (d *Disk) TransactionChan() chan<- component.Transaction {
+func (d *Disk) TransactionChan() chan<- transaction.Transaction {
 	return d.Transactions
 }
 
 //Init func Initialize the disk output plugin
-func (d *Disk) Init(config component.Config, logger zap.SugaredLogger) error {
-	d.config = config
-	if !d.config.IsSet("filepath") {
-		return fmt.Errorf("field [%s] is not set", "filepath")
-	}
+func (d *Disk) Init(config config.Config, logger zap.SugaredLogger) error {
+	var err error
 
-	FilePermission, err := d.config.Get("permission", nil)
+	d.FilePath, err = config.Get("filepath", nil)
 	if err != nil {
 		return err
 	}
 
-	d.FilePermission = FilePermission.String()
-	perm32, err := strconv.ParseUint(d.FilePermission, 0, 32)
+	d.FilePermission, err = config.Get("permission", nil)
+	if err != nil {
+		return err
+	}
+
+	perm32, err := strconv.ParseUint(d.FilePermission.Get().String(), 0, 32)
 
 	if err != nil {
 		return err
 	}
 
 	d.Permission = os.FileMode(perm32)
-	d.Transactions = make(chan component.Transaction)
+	d.Transactions = make(chan transaction.Transaction)
 	d.stopChan = make(chan struct{})
 	d.logger = logger
 
@@ -63,13 +65,13 @@ func (d *Disk) Init(config component.Config, logger zap.SugaredLogger) error {
 
 //WriteOnDisk func takes the transaction
 //that to be written on the disk
-func (d *Disk) writeOnDisk(transaction component.Transaction) {
+func (d *Disk) writeOnDisk(txn transaction.Transaction) {
 	defer d.wg.Done()
 	ack := true
 
-	filePathV, err := d.config.Get("filepath", transaction.ImageData)
+	filePathV, err := d.FilePath.Evaluate(txn.ImageData)
 	if err != nil {
-		transaction.ResponseChan <- component.ResponseError(err)
+		txn.ResponseChan <- transaction.ResponseError(err)
 		return
 	}
 
@@ -81,7 +83,7 @@ func (d *Disk) writeOnDisk(transaction component.Transaction) {
 	}
 
 	if err == nil {
-		bytes, errRead := ioutil.ReadAll(transaction)
+		bytes, errRead := ioutil.ReadAll(txn)
 		err = errRead
 		if err == nil {
 			err = ioutil.WriteFile(filePath, bytes, d.Permission)
@@ -93,7 +95,7 @@ func (d *Disk) writeOnDisk(transaction component.Transaction) {
 	}
 
 	// send response
-	transaction.ResponseChan <- component.Response{
+	txn.ResponseChan <- transaction.Response{
 		Error: err,
 		Ack:   ack,
 	}
