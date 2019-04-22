@@ -1,70 +1,70 @@
-package pipeline
+package node
 
 import (
 	"context"
-	"github.com/sherifabdlnaby/prism/app/manager"
+	"github.com/sherifabdlnaby/prism/app/registery"
 	"github.com/sherifabdlnaby/prism/pkg/component"
 	"github.com/sherifabdlnaby/prism/pkg/mirror"
 )
 
 //TODO refactor to make output and process close to each other.
 
-type node struct {
+type Node struct {
 	RecieverChan chan component.Transaction
-	Next         []nextNode
+	Next         []NextNode
 }
 
-type nextNode struct {
-	async bool
-	node  nodeInterface
+type NextNode struct {
+	Async bool
+	Node  Interface
 }
 
-type nodeInterface interface {
-	start()
-	getReceiverChan() chan component.Transaction
-	job(t component.Transaction)
+type Interface interface {
+	Start()
+	GetReceiverChan() chan component.Transaction
+	Job(t component.Transaction)
 }
 
 ///////////////
 
-type dummyNode struct {
-	node
+type DummyNode struct {
+	Node
 }
 
-type processingReadWriteNode struct {
-	node
-	manager.ResourceManager
+type ProcessingReadWriteNode struct {
+	Node
+	registery.ResourceManager
 	component.ProcessorReadWrite
 }
 
-type processingReadOnlyNode struct {
-	node
-	manager.ResourceManager
+type ProcessingReadOnlyNode struct {
+	Node
+	registery.ResourceManager
 	component.ProcessorReadOnly
 }
 
-type outputNode struct {
-	node
-	manager.ResourceManager
+type OutputNode struct {
+	Node
+	registery.ResourceManager
 	component.Output
 }
 
 ///////////////
 
-func (dn *dummyNode) start() {
+func (dn *DummyNode) Start() {
 	go func() {
 		for value := range dn.RecieverChan {
-			go dn.job(value)
+			go dn.Job(value)
 		}
 	}()
 }
 
-func (dn *dummyNode) job(t component.Transaction) {
+func (dn *DummyNode) Job(t component.Transaction) {
 
 	// SEND
 	responseChan := make(chan component.Response)
 
-	dn.Next[0].node.getReceiverChan() <- component.Transaction{
+	dn.Next[0].Node.GetReceiverChan() <- component.Transaction{
 		InputPayload: t.InputPayload,
 		ImageData:    t.ImageData,
 		ResponseChan: responseChan,
@@ -76,15 +76,15 @@ func (dn *dummyNode) job(t component.Transaction) {
 
 //////////////
 
-func (pn *processingReadWriteNode) start() {
+func (pn *ProcessingReadWriteNode) Start() {
 	go func() {
 		for value := range pn.RecieverChan {
-			go pn.job(value)
+			go pn.Job(value)
 		}
 	}()
 }
 
-func (pn *processingReadWriteNode) job(t component.Transaction) {
+func (pn *ProcessingReadWriteNode) Job(t component.Transaction) {
 
 	err := pn.ResourceManager.Acquire(context.TODO(), 1)
 	if err != nil {
@@ -117,6 +117,7 @@ func (pn *processingReadWriteNode) job(t component.Transaction) {
 	}
 
 	response = pn.Encode(decodedPayload, t.ImageData, &baseOutput)
+
 	if !response.Ack {
 		t.ResponseChan <- response
 		pn.ResourceManager.Release(1)
@@ -129,7 +130,7 @@ func (pn *processingReadWriteNode) job(t component.Transaction) {
 	responseChan := make(chan component.Response)
 	for _, next := range pn.Next {
 
-		next.node.getReceiverChan() <- component.Transaction{
+		next.Node.GetReceiverChan() <- component.Transaction{
 			InputPayload: component.InputPayload{
 				Reader:     buffer.NewReader(),
 				ImageBytes: baseOutput.ImageBytes,
@@ -158,15 +159,15 @@ func (pn *processingReadWriteNode) job(t component.Transaction) {
 
 //////////////
 
-func (pn *processingReadOnlyNode) start() {
+func (pn *ProcessingReadOnlyNode) Start() {
 	go func() {
 		for value := range pn.RecieverChan {
-			go pn.job(value)
+			go pn.Job(value)
 		}
 	}()
 }
 
-func (pn *processingReadOnlyNode) job(t component.Transaction) {
+func (pn *ProcessingReadOnlyNode) Job(t component.Transaction) {
 
 	err := pn.ResourceManager.Acquire(context.TODO(), 1)
 	if err != nil {
@@ -204,7 +205,7 @@ func (pn *processingReadOnlyNode) job(t component.Transaction) {
 	responseChan := make(chan component.Response)
 	for _, next := range pn.Next {
 
-		next.node.getReceiverChan() <- component.Transaction{
+		next.Node.GetReceiverChan() <- component.Transaction{
 			InputPayload: component.InputPayload{
 				Reader:     mrr.NewReader(),
 				ImageBytes: t.ImageBytes,
@@ -233,15 +234,15 @@ func (pn *processingReadOnlyNode) job(t component.Transaction) {
 
 //////////////
 
-func (on *outputNode) start() {
+func (on *OutputNode) Start() {
 	go func() {
 		for value := range on.RecieverChan {
-			go on.job(value)
+			go on.Job(value)
 		}
 	}()
 }
 
-func (on *outputNode) job(t component.Transaction) {
+func (on *OutputNode) Job(t component.Transaction) {
 	// TODO assumes output don't have NEXT.
 	_ = on.ResourceManager.Acquire(context.TODO(), 1)
 	// TODO check err here
@@ -253,10 +254,10 @@ func (on *outputNode) job(t component.Transaction) {
 
 //////////////
 
-func (n node) getReceiverChan() chan component.Transaction {
+func (n Node) GetReceiverChan() chan component.Transaction {
 	return n.RecieverChan
 }
 
-func (n node) job(t component.Transaction) {
+func (n Node) Job(t component.Transaction) {
 	panic("virtual")
 }

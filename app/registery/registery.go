@@ -1,4 +1,4 @@
-package manager
+package registery
 
 import (
 	dummyinput "github.com/sherifabdlnaby/prism/internal/input/dummy"
@@ -12,4 +12,18 @@ var registered = map[string]func() component.Component{
 	"dummy_processor": dummyprocessor.NewComponent,
 	"dummy_input":     dummyinput.NewComponent,
 	"disk":            disk.NewComponent,
+}
+
+type Local struct {
+	InputPlugins     map[string]InputWrapper
+	ProcessorPlugins map[string]ProcessorWrapper
+	OutputPlugins    map[string]OutputWrapper
+}
+
+func NewLocal() *Local {
+	return &Local{
+		InputPlugins:     make(map[string]InputWrapper),
+		ProcessorPlugins: make(map[string]ProcessorWrapper),
+		OutputPlugins:    make(map[string]OutputWrapper),
+	}
 }

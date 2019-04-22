@@ -2,14 +2,14 @@ package main
 
 import (
 	"fmt"
+	"github.com/sherifabdlnaby/prism/app"
 	"github.com/sherifabdlnaby/prism/app/config"
-	"github.com/sherifabdlnaby/prism/app/manager"
-	"github.com/sherifabdlnaby/prism/app/pipeline"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"time"
 )
 
+// PARSE STUFF
 func bootstrap() (config.Config, error) {
 	// READ CONFIG MAIN FILES
 	appConfig := config.AppConfig{}
@@ -66,37 +66,12 @@ func main() {
 		panic(err)
 	}
 
-	err = manager.LoadPlugins(config)
+	app := app.NewApp(config)
 
-	if err != nil {
-		config.Logger.Panic(err)
-	}
-
-	err = manager.InitPlugins(config)
-	if err != nil {
-		config.Logger.Panic(err)
-	}
-
-	err = manager.StartPlugins(config)
-	if err != nil {
-		config.Logger.Panic(err)
-	}
-
-	inp, _ := manager.GetInput("http_server")
-
-	pipelineX, err := pipeline.NewPipeline(config.Pipeline.Pipelines["profile_pic_pipeline"])
-
-	if err != nil {
-		config.Logger.Panic(err)
-	}
-
-	go func() {
-		for value := range inp.TransactionChan() {
-			pipelineX.RecieveChan <- value
-		}
-	}()
-
-	pipelineX.Start()
+	err = app.InitializeComponents(config)
+	err = app.InitializePipelines(config)
+	err = app.StartComponents(config)
+	err = app.StartPipelines(config)
 
 	time.Sleep(12 * time.Second)
 
