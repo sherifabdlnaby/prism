@@ -1,6 +1,8 @@
 package component
 
 import (
+	"github.com/sherifabdlnaby/prism/pkg/config"
+	"github.com/sherifabdlnaby/prism/pkg/transaction"
 	"go.uber.org/zap"
 	"time"
 )
@@ -8,7 +10,7 @@ import (
 // Component defines the basic prism component.
 type Component interface {
 	// Init Initializes Component's configuration
-	Init(Config, zap.SugaredLogger) error
+	Init(config.Config, zap.SugaredLogger) error
 
 	// start starts the component
 	Start() error
@@ -24,7 +26,7 @@ type Component interface {
 type Input interface {
 	// TransactionChan returns a channel used for consuming transactions from
 	// this type.
-	TransactionChan() <-chan InputTransaction
+	TransactionChan() <-chan transaction.InputTransaction
 
 	Component
 }
@@ -34,7 +36,7 @@ type Input interface {
 // Output Component used for outputting data to external destination
 type Output interface {
 	// TransactionChan returns a channel used to send transactions for saving.
-	TransactionChan() chan<- Transaction
+	TransactionChan() chan<- transaction.Transaction
 
 	Component
 }
@@ -43,22 +45,22 @@ type Output interface {
 
 //Decoder A Component that can decodes an Input
 type Decoder interface {
-	Decode(in InputPayload, data ImageData) (interface{}, Response)
+	Decode(in transaction.Payload, data transaction.ImageData) (interface{}, transaction.Response)
 }
 
 //Processor A Component that can process an image
 type Processor interface {
-	Process(in interface{}, data ImageData) (interface{}, Response)
+	Process(in interface{}, data transaction.ImageData) (interface{}, transaction.Response)
 }
 
 //ProcessorRead A base component that can process images in read-only mode (no-output)
 type ProcessorRead interface {
-	Process(in interface{}, data ImageData) Response
+	Process(in interface{}, data transaction.ImageData) transaction.Response
 }
 
 //Encoder A Component that encode an Image
 type Encoder interface {
-	Encode(in interface{}, data ImageData, out *OutputPayload) Response
+	Encode(in interface{}, data transaction.ImageData, out *transaction.OutputPayload) transaction.Response
 }
 
 // ProcessorBase can process a payload.

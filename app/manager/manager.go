@@ -6,7 +6,7 @@ import (
 	"github.com/sherifabdlnaby/prism/app/mux"
 	"github.com/sherifabdlnaby/prism/app/pipeline"
 	"github.com/sherifabdlnaby/prism/app/registery"
-	"github.com/sherifabdlnaby/prism/pkg/component"
+	componentConfig "github.com/sherifabdlnaby/prism/pkg/config"
 )
 
 type Manager struct {
@@ -66,7 +66,7 @@ func (m *Manager) InitPlugins(c config.Config) error {
 	// Init Input Plugins
 	for name, input := range c.Inputs.Inputs {
 		plugin, _ := m.GetInput(name)
-		pluginConfig := *component.NewConfig(input.Config)
+		pluginConfig := *componentConfig.NewConfig(input.Config)
 		err := plugin.Init(pluginConfig, *m.inputLogger.Named(name))
 		if err != nil {
 			return fmt.Errorf("failed to initalize plugin [%s]: %s", name, err.Error())
@@ -76,7 +76,7 @@ func (m *Manager) InitPlugins(c config.Config) error {
 	// Load Processor Plugins
 	for name, processor := range c.Processors.Processors {
 		plugin, _ := m.GetProcessor(name)
-		pluginConfig := *component.NewConfig(processor.Config)
+		pluginConfig := *componentConfig.NewConfig(processor.Config)
 		err := plugin.Init(pluginConfig, *m.processingLogger.Named(name))
 		if err != nil {
 			return fmt.Errorf("failed to initalize plugin [%s]: %s", name, err.Error())
@@ -86,7 +86,7 @@ func (m *Manager) InitPlugins(c config.Config) error {
 	// Load Output Plugins
 	for name, output := range c.Outputs.Outputs {
 		plugin, _ := m.GetOutput(name)
-		pluginConfig := *component.NewConfig(output.Config)
+		pluginConfig := *componentConfig.NewConfig(output.Config)
 		err := plugin.Init(pluginConfig, *m.outputLogger.Named(name))
 		if err != nil {
 			return fmt.Errorf("failed to initalize plugin [%s]: %s", name, err.Error())

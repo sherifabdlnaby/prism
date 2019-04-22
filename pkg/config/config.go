@@ -1,8 +1,9 @@
-package component
+package config
 
 import (
 	"fmt"
 	"github.com/sherifabdlnaby/objx"
+	"github.com/sherifabdlnaby/prism/pkg/transaction"
 	"regexp"
 	"strings"
 )
@@ -10,7 +11,7 @@ import (
 // TODO evaluate defaults. (add ability to add default value)
 var fieldsRegex = regexp.MustCompile(`@{([\w@.]+)}`)
 
-type field struct {
+type Value struct {
 	isDynamic bool
 	value     objx.Value
 	parts     []part
@@ -21,30 +22,30 @@ type part struct {
 	eval   bool
 }
 
-// Config used to ease getting values from config using dot notation (obj.field.array[0].field), and used to resolve
+// Config used to ease getting values from config using dot notation (obj.Value.array[0].Value), and used to resolve
 // dynamic values.
 type Config struct {
 	config objx.Map
-	cache  map[string]field
+	cache  map[string]Value
 }
 
 // NewConfig construct new Config from map[string]interface{}
 func NewConfig(config map[string]interface{}) *Config {
-	return &Config{config: objx.Map(config), cache: make(map[string]field)}
+	return &Config{config: objx.Map(config), cache: make(map[string]Value)}
 }
 
-// Get gets value from config based on key, key access config using dot-notation (obj.field.array[0].field).
-// Get will also evaluate dynamic fields in config ( @{dynamic.field} ) using data, pass nill if you're sure that this
-// field is constant. returns error if key or dynamic field doesn't exist.
-func (cw *Config) Get(key string, data ImageData) (objx.Value, error) {
+// Get gets value from config based on key, key access config using dot-notation (obj.Value.array[0].Value).
+// Get will also evaluate dynamic fields in config ( @{dynamic.Value} ) using data, pass nill if you're sure that this
+// Value is constant. returns error if key or dynamic Value doesn't exist.
+func (cw *Config) Get(key string, data transaction.ImageData) (Value, error) {
 	// Check cache
 	if val, ok := cw.cache[key]; ok {
-		return evaluate(&val, data)
+		return val, nil
 	}
 
 	val := cw.config.Get(key)
 	if val.IsNil() {
-		return objx.Value{}, fmt.Errorf("field [%s] is not found", key)
+		return Value{}, fmt.Errorf("value [%s] is not found", key)
 	}
 
 	str := val.String()
@@ -55,7 +56,7 @@ func (cw *Config) Get(key string, data ImageData) (objx.Value, error) {
 		isDynamic = true
 	}
 
-	cacheField := field{
+	cacheField := Value{
 		value:     *val,
 		isDynamic: isDynamic,
 		parts:     parts,
@@ -63,22 +64,7 @@ func (cw *Config) Get(key string, data ImageData) (objx.Value, error) {
 
 	cw.cache["key"] = cacheField
 
-	return evaluate(&cacheField, data)
-}
-
-// IsSet check if value exists in config
-func (cw *Config) IsSet(key string) bool {
-	// Check cache
-	if _, ok := cw.cache[key]; ok {
-		return true
-	}
-
-	val := cw.config.Get(key)
-	if val.IsNil() {
-		return false
-	}
-
-	return true
+	return cacheField, nil
 }
 
 func splitToParts(str string) []part {
@@ -110,24 +96,23 @@ func splitToParts(str string) []part {
 	return parts
 }
 
-func evaluate(field *field, data ImageData) (objx.Value, error) {
+func (v *Value) Evaluate(data transaction.ImageData) (objx.Value, error) {
 
 	// No need to evaluate
-	if !field.isDynamic {
-		return field.value, nil
+	if !v.isDynamic {
+		return v.value, nil
 	}
 
 	dataMap := objx.Map(data)
 
 	// Return it directly
-	if len(field.parts) == 1 {
-		return *objx.NewValue(dataMap.Get(field.parts[0].string)), nil
+	if len(v.parts) == 1 {
+		return *objx.NewValue(dataMap.Get(v.parts[0].string)), nil
 	}
 
 	var builder strings.Builder
-
 	var partValue *objx.Value
-	for _, part := range field.parts {
+	for _, part := range v.parts {
 		if !part.eval {
 			builder.WriteString(part.string)
 			continue
@@ -135,7 +120,7 @@ func evaluate(field *field, data ImageData) (objx.Value, error) {
 
 		partValue = dataMap.Get(part.string)
 		if partValue.IsNil() {
-			return objx.Value{}, fmt.Errorf("field [%s] is not found", part.string)
+			return objx.Value{}, fmt.Errorf("value [%s] is not found in transaction", part.string)
 		}
 
 		builder.WriteString(partValue.String())
@@ -143,4 +128,8 @@ func evaluate(field *field, data ImageData) (objx.Value, error) {
 
 	return *objx.NewValue(builder.String()), nil
 
+}
+
+func (v *Value) Get() *objx.Value {
+	return &v.value
 }

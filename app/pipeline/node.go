@@ -5,12 +5,13 @@ import (
 	"github.com/sherifabdlnaby/prism/app/registery/wrapper"
 	"github.com/sherifabdlnaby/prism/pkg/component"
 	"github.com/sherifabdlnaby/prism/pkg/mirror"
+	"github.com/sherifabdlnaby/prism/pkg/transaction"
 )
 
 //TODO refactor to make output and process close to each other.
 
 type Node struct {
-	RecieverChan chan component.Transaction
+	RecieverChan chan transaction.Transaction
 	Next         []NextNode
 }
 
@@ -21,8 +22,8 @@ type NextNode struct {
 
 type Interface interface {
 	Start()
-	GetReceiverChan() chan component.Transaction
-	Job(t component.Transaction)
+	GetReceiverChan() chan transaction.Transaction
+	Job(t transaction.Transaction)
 }
 
 ///////////////
@@ -59,13 +60,13 @@ func (dn *DummyNode) Start() {
 	}()
 }
 
-func (dn *DummyNode) Job(t component.Transaction) {
+func (dn *DummyNode) Job(t transaction.Transaction) {
 
 	// SEND
-	responseChan := make(chan component.Response)
+	responseChan := make(chan transaction.Response)
 
-	dn.Next[0].Node.GetReceiverChan() <- component.Transaction{
-		InputPayload: t.InputPayload,
+	dn.Next[0].Node.GetReceiverChan() <- transaction.Transaction{
+		Payload:      t.Payload,
 		ImageData:    t.ImageData,
 		ResponseChan: responseChan,
 	}
@@ -84,16 +85,16 @@ func (pn *ProcessingReadWriteNode) Start() {
 	}()
 }
 
-func (pn *ProcessingReadWriteNode) Job(t component.Transaction) {
+func (pn *ProcessingReadWriteNode) Job(t transaction.Transaction) {
 
 	err := pn.Resource.Acquire(context.TODO(), 1)
 	if err != nil {
-		t.ResponseChan <- component.ResponseError(err)
+		t.ResponseChan <- transaction.ResponseError(err)
 		pn.Resource.Release(1)
 		return
 	}
 
-	decoded, response := pn.Decode(t.InputPayload, t.ImageData)
+	decoded, response := pn.Decode(t.Payload, t.ImageData)
 
 	if !response.Ack {
 		t.ResponseChan <- response
@@ -111,7 +112,7 @@ func (pn *ProcessingReadWriteNode) Job(t component.Transaction) {
 
 	///BASE READER
 	buffer := mirror.Writer{}
-	baseOutput := component.OutputPayload{
+	baseOutput := transaction.OutputPayload{
 		WriteCloser: &buffer,
 		ImageBytes:  nil,
 	}
@@ -127,11 +128,11 @@ func (pn *ProcessingReadWriteNode) Job(t component.Transaction) {
 	pn.Resource.Release(1)
 
 	// SEND
-	responseChan := make(chan component.Response)
+	responseChan := make(chan transaction.Response)
 	for _, next := range pn.Next {
 
-		next.Node.GetReceiverChan() <- component.Transaction{
-			InputPayload: component.InputPayload{
+		next.Node.GetReceiverChan() <- transaction.Transaction{
+			Payload: transaction.Payload{
 				Reader:     buffer.NewReader(),
 				ImageBytes: baseOutput.ImageBytes,
 			},
@@ -141,7 +142,7 @@ func (pn *ProcessingReadWriteNode) Job(t component.Transaction) {
 	}
 
 	// AWAIT RESPONSEEs
-	response = component.Response{}
+	response = transaction.Response{}
 	count, total := 0, len(pn.Next)
 	for ; count < total; count++ {
 		select {
@@ -167,19 +168,19 @@ func (pn *ProcessingReadOnlyNode) Start() {
 	}()
 }
 
-func (pn *ProcessingReadOnlyNode) Job(t component.Transaction) {
+func (pn *ProcessingReadOnlyNode) Job(t transaction.Transaction) {
 
 	err := pn.Resource.Acquire(context.TODO(), 1)
 	if err != nil {
-		t.ResponseChan <- component.ResponseError(err)
+		t.ResponseChan <- transaction.ResponseError(err)
 		pn.Resource.Release(1)
 		return
 	}
 
 	//create reader mirror
-	mrr := mirror.NewReader(t.InputPayload.Reader)
+	mrr := mirror.NewReader(t.Payload.Reader)
 
-	mirrorPayload := component.InputPayload{
+	mirrorPayload := transaction.Payload{
 		Reader:     mrr.NewReader(),
 		ImageBytes: t.ImageBytes,
 	}
@@ -202,11 +203,11 @@ func (pn *ProcessingReadOnlyNode) Job(t component.Transaction) {
 	pn.Resource.Release(1)
 
 	// SEND
-	responseChan := make(chan component.Response)
+	responseChan := make(chan transaction.Response)
 	for _, next := range pn.Next {
 
-		next.Node.GetReceiverChan() <- component.Transaction{
-			InputPayload: component.InputPayload{
+		next.Node.GetReceiverChan() <- transaction.Transaction{
+			Payload: transaction.Payload{
 				Reader:     mrr.NewReader(),
 				ImageBytes: t.ImageBytes,
 			},
@@ -216,7 +217,7 @@ func (pn *ProcessingReadOnlyNode) Job(t component.Transaction) {
 	}
 
 	// AWAIT RESPONSEEs
-	response = component.Response{}
+	response = transaction.Response{}
 	count, total := 0, len(pn.Next)
 	for ; count < total; count++ {
 		select {
@@ -242,7 +243,7 @@ func (on *OutputNode) Start() {
 	}()
 }
 
-func (on *OutputNode) Job(t component.Transaction) {
+func (on *OutputNode) Job(t transaction.Transaction) {
 	// TODO assumes output don't have NEXT.
 	_ = on.Resource.Acquire(context.TODO(), 1)
 	// TODO check err here
@@ -254,10 +255,10 @@ func (on *OutputNode) Job(t component.Transaction) {
 
 //////////////
 
-func (n Node) GetReceiverChan() chan component.Transaction {
+func (n Node) GetReceiverChan() chan transaction.Transaction {
 	return n.RecieverChan
 }
 
-func (n Node) Job(t component.Transaction) {
+func (n Node) Job(t transaction.Transaction) {
 	panic("virtual")
 }
