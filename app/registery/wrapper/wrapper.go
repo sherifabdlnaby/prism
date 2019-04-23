@@ -1,35 +1,28 @@
 package wrapper
 
 import (
+	"github.com/sherifabdlnaby/prism/app/resource"
 	"github.com/sherifabdlnaby/prism/pkg/component"
-	"github.com/sherifabdlnaby/semaphore"
+	"go.uber.org/zap"
 )
-
-//Resource contains types required to control access to a resource
-type Resource struct {
-	*semaphore.Weighted
-}
-
-func NewResource(concurrency int) *Resource {
-	return &Resource{
-		Weighted: semaphore.NewWeighted(int64(concurrency)),
-	}
-}
 
 // Input Wraps an Input Plugin Instance
 type Input struct {
 	component.Input
-	Resource
+	resource.Resource
+	Logger zap.SugaredLogger
 }
 
 // Processor wraps a processor Plugin Instance
 type Processor struct {
 	component.ProcessorBase
-	Resource
+	resource.Resource
+	Logger zap.SugaredLogger
 }
 
 // Output Wraps and Input Plugin Instance
 type Output struct {
 	component.Output
-	Resource
+	resource.Resource
+	Logger zap.SugaredLogger
 }

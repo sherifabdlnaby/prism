@@ -1,23 +1,22 @@
 package pipeline
 
 import (
-	"context"
-	"github.com/sherifabdlnaby/prism/app/registery/wrapper"
-	"github.com/sherifabdlnaby/prism/pkg/component"
+	"github.com/sherifabdlnaby/prism/app/resource"
 	"github.com/sherifabdlnaby/prism/pkg/mirror"
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
 )
 
 //TODO refactor to make output and process close to each other.
 
-type Node struct {
+type node struct {
 	RecieverChan chan transaction.Transaction
-	Next         []NextNode
+	Next         []nextNode
+	resource.Resource
 }
 
-type NextNode struct {
+type nextNode struct {
 	Async bool
-	Node  Interface
+	node  Interface
 }
 
 type Interface interface {
@@ -28,31 +27,13 @@ type Interface interface {
 
 ///////////////
 
-type DummyNode struct {
-	Node
-}
-
-type ProcessingReadWriteNode struct {
-	Node
-	wrapper.Resource
-	component.ProcessorReadWrite
-}
-
-type ProcessingReadOnlyNode struct {
-	Node
-	wrapper.Resource
-	component.ProcessorReadOnly
-}
-
-type OutputNode struct {
-	Node
-	wrapper.Resource
-	component.Output
+type dummyNode struct {
+	node
 }
 
 ///////////////
 
-func (dn *DummyNode) Start() {
+func (dn *dummyNode) Start() {
 	go func() {
 		for value := range dn.RecieverChan {
 			go dn.Job(value)
@@ -60,12 +41,12 @@ func (dn *DummyNode) Start() {
 	}()
 }
 
-func (dn *DummyNode) Job(t transaction.Transaction) {
+func (dn *dummyNode) Job(t transaction.Transaction) {
 
 	// SEND
 	responseChan := make(chan transaction.Response)
 
-	dn.Next[0].Node.GetReceiverChan() <- transaction.Transaction{
+	dn.Next[0].node.GetReceiverChan() <- transaction.Transaction{
 		Payload:      t.Payload,
 		ImageData:    t.ImageData,
 		ResponseChan: responseChan,
@@ -75,190 +56,43 @@ func (dn *DummyNode) Job(t transaction.Transaction) {
 	t.ResponseChan <- <-responseChan
 }
 
-//////////////
-
-func (pn *ProcessingReadWriteNode) Start() {
-	go func() {
-		for value := range pn.RecieverChan {
-			go pn.Job(value)
-		}
-	}()
-}
-
-func (pn *ProcessingReadWriteNode) Job(t transaction.Transaction) {
-
-	err := pn.Resource.Acquire(context.TODO(), 1)
-	if err != nil {
-		t.ResponseChan <- transaction.ResponseError(err)
-		pn.Resource.Release(1)
-		return
-	}
-
-	decoded, response := pn.Decode(t.Payload, t.ImageData)
-
-	if !response.Ack {
-		t.ResponseChan <- response
-		pn.Resource.Release(1)
-		return
-	}
-
-	decodedPayload, response := pn.Process(decoded, t.ImageData)
-
-	if !response.Ack {
-		t.ResponseChan <- response
-		pn.Resource.Release(1)
-		return
-	}
-
-	///BASE READER
-	buffer := mirror.Writer{}
-	baseOutput := transaction.OutputPayload{
-		WriteCloser: &buffer,
-		ImageBytes:  nil,
-	}
-
-	response = pn.Encode(decodedPayload, t.ImageData, &baseOutput)
-
-	if !response.Ack {
-		t.ResponseChan <- response
-		pn.Resource.Release(1)
-		return
-	}
-
-	pn.Resource.Release(1)
-
-	// SEND
-	responseChan := make(chan transaction.Response)
-	for _, next := range pn.Next {
-
-		next.Node.GetReceiverChan() <- transaction.Transaction{
-			Payload: transaction.Payload{
-				Reader:     buffer.NewReader(),
-				ImageBytes: baseOutput.ImageBytes,
-			},
-			ImageData:    t.ImageData,
-			ResponseChan: responseChan,
-		}
-	}
-
-	// AWAIT RESPONSEEs
-	response = transaction.Response{}
-	count, total := 0, len(pn.Next)
-	for ; count < total; count++ {
-		select {
-		case response = <-responseChan:
-			if !response.Ack {
-				break
-			}
-			// TODO case context canceled.
-		}
-	}
-
-	// Send Response back.
-	t.ResponseChan <- response
-}
-
-//////////////
-
-func (pn *ProcessingReadOnlyNode) Start() {
-	go func() {
-		for value := range pn.RecieverChan {
-			go pn.Job(value)
-		}
-	}()
-}
-
-func (pn *ProcessingReadOnlyNode) Job(t transaction.Transaction) {
-
-	err := pn.Resource.Acquire(context.TODO(), 1)
-	if err != nil {
-		t.ResponseChan <- transaction.ResponseError(err)
-		pn.Resource.Release(1)
-		return
-	}
-
-	//create reader mirror
-	mrr := mirror.NewReader(t.Payload.Reader)
-
-	mirrorPayload := transaction.Payload{
-		Reader:     mrr.NewReader(),
-		ImageBytes: t.ImageBytes,
-	}
-	decoded, response := pn.Decode(mirrorPayload, t.ImageData)
-
-	if !response.Ack {
-		t.ResponseChan <- response
-		pn.Resource.Release(1)
-		return
-	}
-
-	response = pn.Process(decoded, t.ImageData)
-
-	if !response.Ack {
-		t.ResponseChan <- response
-		pn.Resource.Release(1)
-		return
-	}
-
-	pn.Resource.Release(1)
-
-	// SEND
-	responseChan := make(chan transaction.Response)
-	for _, next := range pn.Next {
-
-		next.Node.GetReceiverChan() <- transaction.Transaction{
-			Payload: transaction.Payload{
-				Reader:     mrr.NewReader(),
-				ImageBytes: t.ImageBytes,
-			},
-			ImageData:    t.ImageData,
-			ResponseChan: responseChan,
-		}
-	}
-
-	// AWAIT RESPONSEEs
-	response = transaction.Response{}
-	count, total := 0, len(pn.Next)
-	for ; count < total; count++ {
-		select {
-		case response = <-responseChan:
-			if !response.Ack {
-				break
-			}
-			// TODO case context canceled.
-		}
-	}
-
-	// Send Response back.
-	t.ResponseChan <- response
-}
-
-//////////////
-
-func (on *OutputNode) Start() {
-	go func() {
-		for value := range on.RecieverChan {
-			go on.Job(value)
-		}
-	}()
-}
-
-func (on *OutputNode) Job(t transaction.Transaction) {
-	// TODO assumes output don't have NEXT.
-	_ = on.Resource.Acquire(context.TODO(), 1)
-	// TODO check err here
-
-	on.TransactionChan() <- t
-
-	on.Resource.Release(1)
-}
-
-//////////////
-
-func (n Node) GetReceiverChan() chan transaction.Transaction {
+// TODO refactor this to be better. and get rid of this virtual one. srry future me.
+func (n node) GetReceiverChan() chan transaction.Transaction {
 	return n.RecieverChan
 }
 
-func (n Node) Job(t transaction.Transaction) {
-	panic("virtual")
+func (n node) Job(t transaction.Transaction) {
+	panic("virtual- this should never be called")
+}
+
+//
+
+func (n *node) sendToNextNodes(readerBase mirror.ReaderCloner, ImageBytes transaction.ImageBytes, imageData transaction.ImageData, responseChan chan transaction.Response) {
+	for _, next := range n.Next {
+		next.node.GetReceiverChan() <- transaction.Transaction{
+			Payload: transaction.Payload{
+				Reader:     readerBase.NewReader(),
+				ImageBytes: ImageBytes,
+			},
+			ImageData:    imageData,
+			ResponseChan: responseChan,
+		}
+	}
+}
+
+//
+
+func (n *node) receiveResponseFromNextNodes(response transaction.Response, responseChan chan transaction.Response) transaction.Response {
+	response = transaction.ResponseACK
+	count, total := 0, len(n.Next)
+	for ; count < total; count++ {
+		select {
+		case response = <-responseChan:
+			if !response.Ack {
+				break
+			}
+			// TODO case context canceled.
+		}
+	}
+	return response
 }

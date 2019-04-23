@@ -28,13 +28,13 @@ func NewManager(c config.Config) *Manager {
 	return &m
 }
 
-//LoadPlugins Load all plugins in Config
+// LoadPlugins Load all plugins in Config
 func (m *Manager) LoadPlugins(c config.Config) error {
 	m.baseLogger.Info("loading plugins configuration...")
 
 	// Load Input Plugins
 	for name, plugin := range c.Inputs.Inputs {
-		err := m.LoadInput(name, plugin)
+		err := m.LoadInput(name, plugin, m.logger.inputLogger)
 		if err != nil {
 			return err
 		}
@@ -42,7 +42,7 @@ func (m *Manager) LoadPlugins(c config.Config) error {
 
 	// Load Processor Plugins
 	for name, plugin := range c.Processors.Processors {
-		err := m.LoadProcessor(name, plugin)
+		err := m.LoadProcessor(name, plugin, m.logger.processingLogger)
 		if err != nil {
 			return err
 		}
@@ -50,7 +50,7 @@ func (m *Manager) LoadPlugins(c config.Config) error {
 
 	// Load Output Plugins
 	for name, plugin := range c.Outputs.Outputs {
-		err := m.LoadOutput(name, plugin)
+		err := m.LoadOutput(name, plugin, m.logger.outputLogger)
 		if err != nil {
 			return err
 		}
@@ -59,7 +59,7 @@ func (m *Manager) LoadPlugins(c config.Config) error {
 	return nil
 }
 
-//InitPlugins Init all plugins in Config by calling their Init() function
+// InitPlugins Init all plugins in Config by calling their Init() function
 func (m *Manager) InitPlugins(c config.Config) error {
 	m.baseLogger.Info("initializing plugins...")
 
@@ -67,7 +67,7 @@ func (m *Manager) InitPlugins(c config.Config) error {
 	for name, input := range c.Inputs.Inputs {
 		plugin, _ := m.GetInput(name)
 		pluginConfig := *componentConfig.NewConfig(input.Config)
-		err := plugin.Init(pluginConfig, *m.inputLogger.Named(name))
+		err := plugin.Init(pluginConfig, plugin.Logger)
 		if err != nil {
 			return fmt.Errorf("failed to initalize plugin [%s]: %s", name, err.Error())
 		}
@@ -77,7 +77,7 @@ func (m *Manager) InitPlugins(c config.Config) error {
 	for name, processor := range c.Processors.Processors {
 		plugin, _ := m.GetProcessor(name)
 		pluginConfig := *componentConfig.NewConfig(processor.Config)
-		err := plugin.Init(pluginConfig, *m.processingLogger.Named(name))
+		err := plugin.Init(pluginConfig, plugin.Logger)
 		if err != nil {
 			return fmt.Errorf("failed to initalize plugin [%s]: %s", name, err.Error())
 		}
@@ -87,7 +87,7 @@ func (m *Manager) InitPlugins(c config.Config) error {
 	for name, output := range c.Outputs.Outputs {
 		plugin, _ := m.GetOutput(name)
 		pluginConfig := *componentConfig.NewConfig(output.Config)
-		err := plugin.Init(pluginConfig, *m.outputLogger.Named(name))
+		err := plugin.Init(pluginConfig, plugin.Logger)
 		if err != nil {
 			return fmt.Errorf("failed to initalize plugin [%s]: %s", name, err.Error())
 		}
@@ -96,7 +96,7 @@ func (m *Manager) InitPlugins(c config.Config) error {
 	return nil
 }
 
-//StartPlugins Start all plugins in Config by calling their Start() function
+// StartPlugins Start all plugins in Config by calling their Start() function
 func (m *Manager) StartPlugins(c config.Config) error {
 	m.baseLogger.Info("starting plugins...")
 
@@ -124,7 +124,7 @@ func (m *Manager) StartPlugins(c config.Config) error {
 	return nil
 }
 
-//InitPipelines Start all plugins in Config by calling their Start() function
+// InitPipelines Start all plugins in Config by calling their Start() function
 func (m *Manager) InitPipelines(c config.Config) error {
 	m.baseLogger.Info("initializing pipelines...")
 

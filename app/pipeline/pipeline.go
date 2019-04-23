@@ -51,11 +51,11 @@ func (p *Pipeline) Start() error {
 //NewPipeline Construct a NewPipeline using config.
 func NewPipeline(pc config.Pipeline, registry registery.Registry, logger zap.SugaredLogger) (*Pipeline, error) {
 
-	next := make([]NextNode, 0)
+	next := make([]nextNode, 0)
 	NodesList := make([]*Interface, 0)
 
-	beginNode := DummyNode{
-		Node: Node{
+	beginNode := dummyNode{
+		node: node{
 			RecieverChan: make(chan transaction.Transaction),
 		},
 	}
@@ -70,9 +70,9 @@ func NewPipeline(pc config.Pipeline, registry registery.Registry, logger zap.Sug
 			return &Pipeline{}, err
 		}
 
-		next = append(next, NextNode{
+		next = append(next, nextNode{
 			Async: value.Async,
-			Node:  Node,
+			node:  Node,
 		})
 	}
 
@@ -91,7 +91,7 @@ func NewPipeline(pc config.Pipeline, registry registery.Registry, logger zap.Sug
 
 func buildTree(name string, n config.Node, registry registery.Registry, NodesList *[]*Interface) (Interface, error) {
 
-	next := make([]NextNode, 0)
+	next := make([]nextNode, 0)
 
 	var currNode Interface
 
@@ -105,9 +105,9 @@ func buildTree(name string, n config.Node, registry registery.Registry, NodesLis
 				return nil, err
 			}
 
-			next = append(next, NextNode{
+			next = append(next, nextNode{
 				Async: value.Async,
-				Node:  Node,
+				node:  Node,
 			})
 		}
 	}
@@ -117,34 +117,34 @@ func buildTree(name string, n config.Node, registry registery.Registry, NodesLis
 	if ok {
 		switch p := processor.ProcessorBase.(type) {
 		case component.ProcessorReadOnly:
-			currNode = &ProcessingReadOnlyNode{
-				Node: Node{
+			currNode = &processingReadOnlyNode{
+				node: node{
 					RecieverChan: make(chan transaction.Transaction),
 					Next:         next,
+					Resource:     processor.Resource,
 				},
-				Resource:          processor.Resource,
 				ProcessorReadOnly: p,
 			}
 		case component.ProcessorReadWrite:
-			currNode = &ProcessingReadWriteNode{
-				Node: Node{
+			currNode = &processingReadWriteNode{
+				node: node{
 					RecieverChan: make(chan transaction.Transaction),
 					Next:         next,
+					Resource:     processor.Resource,
 				},
-				Resource:           processor.Resource,
 				ProcessorReadWrite: p,
 			}
 		}
 	} else {
 		output, ok := registry.GetOutput(name)
 		if ok {
-			currNode = &OutputNode{
-				Node: Node{
+			currNode = &outputNode{
+				node: node{
 					RecieverChan: make(chan transaction.Transaction),
 					Next:         next,
+					Resource:     output.Resource,
 				},
-				Resource: output.Resource,
-				Output:   output.Output,
+				Output: output.Output,
 			}
 		} else {
 			return nil, fmt.Errorf("plugin [%s] doesn't exists", name)
