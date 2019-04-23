@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"github.com/sherifabdlnaby/prism/app/config"
 	"github.com/sherifabdlnaby/prism/app/registery/wrapper"
+	"github.com/sherifabdlnaby/prism/app/resource"
 	"github.com/sherifabdlnaby/prism/pkg/component"
+	"go.uber.org/zap"
 )
 
 // LoadInput Load wrapper.Input Plugin in the loaded registry, according to the parsed config.
-func (m *Registry) LoadInput(name string, input config.Input) error {
+func (m *Registry) LoadInput(name string, input config.Input, Logger zap.SugaredLogger) error {
 	ok := m.exists(name)
 	if ok {
 		return fmt.Errorf("duplicate plugin instance with name [%s]", name)
@@ -26,7 +28,8 @@ func (m *Registry) LoadInput(name string, input config.Input) error {
 
 	m.InputPlugins[name] = wrapper.Input{
 		Input:    pluginInstance,
-		Resource: *wrapper.NewResource(input.Concurrency),
+		Resource: *resource.NewResource(input.Concurrency),
+		Logger:   *Logger.Named(name),
 	}
 	return nil
 }
@@ -40,7 +43,7 @@ func (m *Registry) GetInput(name string) (a wrapper.Input, b bool) {
 /////////////
 
 // LoadProcessor Load wrapper.Processor Plugin in the loaded registry, according to the parsed config.
-func (m *Registry) LoadProcessor(name string, processor config.Processor) error {
+func (m *Registry) LoadProcessor(name string, processor config.Processor, Logger zap.SugaredLogger) error {
 	ok := m.exists(name)
 	if ok {
 		return fmt.Errorf("processor plugin instance with name [%s] is already loaded", name)
@@ -58,7 +61,8 @@ func (m *Registry) LoadProcessor(name string, processor config.Processor) error 
 
 	m.ProcessorPlugins[name] = wrapper.Processor{
 		ProcessorBase: pluginInstance,
-		Resource:      *wrapper.NewResource(processor.Concurrency),
+		Resource:      *resource.NewResource(processor.Concurrency),
+		Logger:        *Logger.Named(name),
 	}
 
 	return nil
@@ -73,7 +77,7 @@ func (m *Registry) GetProcessor(name string) (a wrapper.Processor, b bool) {
 /////////////
 
 // LoadOutput Load wrapper.Output Plugin in the loaded registry, according to the parsed config.
-func (m *Registry) LoadOutput(name string, output config.Output) error {
+func (m *Registry) LoadOutput(name string, output config.Output, Logger zap.SugaredLogger) error {
 	ok := m.exists(name)
 	if ok {
 		return fmt.Errorf("output plugin instance with name [%s] is already loaded", name)
@@ -91,7 +95,8 @@ func (m *Registry) LoadOutput(name string, output config.Output) error {
 
 	m.OutputPlugins[name] = wrapper.Output{
 		Output:   pluginInstance,
-		Resource: *wrapper.NewResource(output.Concurrency),
+		Resource: *resource.NewResource(output.Concurrency),
+		Logger:   *Logger.Named(name),
 	}
 
 	return nil

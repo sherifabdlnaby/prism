@@ -7,6 +7,12 @@ import (
 	"sync/atomic"
 )
 
+//TODO concurrency protection using RWMxS
+
+type ReaderCloner interface {
+	NewReader() io.Reader
+}
+
 //Writer A Writing buffer that can be used to create multiple readers that all can read *the same* data written.
 type Writer struct {
 	internal bytes.Buffer
