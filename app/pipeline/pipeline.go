@@ -1,22 +1,22 @@
 package pipeline
 
 import (
-	"context"
 	"fmt"
 	"github.com/sherifabdlnaby/prism/app/config"
+	"github.com/sherifabdlnaby/prism/app/pipeline/node"
 	"github.com/sherifabdlnaby/prism/app/registery"
+	"github.com/sherifabdlnaby/prism/app/resource"
 	"github.com/sherifabdlnaby/prism/pkg/component"
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
-	"github.com/sherifabdlnaby/semaphore"
 	"go.uber.org/zap"
 )
 
 //Pipeline Holds the recursive tree of Nodes and their next nodes, etc
 type Pipeline struct {
 	RecieveChan chan transaction.Transaction
-	Next        Interface
-	Sema        semaphore.Weighted
-	NodesList   []*Interface
+	Resource    resource.Resource
+	Next        node.Node
+	NodesList   []*node.Node
 	Logger      zap.SugaredLogger
 }
 
@@ -31,7 +31,6 @@ func (p *Pipeline) Start() error {
 		for value := range p.RecieveChan {
 			go func(txn transaction.Transaction) {
 				// TODO handle context error
-				_ = p.Sema.Acquire(context.TODO(), 1)
 				responseChan := make(chan transaction.Response)
 				p.Next.GetReceiverChan() <- transaction.Transaction{
 					Payload:      txn.Payload,
@@ -39,7 +38,6 @@ func (p *Pipeline) Start() error {
 					ResponseChan: responseChan,
 				}
 				txn.ResponseChan <- <-responseChan
-				p.Sema.Release(1)
 			}(value)
 		}
 		p.Logger.Infow("Stopped.")
@@ -51,17 +49,17 @@ func (p *Pipeline) Start() error {
 //NewPipeline Construct a NewPipeline using config.
 func NewPipeline(pc config.Pipeline, registry registery.Registry, logger zap.SugaredLogger) (*Pipeline, error) {
 
-	next := make([]nextNode, 0)
-	NodesList := make([]*Interface, 0)
+	next := make([]node.NextNode, 0)
+	NodesList := make([]*node.Node, 0)
+	resource := resource.NewResource(pc.Concurrency, logger)
 
-	beginNode := dummyNode{
-		node: node{
-			RecieverChan: make(chan transaction.Transaction),
-		},
+	beginNode := node.Node{
+		RecieverChan: make(chan transaction.Transaction),
+		Resource:     *resource,
+		Component:    &node.DummyNode{},
 	}
 
-	var currNode Interface = &beginNode
-	NodesList = append(NodesList, &currNode)
+	NodesList = append(NodesList, &beginNode)
 
 	for key, value := range pc.Pipeline {
 		Node, err := buildTree(key, value, registry, &NodesList)
@@ -70,9 +68,9 @@ func NewPipeline(pc config.Pipeline, registry registery.Registry, logger zap.Sug
 			return &Pipeline{}, err
 		}
 
-		next = append(next, nextNode{
+		next = append(next, node.NextNode{
 			Async: value.Async,
-			node:  Node,
+			Node:  Node,
 		})
 	}
 
@@ -80,20 +78,20 @@ func NewPipeline(pc config.Pipeline, registry registery.Registry, logger zap.Sug
 
 	pip := Pipeline{
 		RecieveChan: make(chan transaction.Transaction),
-		Next:        &beginNode,
-		Sema:        *semaphore.NewWeighted(int64(pc.Concurrency)),
+		Next:        beginNode,
 		NodesList:   NodesList,
 		Logger:      logger,
+		Resource:    *resource,
 	}
 
 	return &pip, nil
 }
 
-func buildTree(name string, n config.Node, registry registery.Registry, NodesList *[]*Interface) (Interface, error) {
+func buildTree(name string, n config.Node, registry registery.Registry, NodesList *[]*node.Node) (node.Node, error) {
 
-	next := make([]nextNode, 0)
+	next := make([]node.NextNode, 0)
 
-	var currNode Interface
+	var currNode node.Node
 
 	*NodesList = append(*NodesList, &currNode)
 
@@ -102,12 +100,12 @@ func buildTree(name string, n config.Node, registry registery.Registry, NodesLis
 			Node, err := buildTree(key, value, registry, NodesList)
 
 			if err != nil {
-				return nil, err
+				return Node, err
 			}
 
-			next = append(next, nextNode{
+			next = append(next, node.NextNode{
 				Async: value.Async,
-				node:  Node,
+				Node:  Node,
 			})
 		}
 	}
@@ -117,37 +115,37 @@ func buildTree(name string, n config.Node, registry registery.Registry, NodesLis
 	if ok {
 		switch p := processor.ProcessorBase.(type) {
 		case component.ProcessorReadOnly:
-			currNode = &processingReadOnlyNode{
-				node: node{
-					RecieverChan: make(chan transaction.Transaction),
-					Next:         next,
-					Resource:     processor.Resource,
+			currNode = node.Node{
+				Component: &node.ReadOnly{
+					ProcessorReadOnly: p,
 				},
-				ProcessorReadOnly: p,
+				RecieverChan: make(chan transaction.Transaction),
+				Next:         next,
+				Resource:     processor.Resource,
 			}
 		case component.ProcessorReadWrite:
-			currNode = &processingReadWriteNode{
-				node: node{
-					RecieverChan: make(chan transaction.Transaction),
-					Next:         next,
-					Resource:     processor.Resource,
+			currNode = node.Node{
+				Component: &node.ReadWrite{
+					ProcessorReadWrite: p,
 				},
-				ProcessorReadWrite: p,
+				RecieverChan: make(chan transaction.Transaction),
+				Next:         next,
+				Resource:     processor.Resource,
 			}
 		}
 	} else {
 		output, ok := registry.GetOutput(name)
 		if ok {
-			currNode = &outputNode{
-				node: node{
-					RecieverChan: make(chan transaction.Transaction),
-					Next:         next,
-					Resource:     output.Resource,
+			currNode = node.Node{
+				Component: &node.Output{
+					Output: output,
 				},
-				Output: output.Output,
+				RecieverChan: make(chan transaction.Transaction),
+				Next:         next,
+				Resource:     output.Resource,
 			}
 		} else {
-			return nil, fmt.Errorf("plugin [%s] doesn't exists", name)
+			return node.Node{}, fmt.Errorf("plugin [%s] doesn't exists", name)
 		}
 	}
 

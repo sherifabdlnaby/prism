@@ -74,7 +74,7 @@ func main() {
 	err = app.StartPipelines(config)
 	err = app.StartMux(config)
 
-	time.Sleep(12 * time.Second)
+	time.Sleep(1000 * time.Second)
 
 }
 

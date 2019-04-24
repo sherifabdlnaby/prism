@@ -28,8 +28,7 @@ func (m *Registry) LoadInput(name string, input config.Input, Logger zap.Sugared
 
 	m.InputPlugins[name] = wrapper.Input{
 		Input:    pluginInstance,
-		Resource: *resource.NewResource(input.Concurrency),
-		Logger:   *Logger.Named(name),
+		Resource: *resource.NewResource(input.Concurrency, *Logger.Named(name)),
 	}
 	return nil
 }
@@ -61,8 +60,7 @@ func (m *Registry) LoadProcessor(name string, processor config.Processor, Logger
 
 	m.ProcessorPlugins[name] = wrapper.Processor{
 		ProcessorBase: pluginInstance,
-		Resource:      *resource.NewResource(processor.Concurrency),
-		Logger:        *Logger.Named(name),
+		Resource:      *resource.NewResource(processor.Concurrency, *Logger.Named(name)),
 	}
 
 	return nil
@@ -95,8 +93,7 @@ func (m *Registry) LoadOutput(name string, output config.Output, Logger zap.Suga
 
 	m.OutputPlugins[name] = wrapper.Output{
 		Output:   pluginInstance,
-		Resource: *resource.NewResource(output.Concurrency),
-		Logger:   *Logger.Named(name),
+		Resource: *resource.NewResource(output.Concurrency, *Logger.Named(name)),
 	}
 
 	return nil
