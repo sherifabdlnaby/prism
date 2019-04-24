@@ -8,6 +8,7 @@ import (
 )
 
 //TODO concurrency protection using RWMxS
+//TODO performance Optimization for buffer allocations
 
 type ReaderCloner interface {
 	NewReader() io.Reader

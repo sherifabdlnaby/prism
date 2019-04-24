@@ -45,6 +45,7 @@ func (d *Dummy) Decode(in transaction.Payload, data transaction.ImageData) (inte
 //Process Simulate Processing the Image
 func (d *Dummy) Process(dp interface{}, data transaction.ImageData) (interface{}, transaction.Response) {
 	//d.logger.Debugw("Processing Payload... ")
+	time.Sleep(200 * time.Millisecond)
 	return dp, transaction.ResponseACK
 }
 
