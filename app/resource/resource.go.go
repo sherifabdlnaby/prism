@@ -11,6 +11,7 @@ type Resource struct {
 	Logger zap.SugaredLogger
 }
 
+//NewResource Resource Constructor
 func NewResource(concurrency int, logger zap.SugaredLogger) *Resource {
 	return &Resource{
 		Weighted: semaphore.NewWeighted(int64(concurrency)),

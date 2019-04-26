@@ -62,12 +62,13 @@ func (d *Dummy) Start() error {
 		for {
 			select {
 			case <-d.stopChan:
-				d.logger.Debugw("Closing...")
+				d.logger.Debugw("closing...")
 				return
 			default:
-
+				d.wg.Add(1)
 				go func(i int) {
-					d.logger.Debugw("SENDING A TRANSACTION...")
+					defer d.wg.Done()
+					d.logger.Debugw("SENDING A TRANSACTION...", "ID", i)
 					filename, _ := d.FileName.Evaluate(nil)
 
 					reader, err := os.Open(filename.String())
@@ -95,7 +96,7 @@ func (d *Dummy) Start() error {
 					// Wait Transaction
 					response := <-responseChan
 
-					d.logger.Debugw("RECEIVED RESPONSE.", "ack", response.Ack, "error", response.Error)
+					d.logger.Debugw("RECEIVED RESPONSE.", "ID", i, "ack", response.Ack, "error", response.Error)
 				}(d.metric)
 
 				d.metric++
@@ -108,11 +109,11 @@ func (d *Dummy) Start() error {
 }
 
 // Close closes the plugin gracefully
-func (d *Dummy) Close(time.Duration) error {
-	d.logger.Debugw("Sending closing signal...")
+func (d *Dummy) Close() error {
+	d.logger.Debugw("received closing signal, closing...")
 	d.stopChan <- struct{}{}
 	d.wg.Wait()
 	close(d.Transactions)
-	d.logger.Debugw("Closed.")
+	d.logger.Debugw("closed.")
 	return nil
 }

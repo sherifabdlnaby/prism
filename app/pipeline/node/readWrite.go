@@ -6,10 +6,12 @@ import (
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
 )
 
+//ReadWrite Wraps a readwrite component
 type ReadWrite struct {
 	component.ProcessorReadWrite
 }
 
+//Job Process transaction by calling Decode-> Process-> Encode->
 func (pn *ReadWrite) Job(t transaction.Transaction) (mirror.ReaderCloner, transaction.ImageBytes, transaction.Response) {
 
 	/// DECODE

@@ -6,10 +6,12 @@ import (
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
 )
 
+//Output Wraps an output component
 type Output struct {
 	component.Output
 }
 
+//Job Output Job will send the transaction to output plugin and await its result.
 func (on *Output) Job(t transaction.Transaction) (mirror.ReaderCloner, transaction.ImageBytes, transaction.Response) {
 	responseChan := make(chan transaction.Response)
 	readerCloner := mirror.NewReader(t.Payload.Reader)

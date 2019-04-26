@@ -4,7 +4,6 @@ import (
 	"github.com/sherifabdlnaby/prism/pkg/config"
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
 	"go.uber.org/zap"
-	"time"
 )
 
 // Component defines the basic prism component.
@@ -16,7 +15,7 @@ type Component interface {
 	Start() error
 
 	// Stop shutdown down and clean up resources gracefully within a timeout.
-	Close(time.Duration) error
+	Close() error
 }
 
 //------------------------------------------------------------------------------

@@ -10,6 +10,8 @@ import (
 //TODO concurrency protection using RWMxS
 //TODO performance Optimization for buffer allocations
 
+// ReaderCloner Allow to get create multiple readers from a reader, and each created reader will read the same data as
+// base reader
 type ReaderCloner interface {
 	NewReader() io.Reader
 }
