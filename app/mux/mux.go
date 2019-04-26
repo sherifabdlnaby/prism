@@ -2,12 +2,15 @@ package mux
 
 import (
 	"fmt"
+	"github.com/google/uuid"
 	"github.com/sherifabdlnaby/prism/app/pipeline"
 	"github.com/sherifabdlnaby/prism/app/registery/wrapper"
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
+	"time"
 )
 
-//Mux used to forward transactions coming from input plugins to it's pipelines based on transaction.PipelineTag
+//Mux used to forward transactions coming from input plugins to it's pipelines based on transaction.PipelineTag, Mux
+//also add default values to the transaction.ImageData in each transaction.
 type Mux struct {
 	Pipelines map[string]*pipeline.Pipeline
 	Inputs    map[string]*wrapper.Input
@@ -31,6 +34,25 @@ func (m *Mux) forwardPerInput(input *wrapper.Input) {
 			continue
 		}
 
+		// Add defaults to transaction Image Data
+		applyDefaultFields(Tchan.ImageData)
+
 		m.Pipelines[Tchan.PipelineTag].RecieveChan <- Tchan.Transaction
 	}
+}
+
+func applyDefaultFields(d transaction.ImageData) {
+	id := uuid.New()
+	epoch := time.Now().Unix()
+	addDefaultValueToMap(d, "_id", id.String())
+	addDefaultValueToMap(d, "_timestamp", epoch)
+}
+
+func addDefaultValueToMap(data transaction.ImageData, key string, val interface{}) {
+	_, ok := data[key]
+	if ok {
+		return
+	}
+	data[key] = val
+	return
 }
