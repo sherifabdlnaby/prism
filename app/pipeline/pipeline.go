@@ -116,6 +116,7 @@ func NewPipeline(pc config.Pipeline, registry registery.Registry, logger zap.Sug
 		NodesList:   NodesList,
 		Logger:      logger,
 		Resource:    *resource,
+		status:      new,
 	}
 
 	// start pipeline node wrappers
