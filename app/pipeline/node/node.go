@@ -2,8 +2,10 @@ package node
 
 import (
 	"context"
+
 	"github.com/sherifabdlnaby/prism/app/resource"
 	"github.com/sherifabdlnaby/prism/pkg/mirror"
+	"github.com/sherifabdlnaby/prism/pkg/response"
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
 )
 
@@ -17,7 +19,7 @@ type Node struct {
 
 //Jobable Each Component wrappers should implement this interface according to how it should process a transaction.
 type Jobable interface {
-	Job(t transaction.Transaction) (mirror.ReaderCloner, transaction.ImageBytes, transaction.Response)
+	Job(t transaction.Transaction) (mirror.ReaderCloner, transaction.ImageBytes, response.Response)
 }
 
 //NextNode Wraps the next node plus its attributes.
@@ -40,29 +42,29 @@ func (n *Node) Start() {
 func (n *Node) Job(t transaction.Transaction) {
 	err := n.acquire(context.TODO())
 	if err != nil {
-		t.ResponseChan <- transaction.ResponseError(err)
+		t.ResponseChan <- response.Error(err)
 		n.release()
 		return
 	}
 
-	readerCloner, ImageBytes, response := n.Component.Job(t)
+	readerCloner, ImageBytes, Response := n.Component.Job(t)
 
-	if !response.Ack {
-		t.ResponseChan <- response
+	if !Response.Ack {
+		t.ResponseChan <- Response
 		n.release()
 		return
 	}
 	n.release()
 
 	// SEND TO NEXT
-	responseChan := make(chan transaction.Response)
+	responseChan := make(chan response.Response)
 	n.sendToNextNodes(readerCloner, ImageBytes, t.ImageData, responseChan)
 
 	// AWAIT RESPONSEEs
-	response = n.receiveResponseFromNextNodes(response, responseChan)
+	Response = n.receiveResponseFromNextNodes(responseChan)
 
 	// Send Response back.
-	t.ResponseChan <- response
+	t.ResponseChan <- Response
 }
 
 //GetReceiverChan Return Nodes receiver channel
@@ -70,7 +72,7 @@ func (n *Node) GetReceiverChan() chan transaction.Transaction {
 	return n.RecieverChan
 }
 
-func (n *Node) sendToNextNodes(readerBase mirror.ReaderCloner, ImageBytes transaction.ImageBytes, imageData transaction.ImageData, responseChan chan transaction.Response) {
+func (n *Node) sendToNextNodes(readerBase mirror.ReaderCloner, ImageBytes transaction.ImageBytes, imageData transaction.ImageData, responseChan chan response.Response) {
 	for _, next := range n.Next {
 		next.Node.RecieverChan <- transaction.Transaction{
 			Payload: transaction.Payload{
@@ -83,20 +85,20 @@ func (n *Node) sendToNextNodes(readerBase mirror.ReaderCloner, ImageBytes transa
 	}
 }
 
-func (n *Node) receiveResponseFromNextNodes(response transaction.Response, responseChan chan transaction.Response) transaction.Response {
-	response = transaction.ResponseACK
+func (n *Node) receiveResponseFromNextNodes(ResponseChan chan response.Response) response.Response {
+	Response := response.ACK
 	count, total := 0, len(n.Next)
 forloop:
 	for ; count < total; count++ {
 		select {
-		case response = <-responseChan:
-			if !response.Ack {
+		case Response = <-ResponseChan:
+			if !Response.Ack {
 				break forloop
 			}
 			// TODO case context canceled.
 		}
 	}
-	return response
+	return Response
 }
 
 func (n *Node) acquire(c context.Context) error {

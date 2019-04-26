@@ -1,13 +1,15 @@
 package dummy
 
 import (
-	"github.com/sherifabdlnaby/prism/pkg/component"
-	"github.com/sherifabdlnaby/prism/pkg/config"
-	"github.com/sherifabdlnaby/prism/pkg/transaction"
-	"go.uber.org/zap"
 	"os"
 	"sync"
 	"time"
+
+	"github.com/sherifabdlnaby/prism/pkg/component"
+	"github.com/sherifabdlnaby/prism/pkg/config"
+	response2 "github.com/sherifabdlnaby/prism/pkg/response"
+	"github.com/sherifabdlnaby/prism/pkg/transaction"
+	"go.uber.org/zap"
 )
 
 // Dummy Input that read a file from root just for testing.
@@ -72,7 +74,7 @@ func (d *Dummy) Start() error {
 					filename, _ := d.FileName.Evaluate(nil)
 
 					reader, err := os.Open(filename.String())
-					responseChan := make(chan transaction.Response)
+					responseChan := make(chan response2.Response)
 					if err != nil {
 						d.logger.Debugw("Error in dummy: ", zap.Error(err))
 						return

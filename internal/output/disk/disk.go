@@ -1,15 +1,17 @@
 package disk
 
 import (
-	"github.com/sherifabdlnaby/prism/pkg/component"
-	"github.com/sherifabdlnaby/prism/pkg/config"
-	"github.com/sherifabdlnaby/prism/pkg/transaction"
-	"go.uber.org/zap"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
 	"sync"
+
+	"github.com/sherifabdlnaby/prism/pkg/component"
+	"github.com/sherifabdlnaby/prism/pkg/config"
+	"github.com/sherifabdlnaby/prism/pkg/response"
+	"github.com/sherifabdlnaby/prism/pkg/transaction"
+	"go.uber.org/zap"
 )
 
 //Disk struct
@@ -70,7 +72,7 @@ func (d *Disk) writeOnDisk(txn transaction.Transaction) {
 
 	filePathV, err := d.FilePath.Evaluate(txn.ImageData)
 	if err != nil {
-		txn.ResponseChan <- transaction.ResponseError(err)
+		txn.ResponseChan <- response.Error(err)
 		return
 	}
 
@@ -94,7 +96,7 @@ func (d *Disk) writeOnDisk(txn transaction.Transaction) {
 	}
 
 	// send response
-	txn.ResponseChan <- transaction.Response{
+	txn.ResponseChan <- response.Response{
 		Error: err,
 		Ack:   ack,
 	}

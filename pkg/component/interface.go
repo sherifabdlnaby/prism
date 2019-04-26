@@ -2,6 +2,7 @@ package component
 
 import (
 	"github.com/sherifabdlnaby/prism/pkg/config"
+	"github.com/sherifabdlnaby/prism/pkg/response"
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
 	"go.uber.org/zap"
 )
@@ -44,22 +45,22 @@ type Output interface {
 
 //Decoder A Component that can decodes an Input
 type Decoder interface {
-	Decode(in transaction.Payload, data transaction.ImageData) (interface{}, transaction.Response)
+	Decode(in transaction.Payload, data transaction.ImageData) (interface{}, response.Response)
 }
 
 //Processor A Component that can process an image
 type Processor interface {
-	Process(in interface{}, data transaction.ImageData) (interface{}, transaction.Response)
+	Process(in interface{}, data transaction.ImageData) (interface{}, response.Response)
 }
 
 //ProcessorRead A base component that can process images in read-only mode (no-output)
 type ProcessorRead interface {
-	Process(in interface{}, data transaction.ImageData) transaction.Response
+	Process(in interface{}, data transaction.ImageData) response.Response
 }
 
 //Encoder A Component that encode an Image
 type Encoder interface {
-	Encode(in interface{}, data transaction.ImageData, out *transaction.OutputPayload) transaction.Response
+	Encode(in interface{}, data transaction.ImageData, out *transaction.OutputPayload) response.Response
 }
 
 // ProcessorBase can process a payload.
