@@ -6,6 +6,7 @@ import (
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
 	"go.uber.org/zap"
 	"io/ioutil"
+	"math/rand"
 	"time"
 )
 
@@ -45,7 +46,7 @@ func (d *Dummy) Decode(in transaction.Payload, data transaction.ImageData) (inte
 //Process Simulate Processing the Image
 func (d *Dummy) Process(dp interface{}, data transaction.ImageData) (interface{}, transaction.Response) {
 	//d.logger.Debugw("Processing Payload... ")
-	time.Sleep(200 * time.Millisecond)
+	time.Sleep(300 + time.Duration(rand.Intn(1500))*time.Millisecond)
 	return dp, transaction.ResponseACK
 }
 
@@ -77,6 +78,6 @@ func (d *Dummy) Start() error {
 }
 
 //Close Close plugin gracefully
-func (d *Dummy) Close(time.Duration) error {
+func (d *Dummy) Close() error {
 	return nil
 }

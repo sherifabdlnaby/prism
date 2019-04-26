@@ -6,10 +6,12 @@ import (
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
 )
 
+//ReadOnly Wraps a readonly component
 type ReadOnly struct {
 	component.ProcessorReadOnly
 }
 
+//Job Process transaction by calling Decode-> Process->
 func (pn *ReadOnly) Job(t transaction.Transaction) (mirror.ReaderCloner, transaction.ImageBytes, transaction.Response) {
 	//create reader mirror
 	readerCloner := mirror.NewReader(t.Payload.Reader)

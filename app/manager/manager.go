@@ -9,18 +9,20 @@ import (
 	componentConfig "github.com/sherifabdlnaby/prism/pkg/config"
 )
 
+//Manager Contains all component instances and pipelines, and is responsible for managing them.
 type Manager struct {
 	logger
 	registery.Registry
-	Pipelines map[string]pipeline.Pipeline
+	Pipelines map[string]*pipeline.Pipeline
 	Mux       mux.Mux
 }
 
+//NewManager Create a new manager based on the already parsed configs.
 func NewManager(c config.Config) *Manager {
 	m := Manager{}
 	m.logger = *newLoggers(c)
 	m.Registry = *registery.NewRegistry()
-	m.Pipelines = make(map[string]pipeline.Pipeline)
+	m.Pipelines = make(map[string]*pipeline.Pipeline)
 	m.Mux = mux.Mux{
 		Pipelines: m.Pipelines,
 		Inputs:    m.Registry.InputPlugins,
@@ -96,27 +98,14 @@ func (m *Manager) InitPlugins(c config.Config) error {
 	return nil
 }
 
-// StartPlugins Start all plugins in Config by calling their Start() function
-func (m *Manager) StartPlugins(c config.Config) error {
-	m.baseLogger.Info("starting plugins...")
+// StartInputPlugins Start all input plugins in Config by calling their Start() function
+func (m *Manager) StartInputPlugins(c config.Config) error {
+	m.inputLogger.Info("starting input plugins...")
 
 	for _, value := range m.InputPlugins {
 		err := value.Start()
 		if err != nil {
-			return err
-		}
-	}
-
-	for _, value := range m.ProcessorPlugins {
-		err := value.Start()
-		if err != nil {
-			return err
-		}
-	}
-
-	for _, value := range m.OutputPlugins {
-		err := value.Start()
-		if err != nil {
+			value.Logger.Error(err.Error())
 			return err
 		}
 	}
@@ -124,7 +113,37 @@ func (m *Manager) StartPlugins(c config.Config) error {
 	return nil
 }
 
-// InitPipelines Start all plugins in Config by calling their Start() function
+// StartProcessorPlugins Start all processor plugins in Config by calling their Start() function
+func (m *Manager) StartProcessorPlugins(c config.Config) error {
+	m.processingLogger.Info("starting processor plugins...")
+
+	for _, value := range m.ProcessorPlugins {
+		err := value.Start()
+		if err != nil {
+			value.Logger.Error(err.Error())
+			return err
+		}
+	}
+
+	return nil
+}
+
+// StartOutputPlugins Start all output plugins in Config by calling their Start() function
+func (m *Manager) StartOutputPlugins(c config.Config) error {
+	m.baseLogger.Info("starting output plugins...")
+
+	for _, value := range m.OutputPlugins {
+		err := value.Start()
+		if err != nil {
+			value.Logger.Error(err.Error())
+			return err
+		}
+	}
+
+	return nil
+}
+
+// InitPipelines Initialize and build all configured pipelines
 func (m *Manager) InitPipelines(c config.Config) error {
 	m.baseLogger.Info("initializing pipelines...")
 
@@ -142,18 +161,40 @@ func (m *Manager) InitPipelines(c config.Config) error {
 			return fmt.Errorf("error occured when constructing pipeline [%s]: %s", key, err.Error())
 		}
 
-		m.Pipelines[key] = *pip
+		m.Pipelines[key] = pip
 	}
 
 	return nil
 }
 
+// StartPipelines Start all pipelines and start accepting input
 func (m *Manager) StartPipelines(c config.Config) error {
 
 	m.baseLogger.Info("starting pipelines...")
 
 	for _, value := range m.Pipelines {
 		err := value.Start()
+		if err != nil {
+			value.Logger.Error(err.Error())
+			return err
+		}
+	}
+
+	return nil
+}
+
+//StartMux Start the mux that forwards the transactions from input to pipelines based on pipelineTag in transaction.
+func (m *Manager) StartMux() error {
+	m.Mux.Start()
+	m.baseLogger.Info("starting forwarding input to pipelines...")
+	return nil
+}
+
+// StopPipelines Stop pipelines by calling their Stop() function, any request to these pipelines will return error.
+func (m *Manager) StopPipelines(c config.Config) error {
+
+	for _, value := range m.Pipelines {
+		err := value.Stop()
 		if err != nil {
 			return err
 		}
@@ -162,8 +203,100 @@ func (m *Manager) StartPipelines(c config.Config) error {
 	return nil
 }
 
-func (m *Manager) StartMux() error {
-	m.baseLogger.Info("starting forwarding input to pipelines...")
-	m.Mux.Start()
+// StopInputPlugins Stop all input plugins in Config by calling their Stop() function
+func (m *Manager) StopInputPlugins(c config.Config) error {
+
+	for _, value := range m.InputPlugins {
+		err := value.Close()
+		if err != nil {
+			value.Logger.Error(err.Error())
+			return err
+		}
+	}
+
+	return nil
+}
+
+// StopProcessorPlugins Stop all processor plugins in Config by calling their Stop() function
+func (m *Manager) StopProcessorPlugins(c config.Config) error {
+
+	for _, value := range m.ProcessorPlugins {
+		err := value.Close()
+		if err != nil {
+			value.Logger.Error(err.Error())
+			return err
+		}
+	}
+
+	return nil
+}
+
+// StopOutputPlugins Stop all output plugins in Config by calling their Stop() function
+func (m *Manager) StopOutputPlugins(c config.Config) error {
+
+	for _, value := range m.OutputPlugins {
+		err := value.Close()
+		if err != nil {
+			value.Logger.Error(err.Error())
+			return err
+		}
+	}
+
+	return nil
+}
+
+//StopComponentsGracefully Stop components in graceful strategy
+// 		1- Stop Input Components.
+// 		2- Stop Pipelines.
+// 		3- Stop Processor Components.
+// 		4- Stop Output Components.
+// As by definition each stop functionality in these components is graceful, this should guarantee graceful shutdown.
+func (m *Manager) StopComponentsGracefully(c config.Config) error {
+	m.baseLogger.Info("stopping all components gracefully...")
+
+	///////////////////////////////////////
+
+	m.inputLogger.Info("stopping input plugins...")
+	err := m.StopInputPlugins(c)
+	if err != nil {
+		m.inputLogger.Errorw("failed to stop input plugins", "error", err.Error())
+		return err
+	}
+	m.inputLogger.Info("stopped input plugins successfully.")
+
+	///////////////////////////////////////
+
+	m.pipelineLogger.Info("stopping pipelines...")
+	err = m.StopPipelines(c)
+	if err != nil {
+		m.pipelineLogger.Errorw("failed to stop pipelines", "error", err.Error())
+		return err
+	}
+	m.pipelineLogger.Info("stopping pipelines successfully.")
+
+	///////////////////////////////////////
+
+	err = m.StopProcessorPlugins(c)
+	m.processingLogger.Info("stopping processor plugins...")
+	if err != nil {
+		m.processingLogger.Errorw("failed to stop input plugins", "error", err.Error())
+		return err
+	}
+	m.processingLogger.Info("stopping processor successfully.")
+
+	///////////////////////////////////////
+
+	err = m.StopOutputPlugins(c)
+	m.outputLogger.Info("stopping output plugins...")
+	if err != nil {
+		m.outputLogger.Errorw("failed to stop output plugins", "error", err.Error())
+		return err
+	}
+	m.outputLogger.Info("stopped output successfully.")
+
+	///////////////////////////////////////
+
+	m.baseLogger.Info("stopped all components successfully")
+
 	return nil
 }

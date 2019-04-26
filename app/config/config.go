@@ -57,6 +57,7 @@ type OutputsConfig struct {
 
 // Config is the collection of config needed for the engine to start.
 type Config struct {
+	App        AppConfig
 	Inputs     InputsConfig
 	Processors ProcessorsConfig
 	Outputs    OutputsConfig

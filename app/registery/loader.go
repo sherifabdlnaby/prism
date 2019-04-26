@@ -26,7 +26,7 @@ func (m *Registry) LoadInput(name string, input config.Input, Logger zap.Sugared
 		return fmt.Errorf("plugin type [%s] is not an input plugin", input.Plugin)
 	}
 
-	m.InputPlugins[name] = wrapper.Input{
+	m.InputPlugins[name] = &wrapper.Input{
 		Input:    pluginInstance,
 		Resource: *resource.NewResource(input.Concurrency, *Logger.Named(name)),
 	}
@@ -34,7 +34,7 @@ func (m *Registry) LoadInput(name string, input config.Input, Logger zap.Sugared
 }
 
 // GetInput Get wrapper.Input Plugin from the loaded plugins.
-func (m *Registry) GetInput(name string) (a wrapper.Input, b bool) {
+func (m *Registry) GetInput(name string) (a *wrapper.Input, b bool) {
 	a, b = m.InputPlugins[name]
 	return
 }
@@ -58,7 +58,7 @@ func (m *Registry) LoadProcessor(name string, processor config.Processor, Logger
 		return fmt.Errorf("plugin type [%s] is not a processor plugin", processor.Plugin)
 	}
 
-	m.ProcessorPlugins[name] = wrapper.Processor{
+	m.ProcessorPlugins[name] = &wrapper.Processor{
 		ProcessorBase: pluginInstance,
 		Resource:      *resource.NewResource(processor.Concurrency, *Logger.Named(name)),
 	}
@@ -67,7 +67,7 @@ func (m *Registry) LoadProcessor(name string, processor config.Processor, Logger
 }
 
 // GetProcessor Get wrapper.Processor Plugin from the loaded plugins.
-func (m *Registry) GetProcessor(name string) (a wrapper.Processor, b bool) {
+func (m *Registry) GetProcessor(name string) (a *wrapper.Processor, b bool) {
 	a, b = m.ProcessorPlugins[name]
 	return
 }
@@ -91,7 +91,7 @@ func (m *Registry) LoadOutput(name string, output config.Output, Logger zap.Suga
 		return fmt.Errorf("plugin type [%s] is not an output plugin", output.Plugin)
 	}
 
-	m.OutputPlugins[name] = wrapper.Output{
+	m.OutputPlugins[name] = &wrapper.Output{
 		Output:   pluginInstance,
 		Resource: *resource.NewResource(output.Concurrency, *Logger.Named(name)),
 	}
@@ -100,7 +100,7 @@ func (m *Registry) LoadOutput(name string, output config.Output, Logger zap.Suga
 }
 
 // GetOutput Get wrapper.Output Plugin from the loaded plugins.
-func (m *Registry) GetOutput(name string) (a wrapper.Output, b bool) {
+func (m *Registry) GetOutput(name string) (a *wrapper.Output, b bool) {
 	a, b = m.OutputPlugins[name]
 	return
 }

@@ -49,6 +49,7 @@ func bootstrap() (config.Config, error) {
 	}
 
 	return config.Config{
+		App:        appConfig,
 		Inputs:     inputConfig,
 		Processors: processorConfig,
 		Outputs:    outputConfig,
@@ -70,12 +71,16 @@ func main() {
 
 	err = app.InitializeComponents(config)
 	err = app.InitializePipelines(config)
-	err = app.StartComponents(config)
 	err = app.StartPipelines(config)
 	err = app.StartMux(config)
+	err = app.StartComponents(config)
 
-	time.Sleep(1000 * time.Second)
+	time.Sleep(5 * time.Second)
 
+	err = app.StopComponents(config)
+	if err != nil {
+		panic(err)
+	}
 }
 
 func bootLogger(appConfig config.AppConfig) (*zap.SugaredLogger, error) {

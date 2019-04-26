@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"sync"
-	"time"
 )
 
 //Disk struct
@@ -124,7 +123,7 @@ func (d *Disk) Start() error {
 
 //Close func Send a close signal to stop chan
 // to stop taking transactions and Close everything safely
-func (d *Disk) Close(time.Duration) error {
+func (d *Disk) Close() error {
 	d.stopChan <- struct{}{}
 	d.wg.Wait()
 	close(d.Transactions)

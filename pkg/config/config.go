@@ -11,6 +11,7 @@ import (
 // TODO evaluate defaults. (add ability to add default value)
 var fieldsRegex = regexp.MustCompile(`@{([\w@.]+)}`)
 
+//Value Contains a value in the config, this value can be static or dynamic, dynamic values must be get using Evaluate()
 type Value struct {
 	isDynamic bool
 	value     objx.Value
@@ -96,6 +97,8 @@ func splitToParts(str string) []part {
 	return parts
 }
 
+//Evaluate Evaluate dynamic values of config such as `@{image.title}`, return error if it doesn't exist in supplied
+// ImageData. (Returned values still must be checked for its type)
 func (v *Value) Evaluate(data transaction.ImageData) (objx.Value, error) {
 
 	// No need to evaluate
@@ -130,6 +133,7 @@ func (v *Value) Evaluate(data transaction.ImageData) (objx.Value, error) {
 
 }
 
+//Get Return Config Values (must be used for static config values only)
 func (v *Value) Get() *objx.Value {
 	return &v.value
 }
