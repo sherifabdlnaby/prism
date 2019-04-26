@@ -3,6 +3,7 @@ package node
 import (
 	"github.com/sherifabdlnaby/prism/pkg/component"
 	"github.com/sherifabdlnaby/prism/pkg/mirror"
+	"github.com/sherifabdlnaby/prism/pkg/response"
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
 )
 
@@ -12,8 +13,8 @@ type Output struct {
 }
 
 //Job Output Job will send the transaction to output plugin and await its result.
-func (on *Output) Job(t transaction.Transaction) (mirror.ReaderCloner, transaction.ImageBytes, transaction.Response) {
-	responseChan := make(chan transaction.Response)
+func (on *Output) Job(t transaction.Transaction) (mirror.ReaderCloner, transaction.ImageBytes, response.Response) {
+	responseChan := make(chan response.Response)
 	readerCloner := mirror.NewReader(t.Payload.Reader)
 	mirrorPayload := transaction.Payload{
 		Reader:     readerCloner.NewReader(),

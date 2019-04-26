@@ -2,11 +2,13 @@ package mux
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/sherifabdlnaby/prism/app/pipeline"
 	"github.com/sherifabdlnaby/prism/app/registery/wrapper"
+	"github.com/sherifabdlnaby/prism/pkg/response"
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
-	"time"
 )
 
 //Mux used to forward transactions coming from input plugins to it's pipelines based on transaction.PipelineTag, Mux
@@ -28,7 +30,7 @@ func (m *Mux) forwardPerInput(input *wrapper.Input) {
 
 		_, ok := m.Pipelines[Tchan.PipelineTag]
 		if !ok {
-			Tchan.ResponseChan <- transaction.ResponseError(
+			Tchan.ResponseChan <- response.Error(
 				fmt.Errorf("pipeline [%s] is not defined", Tchan.PipelineTag),
 			)
 			continue

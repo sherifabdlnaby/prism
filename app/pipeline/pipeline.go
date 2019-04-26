@@ -2,15 +2,17 @@ package pipeline
 
 import (
 	"fmt"
+	"sync"
+	"sync/atomic"
+
 	"github.com/sherifabdlnaby/prism/app/config"
 	"github.com/sherifabdlnaby/prism/app/pipeline/node"
 	"github.com/sherifabdlnaby/prism/app/registery"
 	"github.com/sherifabdlnaby/prism/app/resource"
 	"github.com/sherifabdlnaby/prism/pkg/component"
+	"github.com/sherifabdlnaby/prism/pkg/response"
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
 	"go.uber.org/zap"
-	"sync"
-	"sync/atomic"
 )
 
 type (
@@ -44,13 +46,13 @@ func (p *Pipeline) Start() error {
 		go func() {
 			for value := range p.RecieveChan {
 				if p.status != started {
-					value.ResponseChan <- transaction.ResponseError(fmt.Errorf("pipeline is not started, request terminated"))
+					value.ResponseChan <- response.Error(fmt.Errorf("pipeline is not started, request terminated"))
 					continue
 				}
 				p.wg.Add(1)
 				go func(txn transaction.Transaction) {
 					// TODO handle context error
-					responseChan := make(chan transaction.Response)
+					responseChan := make(chan response.Response)
 					p.Next.GetReceiverChan() <- transaction.Transaction{
 						Payload:      txn.Payload,
 						ImageData:    txn.ImageData,

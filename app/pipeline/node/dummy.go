@@ -2,6 +2,7 @@ package node
 
 import (
 	"github.com/sherifabdlnaby/prism/pkg/mirror"
+	"github.com/sherifabdlnaby/prism/pkg/response"
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
 )
 
@@ -10,7 +11,7 @@ type DummyNode struct {
 }
 
 //Job Just forwards the input.
-func (dn *DummyNode) Job(t transaction.Transaction) (mirror.ReaderCloner, transaction.ImageBytes, transaction.Response) {
+func (dn *DummyNode) Job(t transaction.Transaction) (mirror.ReaderCloner, transaction.ImageBytes, response.Response) {
 	readerCloner := mirror.NewReader(t.Payload.Reader)
-	return readerCloner, t.ImageBytes, transaction.ResponseACK
+	return readerCloner, t.ImageBytes, response.ACK
 }

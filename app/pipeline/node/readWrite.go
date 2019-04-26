@@ -3,6 +3,7 @@ package node
 import (
 	"github.com/sherifabdlnaby/prism/pkg/component"
 	"github.com/sherifabdlnaby/prism/pkg/mirror"
+	"github.com/sherifabdlnaby/prism/pkg/response"
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
 )
 
@@ -12,7 +13,7 @@ type ReadWrite struct {
 }
 
 //Job Process transaction by calling Decode-> Process-> Encode->
-func (pn *ReadWrite) Job(t transaction.Transaction) (mirror.ReaderCloner, transaction.ImageBytes, transaction.Response) {
+func (pn *ReadWrite) Job(t transaction.Transaction) (mirror.ReaderCloner, transaction.ImageBytes, response.Response) {
 
 	/// DECODE
 
