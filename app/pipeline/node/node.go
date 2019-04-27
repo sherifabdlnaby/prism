@@ -4,6 +4,8 @@ import "github.com/sherifabdlnaby/prism/pkg/transaction"
 
 // TODO refactor nodes to make code more reusable
 
+// TODO enhance interfaces, avoid buffering reader if it's only one node in next.
+
 //Node A node wraps components and manage receiving transactions and forwarding transactions to next nodes.
 type Node interface {
 	// Start this node and all its next nodes to start receiving transactions
