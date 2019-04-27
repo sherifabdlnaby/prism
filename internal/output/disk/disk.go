@@ -40,12 +40,12 @@ func (d *Disk) TransactionChan() chan<- transaction.Transaction {
 func (d *Disk) Init(config config.Config, logger zap.SugaredLogger) error {
 	var err error
 
-	d.FilePath, err = config.Get("filepath", nil)
+	d.FilePath, err = config.Get("filepath")
 	if err != nil {
 		return err
 	}
 
-	d.FilePermission, err = config.Get("permission", nil)
+	d.FilePermission, err = config.Get("permission")
 	if err != nil {
 		return err
 	}

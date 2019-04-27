@@ -36,12 +36,12 @@ func (d *Dummy) TransactionChan() <-chan transaction.InputTransaction {
 
 // Init Initializes Plugin
 func (d *Dummy) Init(config config.Config, logger zap.SugaredLogger) error {
-	FileName, err := config.Get("filename", nil)
+	FileName, err := config.Get("filename")
 	if err != nil {
 		return err
 	}
 
-	Pipeline, err := config.Get("pipeline", nil)
+	Pipeline, err := config.Get("pipeline")
 	if err != nil {
 		return err
 	}
@@ -92,7 +92,7 @@ func (d *Dummy) Start() error {
 								Reader:     reader,
 								ImageBytes: nil,
 							},
-							ImageData:    transaction.ImageData{"count": i},
+							ImageData:    transaction.ImageData{"count": i, "width": 150, "flip": i, "blur": 5.0},
 							ResponseChan: responseChan,
 							Context:      ctx,
 						},

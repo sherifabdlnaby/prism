@@ -5,6 +5,7 @@ import (
 	dummyinput "github.com/sherifabdlnaby/prism/internal/input/dummy"
 	"github.com/sherifabdlnaby/prism/internal/output/disk"
 	dummyprocessor "github.com/sherifabdlnaby/prism/internal/processor/dummy"
+	"github.com/sherifabdlnaby/prism/internal/processor/vips"
 	"github.com/sherifabdlnaby/prism/pkg/component"
 )
 
@@ -13,6 +14,7 @@ var registered = map[string]func() component.Component{
 	"dummy_processor": dummyprocessor.NewComponent,
 	"dummy_input":     dummyinput.NewComponent,
 	"disk":            disk.NewComponent,
+	"vips":            vips.NewComponent,
 }
 
 //Registry Contains Plugin Instances

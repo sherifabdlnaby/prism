@@ -2,11 +2,12 @@ package main
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/sherifabdlnaby/prism/app"
 	"github.com/sherifabdlnaby/prism/app/config"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"time"
 )
 
 // PARSE STUFF

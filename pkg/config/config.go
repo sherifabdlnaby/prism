@@ -2,10 +2,11 @@ package config
 
 import (
 	"fmt"
-	"github.com/sherifabdlnaby/objx"
-	"github.com/sherifabdlnaby/prism/pkg/transaction"
 	"regexp"
 	"strings"
+
+	"github.com/sherifabdlnaby/objx"
+	"github.com/sherifabdlnaby/prism/pkg/transaction"
 )
 
 // TODO evaluate defaults. (add ability to add default value)
@@ -38,7 +39,7 @@ func NewConfig(config map[string]interface{}) *Config {
 // Get gets value from config based on key, key access config using dot-notation (obj.Value.array[0].Value).
 // Get will also evaluate dynamic fields in config ( @{dynamic.Value} ) using data, pass nill if you're sure that this
 // Value is constant. returns error if key or dynamic Value doesn't exist.
-func (cw *Config) Get(key string, data transaction.ImageData) (Value, error) {
+func (cw *Config) Get(key string) (Value, error) {
 	// Check cache
 	if val, ok := cw.cache[key]; ok {
 		return val, nil

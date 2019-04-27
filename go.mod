@@ -1,10 +1,11 @@
 module github.com/sherifabdlnaby/prism
 
 require (
+	github.com/davidbyttow/govips v0.0.0-20190304175058-d272f04c0fea // indirect
 	github.com/google/uuid v1.1.1
 	github.com/mitchellh/mapstructure v1.1.2
 	github.com/pkg/errors v0.8.1 // indirect
-	github.com/sherifabdlnaby/gpool v1.0.0
+	github.com/sherifabdlnaby/govips v0.0.0-20190316191226-db2244648a81
 	github.com/sherifabdlnaby/objx v0.2.0
 	github.com/sherifabdlnaby/semaphore v1.1.0
 	github.com/spf13/cast v1.3.0
