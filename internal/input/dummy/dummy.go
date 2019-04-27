@@ -1,6 +1,7 @@
 package dummy
 
 import (
+	"context"
 	"os"
 	"sync"
 	"time"
@@ -81,6 +82,8 @@ func (d *Dummy) Start() error {
 					}
 
 					pipeline, _ := d.Pipeline.Evaluate(nil)
+					ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*3500)
+					defer cancel()
 
 					// Send Transaction
 					d.Transactions <- transaction.InputTransaction{
@@ -91,6 +94,7 @@ func (d *Dummy) Start() error {
 							},
 							ImageData:    transaction.ImageData{"count": i},
 							ResponseChan: responseChan,
+							Context:      ctx,
 						},
 						PipelineTag: pipeline.String(),
 					}
@@ -98,7 +102,7 @@ func (d *Dummy) Start() error {
 					// Wait Transaction
 					response := <-responseChan
 
-					d.logger.Debugw("RECEIVED RESPONSE.", "ID", i, "ack", response.Ack, "error", response.Error)
+					d.logger.Debugw("RECEIVED RESPONSE.", "ID", i, "ack", response.Ack, "error", response.Error, "AckErr", response.AckErr)
 				}(d.metric)
 
 				d.metric++
