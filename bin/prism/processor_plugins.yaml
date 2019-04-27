@@ -1,16 +1,16 @@
 processors:
     dummy_processor1:
         concurrency: 100
-        plugin: dummy_processor
+        plugin: vips
         config:
             filename: testing.jpg
     dummy_processor2:
         concurrency: 100
-        plugin: dummy_processor
+        plugin: vips
         config:
             filename: testing.jpg
     dummy_processor3:
-        plugin: dummy_processor
+        plugin: vips
         concurrency: 100
         config:
             filename: testing.jpg
