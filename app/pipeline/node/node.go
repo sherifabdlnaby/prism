@@ -37,31 +37,67 @@ func (n *Node) Start() {
 	}()
 }
 
-//Job Manages processing transaction by acquiring/releasing resources, calling components Job() method, and forward
+//Job Manages processing transaction by acquiring/releasing resources, calling components job() method, and forward
 //results to next nodes accordingly, and waits for response from all next Nodes, finally returning response of the transaction.
 func (n *Node) Job(t transaction.Transaction) {
-	err := n.acquire(context.TODO())
+
+	////////////////////////////////////////////
+	// Acquire Resource (limit concurrency)
+	err := n.acquire(t.Context)
 	if err != nil {
-		t.ResponseChan <- response.Error(err)
-		n.release()
+		t.ResponseChan <- response.NoAck(err)
 		return
 	}
 
+	////////////////////////////////////////////
+	// Do Main Component Job
 	readerCloner, ImageBytes, Response := n.Component.Job(t)
+	n.release()
 
 	if !Response.Ack {
 		t.ResponseChan <- Response
-		n.release()
 		return
 	}
-	n.release()
 
-	// SEND TO NEXT
-	responseChan := make(chan response.Response)
-	n.sendToNextNodes(readerCloner, ImageBytes, t.ImageData, responseChan)
+	////////////////////////////////////////////
+	// Send result to next nodes
+	responseChan := make(chan response.Response, len(n.Next))
+	ctx, cancel := context.WithCancel(t.Context)
 
+	for _, next := range n.Next {
+		next.Node.RecieverChan <- transaction.Transaction{
+			Payload: transaction.Payload{
+				Reader:     readerCloner.NewReader(),
+				ImageBytes: ImageBytes,
+			},
+			ImageData:    t.ImageData,
+			Context:      ctx,
+			ResponseChan: responseChan,
+		}
+	}
+
+	////////////////////////////////////////////
 	// AWAIT RESPONSEEs
-	Response = n.receiveResponseFromNextNodes(responseChan)
+	count, total := 0, len(n.Next)
+loop:
+	for ; count < total; count++ {
+		select {
+		case Response = <-responseChan:
+			if !Response.Ack {
+				// cancel sub-contexts
+				cancel()
+				break loop
+			}
+		case <-t.Context.Done():
+			// cancel sub-contexts
+			cancel()
+			Response = response.NoAck(t.Context.Err())
+			break loop
+		}
+	}
+
+	// cancel context (avoid context leak)
+	cancel()
 
 	// Send Response back.
 	t.ResponseChan <- Response
@@ -72,45 +108,33 @@ func (n *Node) GetReceiverChan() chan transaction.Transaction {
 	return n.RecieverChan
 }
 
-func (n *Node) sendToNextNodes(readerBase mirror.ReaderCloner, ImageBytes transaction.ImageBytes, imageData transaction.ImageData, responseChan chan response.Response) {
-	for _, next := range n.Next {
-		next.Node.RecieverChan <- transaction.Transaction{
-			Payload: transaction.Payload{
-				Reader:     readerBase.NewReader(),
-				ImageBytes: ImageBytes,
-			},
-			ImageData:    imageData,
-			ResponseChan: responseChan,
-		}
-	}
-}
-
-func (n *Node) receiveResponseFromNextNodes(ResponseChan chan response.Response) response.Response {
-	Response := response.ACK
-	count, total := 0, len(n.Next)
-forloop:
-	for ; count < total; count++ {
-		select {
-		case Response = <-ResponseChan:
-			if !Response.Ack {
-				break forloop
-			}
-			// TODO case context canceled.
-		}
-	}
-	return Response
-}
-
 func (n *Node) acquire(c context.Context) error {
-	acquired := n.Resource.TryAcquire(1)
-	if !acquired {
-		// Warn for filled Node.
-		n.Resource.Logger.Warn("plugin reached its concurrency limit")
-		return n.Resource.Acquire(c, 1)
+	select {
+	case <-c.Done():
+		return c.Err()
+	default:
+		acquired := n.Resource.TryAcquire(1)
+		if !acquired {
+			// Warn for filled Node.
+			n.Resource.Logger.Warn("plugin reached its concurrency limit")
+
+			// block until acquired
+			return n.Resource.Acquire(c, 1)
+		}
 	}
+
 	return nil
 }
 
 func (n *Node) release() {
 	n.Resource.Release(1)
 }
+
+//func (n *Node) sendToNextNodes(rb mirror.ReaderCloner, ctx context.Context, ib transaction.ImageBytes,
+//	id transaction.ImageData, rc chan response.Response) {
+
+//}
+
+//func (n *Node) receiveResponseFromNextNodes(ResponseChan chan response.Response) response.Response {
+
+//}

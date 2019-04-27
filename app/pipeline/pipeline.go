@@ -39,36 +39,26 @@ const (
 //Start starts the pipeline and start accepting Input
 func (p *Pipeline) Start() error {
 
-	if p.status == new {
+	if p.status != new {
 		// set status = started (no need atomic here, just for sake of consistency)
 		atomic.SwapInt32((*int32)(&p.status), int32(started))
-
-		go func() {
-			for value := range p.RecieveChan {
-				if p.status != started {
-					value.ResponseChan <- response.Error(fmt.Errorf("pipeline is not started, request terminated"))
-					continue
-				}
-				p.wg.Add(1)
-				go func(txn transaction.Transaction) {
-					// TODO handle context error
-					responseChan := make(chan response.Response)
-					p.Next.GetReceiverChan() <- transaction.Transaction{
-						Payload:      txn.Payload,
-						ImageData:    txn.ImageData,
-						ResponseChan: responseChan,
-					}
-					txn.ResponseChan <- <-responseChan
-					p.wg.Done()
-				}(value)
-			}
-		}()
 
 		return nil
 	}
 
 	// set status = started (no need atomic here, just for sake of consistency)
 	atomic.SwapInt32((*int32)(&p.status), int32(started))
+
+	go func() {
+		for value := range p.RecieveChan {
+			if p.status != started {
+				value.ResponseChan <- response.Error(fmt.Errorf("pipeline is not started, request terminated"))
+				continue
+			}
+			p.wg.Add(1)
+			go p.job(value)
+		}
+	}()
 
 	return nil
 }
@@ -79,6 +69,18 @@ func (p *Pipeline) Stop() error {
 	atomic.SwapInt32((*int32)(&p.status), int32(closed))
 	p.wg.Wait()
 	return nil
+}
+
+func (p *Pipeline) job(txn transaction.Transaction) {
+	responseChan := make(chan response.Response, 1)
+	p.Next.GetReceiverChan() <- transaction.Transaction{
+		Payload:      txn.Payload,
+		ImageData:    txn.ImageData,
+		ResponseChan: responseChan,
+		Context:      txn.Context,
+	}
+	txn.ResponseChan <- <-responseChan
+	p.wg.Done()
 }
 
 //NewPipeline Construct a NewPipeline using config.

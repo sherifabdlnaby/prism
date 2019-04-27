@@ -12,9 +12,9 @@ type Output struct {
 	component.Output
 }
 
-//Job Output Job will send the transaction to output plugin and await its result.
+//Job Output job will send the transaction to output plugin and await its result.
 func (on *Output) Job(t transaction.Transaction) (mirror.ReaderCloner, transaction.ImageBytes, response.Response) {
-	responseChan := make(chan response.Response)
+	responseChan := make(chan response.Response, 1)
 	readerCloner := mirror.NewReader(t.Payload.Reader)
 	mirrorPayload := transaction.Payload{
 		Reader:     readerCloner.NewReader(),
