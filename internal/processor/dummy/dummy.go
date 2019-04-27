@@ -28,15 +28,22 @@ func NewComponent() component.Component {
 
 //Decode Simulate Decoding the Image
 func (d *Dummy) Decode(in transaction.Payload, data transaction.ImageData) (interface{}, response.Response) {
-	//d.logger.Debugw("Decoding Payload... ")
+	var imgBytes []byte
+	var err error
 
-	imgBytes, err := ioutil.ReadAll(in)
-
-	if err != nil {
-		return transaction.DecodedPayload{}, response.Error(err)
+	// Previous plugins has passed its output as a whole via byte slice,
+	// (no need to read it using reader (which will duplicate data in ram) if its available as reference)
+	if in.ImageBytes != nil {
+		imgBytes = in.ImageBytes
+	} else {
+		// Read all bytes using input's reader.
+		imgBytes, err = ioutil.ReadAll(in)
+		if err != nil {
+			return transaction.DecodedPayload{}, response.Error(err)
+		}
 	}
 
-	// create internal object (varies with each plugin)`
+	// create internal decoded object (varies with each plugin)`
 	out := internalImage{
 		internal: imgBytes,
 	}
@@ -47,23 +54,29 @@ func (d *Dummy) Decode(in transaction.Payload, data transaction.ImageData) (inte
 
 //Process Simulate Processing the Image
 func (d *Dummy) Process(dp interface{}, data transaction.ImageData) (interface{}, response.Response) {
-	//d.logger.Debugw("Processing Payload... ")
+	//literally do nothing lol
 	time.Sleep(300 + time.Duration(rand.Intn(1500))*time.Millisecond)
 	return dp, response.ACK
 }
 
 //Encode Simulate Encoding the Image
 func (d *Dummy) Encode(in interface{}, data transaction.ImageData, out *transaction.OutputPayload) response.Response {
-	//d.logger.Debugw("Encoding Payload... ")
+
+	// Since in this dummy case we have processed output as a whole, we can just pass it to next node.
 	out.ImageBytes = in.(internalImage).internal
+
+	// Write plugin's output, to the output object.
 	_, err := out.Write(out.ImageBytes)
 	if err != nil {
 		return response.Error(err)
 	}
+
+	// Close() must be called to indicate EOF.
 	err = out.Close()
 	if err != nil {
 		return response.Error(err)
 	}
+
 	return response.ACK
 }
 
