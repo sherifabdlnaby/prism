@@ -2,12 +2,51 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
+
 	"github.com/sherifabdlnaby/prism/app"
 	"github.com/sherifabdlnaby/prism/app/config"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"time"
 )
+
+func main() {
+
+	// Parse configuration from yaml files
+	config, err := bootstrap()
+	if err != nil {
+		panic(err)
+	}
+
+	// Create new app instance
+	app := app.NewApp(config)
+
+	// Start app
+	err = app.Start(config)
+	if err != nil {
+		panic(err)
+	}
+
+	// Defer Closing the app.
+	defer func() {
+		err = app.Stop(config)
+		if err != nil {
+			panic(err)
+		}
+	}()
+
+	// Listen to Signals
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+
+	// Termination
+	select {
+	case <-sigChan:
+		config.Logger.Info("Received SIGTERM signal, the service is closing...")
+	}
+}
 
 // PARSE STUFF
 func bootstrap() (config.Config, error) {
@@ -58,31 +97,6 @@ func bootstrap() (config.Config, error) {
 	}, nil
 }
 
-// USED FOR TESTING FOR NOW
-func main() {
-
-	config, err := bootstrap()
-
-	if err != nil {
-		panic(err)
-	}
-
-	app := app.NewApp(config)
-
-	err = app.InitializeComponents(config)
-	err = app.InitializePipelines(config)
-	err = app.StartPipelines(config)
-	err = app.StartMux(config)
-	err = app.StartComponents(config)
-
-	time.Sleep(5 * time.Second)
-
-	err = app.StopComponents(config)
-	if err != nil {
-		panic(err)
-	}
-}
-
 func bootLogger(appConfig config.AppConfig) (*zap.SugaredLogger, error) {
 	var logConfig zap.Config
 	if appConfig.Logger == "dev" {
@@ -100,6 +114,6 @@ func bootLogger(appConfig config.AppConfig) (*zap.SugaredLogger, error) {
 		return nil, err
 	}
 
-	logger := loggerBase.Sugar()
+	logger := loggerBase.Sugar().Named("prism")
 	return logger, nil
 }

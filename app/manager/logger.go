@@ -15,7 +15,7 @@ type logger struct {
 
 func newLoggers(c config.Config) *logger {
 	l := logger{}
-	l.baseLogger = *c.Logger.Named("prism")
+	l.baseLogger = *c.Logger
 	l.inputLogger = *l.baseLogger.Named("input")
 	l.processingLogger = *l.baseLogger.Named("processor")
 	l.outputLogger = *l.baseLogger.Named("output")

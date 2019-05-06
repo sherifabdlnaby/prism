@@ -2,6 +2,7 @@ package manager
 
 import (
 	"fmt"
+
 	"github.com/sherifabdlnaby/prism/app/config"
 	"github.com/sherifabdlnaby/prism/app/mux"
 	"github.com/sherifabdlnaby/prism/app/pipeline"
@@ -30,8 +31,8 @@ func NewManager(c config.Config) *Manager {
 	return &m
 }
 
-// LoadPlugins Load all plugins in Config
-func (m *Manager) LoadPlugins(c config.Config) error {
+// loadPlugins Load all plugins in Config
+func (m *Manager) loadPlugins(c config.Config) error {
 	m.baseLogger.Info("loading plugins configuration...")
 
 	// Load Input Plugins
@@ -61,8 +62,8 @@ func (m *Manager) LoadPlugins(c config.Config) error {
 	return nil
 }
 
-// InitPlugins Init all plugins in Config by calling their Init() function
-func (m *Manager) InitPlugins(c config.Config) error {
+// initPlugins Init all plugins in Config by calling their Init() function
+func (m *Manager) initPlugins(c config.Config) error {
 	m.baseLogger.Info("initializing plugins...")
 
 	// Init Input Plugins
@@ -98,8 +99,8 @@ func (m *Manager) InitPlugins(c config.Config) error {
 	return nil
 }
 
-// StartInputPlugins Start all input plugins in Config by calling their Start() function
-func (m *Manager) StartInputPlugins(c config.Config) error {
+// startInputPlugins Start all input plugins in Config by calling their Start() function
+func (m *Manager) startInputPlugins(c config.Config) error {
 	m.inputLogger.Info("starting input plugins...")
 
 	for _, value := range m.InputPlugins {
@@ -113,8 +114,8 @@ func (m *Manager) StartInputPlugins(c config.Config) error {
 	return nil
 }
 
-// StartProcessorPlugins Start all processor plugins in Config by calling their Start() function
-func (m *Manager) StartProcessorPlugins(c config.Config) error {
+// startProcessorPlugins Start all processor plugins in Config by calling their Start() function
+func (m *Manager) startProcessorPlugins(c config.Config) error {
 	m.processingLogger.Info("starting processor plugins...")
 
 	for _, value := range m.ProcessorPlugins {
@@ -128,8 +129,8 @@ func (m *Manager) StartProcessorPlugins(c config.Config) error {
 	return nil
 }
 
-// StartOutputPlugins Start all output plugins in Config by calling their Start() function
-func (m *Manager) StartOutputPlugins(c config.Config) error {
+// startOutputPlugins Start all output plugins in Config by calling their Start() function
+func (m *Manager) startOutputPlugins(c config.Config) error {
 	m.baseLogger.Info("starting output plugins...")
 
 	for _, value := range m.OutputPlugins {
@@ -143,8 +144,8 @@ func (m *Manager) StartOutputPlugins(c config.Config) error {
 	return nil
 }
 
-// InitPipelines Initialize and build all configured pipelines
-func (m *Manager) InitPipelines(c config.Config) error {
+// initPipelines Initialize and build all configured pipelines
+func (m *Manager) initPipelines(c config.Config) error {
 	m.baseLogger.Info("initializing pipelines...")
 
 	for key, value := range c.Pipeline.Pipelines {
@@ -167,8 +168,8 @@ func (m *Manager) InitPipelines(c config.Config) error {
 	return nil
 }
 
-// StartPipelines Start all pipelines and start accepting input
-func (m *Manager) StartPipelines(c config.Config) error {
+// startPipelines Start all pipelines and start accepting input
+func (m *Manager) startPipelines(c config.Config) error {
 
 	m.baseLogger.Info("starting pipelines...")
 
@@ -183,15 +184,15 @@ func (m *Manager) StartPipelines(c config.Config) error {
 	return nil
 }
 
-//StartMux Start the mux that forwards the transactions from input to pipelines based on pipelineTag in transaction.
-func (m *Manager) StartMux() error {
+//startMux Start the mux that forwards the transactions from input to pipelines based on pipelineTag in transaction.
+func (m *Manager) startMux() error {
 	m.Mux.Start()
 	m.baseLogger.Info("starting forwarding input to pipelines...")
 	return nil
 }
 
-// StopPipelines Stop pipelines by calling their Stop() function, any request to these pipelines will return error.
-func (m *Manager) StopPipelines(c config.Config) error {
+// stopPipelines Stop pipelines by calling their Stop() function, any request to these pipelines will return error.
+func (m *Manager) stopPipelines(c config.Config) error {
 
 	for _, value := range m.Pipelines {
 		err := value.Stop()
@@ -203,8 +204,8 @@ func (m *Manager) StopPipelines(c config.Config) error {
 	return nil
 }
 
-// StopInputPlugins Stop all input plugins in Config by calling their Stop() function
-func (m *Manager) StopInputPlugins(c config.Config) error {
+// stopInputPlugins Stop all input plugins in Config by calling their Stop() function
+func (m *Manager) stopInputPlugins(c config.Config) error {
 
 	for _, value := range m.InputPlugins {
 		err := value.Close()
@@ -217,8 +218,8 @@ func (m *Manager) StopInputPlugins(c config.Config) error {
 	return nil
 }
 
-// StopProcessorPlugins Stop all processor plugins in Config by calling their Stop() function
-func (m *Manager) StopProcessorPlugins(c config.Config) error {
+// stopProcessorPlugins Stop all processor plugins in Config by calling their Stop() function
+func (m *Manager) stopProcessorPlugins(c config.Config) error {
 
 	for _, value := range m.ProcessorPlugins {
 		err := value.Close()
@@ -231,8 +232,8 @@ func (m *Manager) StopProcessorPlugins(c config.Config) error {
 	return nil
 }
 
-// StopOutputPlugins Stop all output plugins in Config by calling their Stop() function
-func (m *Manager) StopOutputPlugins(c config.Config) error {
+// stopOutputPlugins Stop all output plugins in Config by calling their Stop() function
+func (m *Manager) stopOutputPlugins(c config.Config) error {
 
 	for _, value := range m.OutputPlugins {
 		err := value.Close()
@@ -240,6 +241,59 @@ func (m *Manager) StopOutputPlugins(c config.Config) error {
 			value.Logger.Error(err.Error())
 			return err
 		}
+	}
+
+	return nil
+}
+
+//StartComponents Start components
+func (m *Manager) StartComponents(c config.Config) error {
+	err := m.loadPlugins(c)
+	if err != nil {
+		m.baseLogger.Error(err)
+		return err
+	}
+
+	err = m.initPlugins(c)
+	if err != nil {
+		m.baseLogger.Error(err)
+		return err
+	}
+
+	err = m.initPipelines(c)
+	if err != nil {
+		m.baseLogger.Error(err)
+		return err
+	}
+
+	err = m.startPipelines(c)
+	if err != nil {
+		m.baseLogger.Error(err)
+		return err
+	}
+
+	err = m.startMux()
+	if err != nil {
+		m.baseLogger.Error(err)
+		return err
+	}
+
+	err = m.startOutputPlugins(c)
+	if err != nil {
+		m.baseLogger.Error(err)
+		return err
+	}
+
+	err = m.startProcessorPlugins(c)
+	if err != nil {
+		m.baseLogger.Error(err)
+		return err
+	}
+
+	err = m.startInputPlugins(c)
+	if err != nil {
+		m.baseLogger.Error(err)
+		return err
 	}
 
 	return nil
@@ -257,7 +311,7 @@ func (m *Manager) StopComponentsGracefully(c config.Config) error {
 	///////////////////////////////////////
 
 	m.inputLogger.Info("stopping input plugins...")
-	err := m.StopInputPlugins(c)
+	err := m.stopInputPlugins(c)
 	if err != nil {
 		m.inputLogger.Errorw("failed to stop input plugins", "error", err.Error())
 		return err
@@ -267,7 +321,7 @@ func (m *Manager) StopComponentsGracefully(c config.Config) error {
 	///////////////////////////////////////
 
 	m.pipelineLogger.Info("stopping pipelines...")
-	err = m.StopPipelines(c)
+	err = m.stopPipelines(c)
 	if err != nil {
 		m.pipelineLogger.Errorw("failed to stop pipelines", "error", err.Error())
 		return err
@@ -276,7 +330,7 @@ func (m *Manager) StopComponentsGracefully(c config.Config) error {
 
 	///////////////////////////////////////
 
-	err = m.StopProcessorPlugins(c)
+	err = m.stopProcessorPlugins(c)
 	m.processingLogger.Info("stopping processor plugins...")
 	if err != nil {
 		m.processingLogger.Errorw("failed to stop input plugins", "error", err.Error())
@@ -286,7 +340,7 @@ func (m *Manager) StopComponentsGracefully(c config.Config) error {
 
 	///////////////////////////////////////
 
-	err = m.StopOutputPlugins(c)
+	err = m.stopOutputPlugins(c)
 	m.outputLogger.Info("stopping output plugins...")
 	if err != nil {
 		m.outputLogger.Errorw("failed to stop output plugins", "error", err.Error())
