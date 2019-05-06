@@ -66,7 +66,7 @@ func (n *ReadWrite) job(t transaction.Transaction) {
 	defer cancel()
 
 	// base Output writerCloner
-	writerCloner := mirror.WriterCloner{}
+	writerCloner := mirror.Writer{}
 	baseOutput = transaction.OutputPayload{
 		WriteCloser: &writerCloner,
 		ImageBytes:  nil,
