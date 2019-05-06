@@ -21,7 +21,7 @@ type (
 		RecieveChan chan transaction.Transaction
 		Resource    resource.Resource
 		Next        node.Node
-		NodesList   []*node.Node
+		NodesList   []node.Node
 		Logger      zap.SugaredLogger
 		wg          sync.WaitGroup
 		status      status
@@ -86,14 +86,13 @@ func (p *Pipeline) job(txn transaction.Transaction) {
 //NewPipeline Construct a NewPipeline using config.
 func NewPipeline(pc config.Pipeline, registry registery.Registry, logger zap.SugaredLogger) (*Pipeline, error) {
 
-	next := make([]node.NextNode, 0)
-	NodesList := make([]*node.Node, 0)
+	next := make([]node.Next, 0)
+	NodesList := make([]node.Node, 0)
 	resource := resource.NewResource(pc.Concurrency, logger)
 
-	beginNode := node.Node{
+	beginNode := node.Dummy{
 		RecieverChan: make(chan transaction.Transaction),
 		Resource:     *resource,
-		Component:    &node.DummyNode{},
 	}
 
 	NodesList = append(NodesList, &beginNode)
@@ -106,7 +105,7 @@ func NewPipeline(pc config.Pipeline, registry registery.Registry, logger zap.Sug
 			return &Pipeline{}, err
 		}
 
-		next = append(next, node.NextNode{
+		next = append(next, node.Next{
 			Async: value.Async,
 			Node:  Node,
 		})
@@ -116,7 +115,7 @@ func NewPipeline(pc config.Pipeline, registry registery.Registry, logger zap.Sug
 
 	pip := Pipeline{
 		RecieveChan: make(chan transaction.Transaction),
-		Next:        beginNode,
+		Next:        &beginNode,
 		NodesList:   NodesList,
 		Logger:      logger,
 		Resource:    *resource,
@@ -125,19 +124,17 @@ func NewPipeline(pc config.Pipeline, registry registery.Registry, logger zap.Sug
 
 	// start pipeline node wrappers
 	for _, value := range pip.NodesList {
-		(*value).Start()
+		value.Start()
 	}
 
 	return &pip, nil
 }
 
-func buildTree(name string, n config.Node, registry registery.Registry, NodesList *[]*node.Node) (node.Node, error) {
+func buildTree(name string, n config.Node, registry registery.Registry, NodesList *[]node.Node) (node.Node, error) {
 
-	next := make([]node.NextNode, 0)
+	next := make([]node.Next, 0)
 
 	var currNode node.Node
-
-	*NodesList = append(*NodesList, &currNode)
 
 	if n.Next != nil {
 		for key, value := range n.Next {
@@ -147,51 +144,56 @@ func buildTree(name string, n config.Node, registry registery.Registry, NodesLis
 				return Node, err
 			}
 
-			next = append(next, node.NextNode{
+			next = append(next, node.Next{
 				Async: value.Async,
 				Node:  Node,
 			})
 		}
 	}
 
-	// processor plugins
+	// check if Processor(and which types)
 	processor, ok := registry.GetProcessor(name)
 	if ok {
+		if len(next) == 0 {
+			return nil, fmt.Errorf("plugin [%s] has no next(s) of type output, a pipeline path must end with an output plugin", name)
+		}
 		switch p := processor.ProcessorBase.(type) {
 		case component.ProcessorReadOnly:
-			currNode = node.Node{
-				Component: &node.ReadOnly{
-					ProcessorReadOnly: p,
-				},
-				RecieverChan: make(chan transaction.Transaction),
-				Next:         next,
-				Resource:     processor.Resource,
+			currNode = &node.ReadOnly{
+				ProcessorReadOnly: p,
+				ReceiverChan:      make(chan transaction.Transaction),
+				Next:              next,
+				Resource:          processor.Resource,
 			}
 		case component.ProcessorReadWrite:
-			currNode = node.Node{
-				Component: &node.ReadWrite{
-					ProcessorReadWrite: p,
-				},
-				RecieverChan: make(chan transaction.Transaction),
-				Next:         next,
-				Resource:     processor.Resource,
+			currNode = &node.ReadWrite{
+				ProcessorReadWrite: p,
+				ReceiverChan:       make(chan transaction.Transaction),
+				Next:               next,
+				Resource:           processor.Resource,
 			}
+		default:
+			return nil, fmt.Errorf("plugin [%s] doesn't exists", name)
 		}
+		// Not Processor, check if output.
 	} else {
 		output, ok := registry.GetOutput(name)
 		if ok {
-			currNode = node.Node{
-				Component: &node.Output{
-					Output: output,
-				},
-				RecieverChan: make(chan transaction.Transaction),
+			if len(next) > 0 {
+				return nil, fmt.Errorf("plugin [%s] has next(s), output plugins must not have next(s)", name)
+			}
+			currNode = &node.Output{
+				Output:       output,
+				ReceiverChan: make(chan transaction.Transaction),
 				Next:         next,
 				Resource:     output.Resource,
 			}
 		} else {
-			return node.Node{}, fmt.Errorf("plugin [%s] doesn't exists", name)
+			return nil, fmt.Errorf("plugin [%s] doesn't exists", name)
 		}
 	}
+
+	*NodesList = append(*NodesList, currNode)
 
 	currNode.Start()
 

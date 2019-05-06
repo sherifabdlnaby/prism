@@ -2,6 +2,7 @@ package registery
 
 import (
 	"fmt"
+
 	"github.com/sherifabdlnaby/prism/app/config"
 	"github.com/sherifabdlnaby/prism/app/registery/wrapper"
 	"github.com/sherifabdlnaby/prism/app/resource"
@@ -16,12 +17,12 @@ func (m *Registry) LoadInput(name string, input config.Input, Logger zap.Sugared
 		return fmt.Errorf("duplicate plugin instance with name [%s]", name)
 	}
 
-	componentConst, ok := registered[input.Plugin]
+	constructor, ok := registered[input.Plugin]
 	if !ok {
 		return fmt.Errorf("plugin type [%s] doesn't exist", input.Plugin)
 	}
 
-	pluginInstance, ok := componentConst().(component.Input)
+	pluginInstance, ok := constructor().(component.Input)
 	if !ok {
 		return fmt.Errorf("plugin type [%s] is not an input plugin", input.Plugin)
 	}
@@ -54,6 +55,8 @@ func (m *Registry) LoadProcessor(name string, processor config.Processor, Logger
 	}
 
 	pluginInstance, ok := componentConst().(component.ProcessorBase)
+	// TODO Checking for ProcessorBase ain't enough, check that it is any of the types.
+
 	if !ok {
 		return fmt.Errorf("plugin type [%s] is not a processor plugin", processor.Plugin)
 	}

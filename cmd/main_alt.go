@@ -2,10 +2,11 @@ package main
 
 import (
 	"fmt"
-	"github.com/sherifabdlnaby/prism/pkg/mirror"
 	"log"
 	"strconv"
 	"time"
+
+	"github.com/sherifabdlnaby/prism/pkg/mirror"
 )
 
 func main() {
@@ -36,8 +37,8 @@ func main() {
 
 	rdr := r.NewReader()
 	mrr := mirror.NewReader(rdr)
-	c1 := mrr.NewReader()
-	c2 := mrr.NewReader()
+	c1 := mrr.Clone()
+	c2 := mrr.Clone()
 
 	pulser := time.Tick(1000 * time.Millisecond)
 	for {

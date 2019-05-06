@@ -1,8 +1,8 @@
 package node
 
 import (
+	"github.com/sherifabdlnaby/prism/app/resource"
 	"github.com/sherifabdlnaby/prism/pkg/component"
-	"github.com/sherifabdlnaby/prism/pkg/mirror"
 	"github.com/sherifabdlnaby/prism/pkg/response"
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
 )
@@ -10,24 +10,41 @@ import (
 //Output Wraps an output component
 type Output struct {
 	component.Output
+	ReceiverChan chan transaction.Transaction
+	Next         []Next
+	Resource     resource.Resource
 }
 
-//Job Output job will send the transaction to output plugin and await its result.
-func (on *Output) Job(t transaction.Transaction) (mirror.ReaderCloner, transaction.ImageBytes, response.Response) {
-	responseChan := make(chan response.Response, 1)
-	readerCloner := mirror.NewReader(t.Payload.Reader)
-	mirrorPayload := transaction.Payload{
-		Reader:     readerCloner.NewReader(),
-		ImageBytes: t.ImageBytes,
+func (n *Output) Start() {
+	go func() {
+		for value := range n.ReceiverChan {
+			go n.job(value)
+		}
+	}()
+}
+
+func (n *Output) GetReceiverChan() chan transaction.Transaction {
+	return n.ReceiverChan
+}
+
+//job Output job will send the transaction to output plugin and await its result.
+func (n *Output) job(t transaction.Transaction) {
+	err := n.Resource.Acquire(t.Context, 1)
+	if err != nil {
+		t.ResponseChan <- response.NoAck(err)
+		return
 	}
 
-	on.TransactionChan() <- transaction.Transaction{
-		Payload:      mirrorPayload,
+	responseChan := make(chan response.Response, len(n.Next))
+
+	n.TransactionChan() <- transaction.Transaction{
+		Payload:      t.Payload,
 		ImageData:    t.ImageData,
 		ResponseChan: responseChan,
+		Context:      t.Context,
 	}
 
-	response := <-responseChan
+	t.ResponseChan <- <-responseChan
 
-	return readerCloner, t.ImageBytes, response
+	n.Resource.Release(1)
 }

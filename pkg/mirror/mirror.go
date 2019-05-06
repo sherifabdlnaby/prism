@@ -3,6 +3,7 @@ package mirror
 import (
 	"bytes"
 	"io"
+	"io/ioutil"
 	"sync"
 	"sync/atomic"
 )
@@ -10,17 +11,21 @@ import (
 //TODO concurrency protection using RWMxS
 //TODO performance Optimization for buffer allocations
 
-// ReaderCloner Allow to get create multiple readers from a reader, and each created reader will read the same data as
+// Cloner Allow to get create multiple readers from a reader, and each created reader will read the same data as
 // base reader
-type ReaderCloner interface {
-	NewReader() io.Reader
+type Cloner interface {
+	Clone() io.Reader
 }
 
-//Writer A Writing buffer that can be used to create multiple readers that all can read *the same* data written.
-type Writer struct {
+type writer struct {
 	internal bytes.Buffer
 	error    error
 	eofTotal int64
+}
+
+//Writer A Writing buffer that can be used to create multiple readers that all can read *the same* data written.
+type WriterCloner struct {
+	writer
 }
 
 // Writer is the interface that wraps the basic Write method.
@@ -30,34 +35,28 @@ type Writer struct {
 // and any error encountered that caused the write to stop early.
 // Write must return a non-nil error if it returns n < len(p).
 // Write must not modify the slice data, even temporarily.
-func (r *Writer) Write(p []byte) (n int, err error) {
-	n, err = r.internal.Write(p)
-	if err != nil {
-		r.error = err
-	}
-	return
+func (r *WriterCloner) Write(p []byte) (n int, err error) {
+	return r.internal.Write(p)
 }
 
 //Close Signal that the writer should no longer accept any input. and return EOF to readers.
-func (r *Writer) Close() error {
-
+func (r *WriterCloner) Close() error {
 	atomic.SwapInt64(&r.eofTotal, int64(r.internal.Len()))
 	r.error = io.EOF
-
 	return nil
 }
 
-type writerCloner struct {
-	*Writer
-	i int
+//Clone A reader that can read all the data written.
+func (r *WriterCloner) Clone() io.Reader {
+	return &writerCloner{
+		WriterCloner: r,
+		i:            0,
+	}
 }
 
-//NewReader A reader that can read all the data written.
-func (r *Writer) NewReader() io.Reader {
-	return &writerCloner{
-		Writer: r,
-		i:      0,
-	}
+type writerCloner struct {
+	*WriterCloner
+	i int
 }
 
 func (c *writerCloner) Read(p []byte) (read int, error error) {
@@ -82,7 +81,23 @@ func (c *writerCloner) Read(p []byte) (read int, error error) {
 	return read, error
 }
 
-////
+/////////////////////////////////////////////////////////////////////////
+
+//Writer A Writing buffer that can be used to create multiple readers that all can read *the same* data written.
+type NopWriterCloser struct {
+	io.Writer
+}
+
+func NewNopWriterCloser() *NopWriterCloser {
+	return &NopWriterCloser{ioutil.Discard}
+}
+
+//Close Signal that the writer should no longer accept any input. and return EOF to readers.
+func (r *NopWriterCloser) Close() error {
+	return nil
+}
+
+/////////////////////////////////////////////////////////////////////////////
 
 //Reader Allow to clone a reader and be able to read it more than once (it's done by introducing a mid-buffer)
 type Reader struct {
@@ -94,7 +109,11 @@ type Reader struct {
 	mx       sync.Mutex
 }
 
-//NewReader Create a new Reader
+func (r *Reader) BaseReader() io.Reader {
+	return r.reader
+}
+
+//Clone Create a new Reader
 func NewReader(reader io.Reader) *Reader {
 	return &Reader{reader: reader}
 }
@@ -120,8 +139,8 @@ type readerCloner struct {
 	i int
 }
 
-//NewReader Create a new cloned reader.
-func (r *Reader) NewReader() io.Reader {
+//Clone Create a new cloned reader.
+func (r *Reader) Clone() io.Reader {
 	return &readerCloner{
 		Reader: r,
 		i:      0,
