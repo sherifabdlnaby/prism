@@ -47,7 +47,7 @@ func (r *Writer) Write(p []byte) (n int, err error) {
 
 //Close Signal that the writer should no longer accept any input. and return EOF to readers.
 func (r *Writer) Close() error {
-	atomic.SwapInt64(&r.eofTotal, int64(len(r.buf)))
+	atomic.SwapInt64(&r.eofTotal, int64(r.curr))
 	r.error = io.EOF
 	return nil
 }
@@ -68,8 +68,8 @@ func (c *writerCloner) Read(p []byte) (read int, error error) {
 	upperlimit := c.i + len(p)
 
 	c.mx.Lock()
-	if upperlimit > len(c.buf) {
-		upperlimit = len(c.buf)
+	if upperlimit > c.curr {
+		upperlimit = c.curr
 
 		// check if EOF
 		if int64(upperlimit) >= c.eofTotal {

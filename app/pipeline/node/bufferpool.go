@@ -1,11 +1,14 @@
 package node
 
 import (
-	"bytes"
 	"sync"
 )
 
-var initialBufferSize = bytes.MinRead
+// 5KB initial buffer size
+var initialBufferSize = 5120
+
+// 2MB max buffer size kept in Pool
+// TODO benchmark
 var maxBufferSize = 2097152
 
 var buffersPool = bufferPool{
