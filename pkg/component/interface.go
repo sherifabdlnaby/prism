@@ -68,7 +68,7 @@ type ProcessorBase interface {
 	Component
 }
 
-// ProcessorReadOnly can decode, process, or encode a payload.
+// ProcessorReadWrite can decode, process, or encode a payload.
 type ProcessorReadWrite interface {
 	Component
 	Encoder

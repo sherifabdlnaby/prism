@@ -15,6 +15,7 @@ type Output struct {
 	Resource     resource.Resource
 }
 
+//Start Start receiving transactions
 func (n *Output) Start() {
 	go func() {
 		for value := range n.ReceiverChan {
@@ -23,6 +24,7 @@ func (n *Output) Start() {
 	}()
 }
 
+//GetReceiverChan Return chan used to receive transactions
 func (n *Output) GetReceiverChan() chan transaction.Transaction {
 	return n.ReceiverChan
 }

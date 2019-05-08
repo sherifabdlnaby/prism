@@ -19,12 +19,12 @@ func NewApp(config config.Config) *App {
 	}
 }
 
-//StartComponents Start all components configured in the yaml files.
+//Start Start all components configured in the yaml files.
 func (a *App) Start(config config.Config) error {
 	return a.manager.StartComponents(config)
 }
 
-//StopComponents Stop all components gracefully, will stop in the following sequence
+//Stop Stop all components gracefully, will stop in the following sequence
 // 		1- Input Components.
 // 		2- Pipelines.
 // 		3- Processor Components.

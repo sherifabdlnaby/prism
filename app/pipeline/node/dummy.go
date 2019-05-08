@@ -16,6 +16,7 @@ type Dummy struct {
 	Resource     resource.Resource
 }
 
+//Start Start receiving transactions
 func (n *Dummy) Start() {
 	go func() {
 		for value := range n.RecieverChan {
@@ -24,6 +25,7 @@ func (n *Dummy) Start() {
 	}()
 }
 
+//GetReceiverChan Return chan used to receive transactions
 func (n *Dummy) GetReceiverChan() chan transaction.Transaction {
 	return n.RecieverChan
 }
@@ -60,7 +62,9 @@ func (n *Dummy) job(t transaction.Transaction) {
 		}
 	} else {
 		// Create a reader cloner
-		readerCloner := mirror.NewReader(t.Reader)
+		buffer := buffersPool.Get()
+		defer buffersPool.Put(buffer)
+		readerCloner := mirror.NewReader(t.Reader, buffer)
 
 		for _, next := range n.Next {
 			next.GetReceiverChan() <- transaction.Transaction{

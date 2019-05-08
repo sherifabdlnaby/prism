@@ -15,19 +15,18 @@ import (
 	"go.uber.org/zap"
 )
 
-type (
-	//Pipeline Holds the recursive tree of Nodes and their next nodes, etc
-	Pipeline struct {
-		RecieveChan chan transaction.Transaction
-		Resource    resource.Resource
-		Next        node.Node
-		NodesList   []node.Node
-		Logger      zap.SugaredLogger
-		wg          sync.WaitGroup
-		status      status
-	}
-	status int32
-)
+//Pipeline Holds the recursive tree of Nodes and their next nodes, etc
+type Pipeline struct {
+	ReceiveChan chan transaction.Transaction
+	Resource    resource.Resource
+	Next        node.Node
+	NodesList   []node.Node
+	Logger      zap.SugaredLogger
+	wg          sync.WaitGroup
+	status      status
+}
+
+type status int32
 
 const (
 	_              = iota // ignore first value by assigning to blank identifier
@@ -50,7 +49,7 @@ func (p *Pipeline) Start() error {
 	atomic.SwapInt32((*int32)(&p.status), int32(started))
 
 	go func() {
-		for value := range p.RecieveChan {
+		for value := range p.ReceiveChan {
 			if p.status != started {
 				value.ResponseChan <- response.Error(fmt.Errorf("pipeline is not started, request terminated"))
 				continue
@@ -114,7 +113,7 @@ func NewPipeline(pc config.Pipeline, registry registery.Registry, logger zap.Sug
 	beginNode.Next = next
 
 	pip := Pipeline{
-		RecieveChan: make(chan transaction.Transaction),
+		ReceiveChan: make(chan transaction.Transaction),
 		Next:        &beginNode,
 		NodesList:   NodesList,
 		Logger:      logger,

@@ -18,6 +18,7 @@ type ReadWrite struct {
 	Resource     resource.Resource
 }
 
+//Start Start receiving transactions
 func (n *ReadWrite) Start() {
 	go func() {
 		for value := range n.ReceiverChan {
@@ -26,6 +27,7 @@ func (n *ReadWrite) Start() {
 	}()
 }
 
+//GetReceiverChan Return chan used to receive transactions
 func (n *ReadWrite) GetReceiverChan() chan transaction.Transaction {
 	return n.ReceiverChan
 }
@@ -66,11 +68,15 @@ func (n *ReadWrite) job(t transaction.Transaction) {
 	defer cancel()
 
 	// base Output writerCloner
-	writerCloner := mirror.WriterCloner{}
+	buffer := buffersPool.Get()
+	defer buffersPool.Put(buffer)
+	writerCloner := mirror.NewWriter(buffer)
+
 	baseOutput = transaction.OutputPayload{
-		WriteCloser: &writerCloner,
+		WriteCloser: writerCloner,
 		ImageBytes:  nil,
 	}
+
 	/// ENCODE
 	Response = n.Encode(decodedPayload, t.ImageData, &baseOutput)
 	n.Resource.Release(1)

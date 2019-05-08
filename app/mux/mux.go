@@ -39,7 +39,7 @@ func (m *Mux) forwardPerInput(input *wrapper.Input) {
 		// Add defaults to transaction Image Data
 		applyDefaultFields(Tchan.ImageData)
 
-		m.Pipelines[Tchan.PipelineTag].RecieveChan <- Tchan.Transaction
+		m.Pipelines[Tchan.PipelineTag].ReceiveChan <- Tchan.Transaction
 	}
 }
 

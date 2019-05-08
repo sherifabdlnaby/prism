@@ -15,9 +15,10 @@ type Writer struct {
 	mx       sync.Mutex
 }
 
-func NewWriter() *Writer {
+//NewWriter Returns a new Writer
+func NewWriter(buffer []byte) *Writer {
 	return &Writer{
-		buf: make([]byte, 512),
+		buf: buffer,
 	}
 }
 

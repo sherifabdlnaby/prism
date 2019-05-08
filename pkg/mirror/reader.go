@@ -1,7 +1,6 @@
 package mirror
 
 import (
-	"bytes"
 	"io"
 	"sync"
 )
@@ -10,18 +9,18 @@ import (
 
 //Reader Allow to writerCloner a reader and be able to readMore it more than once (it's done by introducing a mid-buffer)
 type Reader struct {
-	reader        io.Reader
-	buf           []byte
-	error         error
-	originalTotal int64
-	mx            sync.Mutex
-	stepSize      int
-	curr          int
+	reader    io.Reader
+	buf       []byte
+	error     error
+	baseTotal int64
+	mx        sync.Mutex
+	stepSize  int
+	curr      int
 }
 
-//Clone Create a new Reader
-func NewReader(reader io.Reader) *Reader {
-	return &Reader{reader: reader, buf: make([]byte, bytes.MinRead), stepSize: bytes.MinRead / 2}
+//NewReader Create a new Reader
+func NewReader(reader io.Reader, buffer []byte) *Reader {
+	return &Reader{reader: reader, buf: buffer, stepSize: len(buffer) / 2}
 }
 
 func (r *Reader) readMore() {
@@ -42,7 +41,7 @@ func (r *Reader) readMore() {
 	r.curr += n
 
 	if r.error != nil {
-		r.originalTotal = int64(r.curr)
+		r.baseTotal = int64(r.curr)
 	}
 
 	r.stepSize *= 2
@@ -77,7 +76,7 @@ func (c *readerCloner) Read(p []byte) (read int, error error) {
 		}
 
 		// check if error
-		if int64(upperlimit) >= c.originalTotal {
+		if int64(upperlimit) >= c.baseTotal {
 			error = c.error
 		}
 

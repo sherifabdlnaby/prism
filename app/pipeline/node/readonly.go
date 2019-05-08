@@ -18,6 +18,7 @@ type ReadOnly struct {
 	Resource     resource.Resource
 }
 
+//Start Start receiving transactions
 func (n *ReadOnly) Start() {
 	go func() {
 		for value := range n.ReceiverChan {
@@ -26,6 +27,7 @@ func (n *ReadOnly) Start() {
 	}()
 }
 
+//GetReceiverChan Return chan used to receive transactions
 func (n *ReadOnly) GetReceiverChan() chan transaction.Transaction {
 	return n.ReceiverChan
 }
@@ -45,7 +47,9 @@ func (n *ReadOnly) job(t transaction.Transaction) {
 	////////////////////////////////////////////
 	// PROCESS ( DECODE -> PROCESS )
 
-	readerCloner := mirror.NewReader(t.Payload.Reader)
+	buffer := buffersPool.Get()
+	defer buffersPool.Put(buffer)
+	readerCloner := mirror.NewReader(t.Payload.Reader, buffer)
 	mirrorPayload := transaction.Payload{
 		Reader:     readerCloner.Clone(),
 		ImageBytes: t.ImageBytes,
