@@ -2,15 +2,16 @@ package config
 
 import (
 	"fmt"
-	"github.com/mitchellh/mapstructure"
-	"github.com/spf13/cast"
-	"go.uber.org/zap"
-	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"os"
 	"reflect"
 	"regexp"
 	"strings"
+
+	"github.com/mitchellh/mapstructure"
+	"github.com/spf13/cast"
+	"go.uber.org/zap"
+	"gopkg.in/yaml.v2"
 )
 
 // Component used for YAML decoding
@@ -62,7 +63,7 @@ type Config struct {
 	Processors ProcessorsConfig
 	Outputs    OutputsConfig
 	Pipeline   PipelinesConfig
-	Logger     *zap.SugaredLogger
+	Logger     zap.SugaredLogger
 }
 
 // Node is a single node in a pipeline

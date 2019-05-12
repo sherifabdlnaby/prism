@@ -104,7 +104,7 @@ func (d *Disk) writeOnDisk(txn transaction.Transaction) {
 	return
 }
 
-// Start the plugin and be ready for taking transactions
+// startMux the plugin and be ready for taking transactions
 func (d *Disk) Start() error {
 	d.wg.Add(1)
 	go func() {

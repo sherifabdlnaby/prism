@@ -23,7 +23,7 @@ func main() {
 	// Create new app instance
 	app := app.NewApp(config)
 
-	// Start app
+	// startMux app
 	err = app.Start(config)
 	if err != nil {
 		panic(err)
@@ -93,7 +93,7 @@ func bootstrap() (config.Config, error) {
 		Processors: processorConfig,
 		Outputs:    outputConfig,
 		Pipeline:   pipelineConfig,
-		Logger:     logger,
+		Logger:     *logger,
 	}, nil
 }
 

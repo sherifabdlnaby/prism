@@ -1,34 +1,26 @@
-package mux
+package app
 
 import (
 	"fmt"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/sherifabdlnaby/prism/app/pipeline"
 	"github.com/sherifabdlnaby/prism/app/registery/wrapper"
 	"github.com/sherifabdlnaby/prism/pkg/response"
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
 )
 
-//Mux used to forward transactions coming from input plugins to it's pipelines based on transaction.PipelineTag, Mux
-//also add default values to the transaction.ImageData in each transaction.
-type Mux struct {
-	Pipelines map[string]*pipeline.Pipeline
-	Inputs    map[string]*wrapper.Input
-}
-
-//Start starts the mux that forwards the transactions from input to pipelines based on PipelineTag in transaction.
-func (m *Mux) Start() {
-	for _, value := range m.Inputs {
-		go m.forwardPerInput(value)
+//startMux starts the mux that forwards the transactions from input to pipelines based on PipelineTag in transaction.
+func (a *App) startMux() {
+	for _, value := range a.registry.InputPlugins {
+		go a.forwardPerInput(value)
 	}
 }
 
-func (m *Mux) forwardPerInput(input *wrapper.Input) {
+func (a *App) forwardPerInput(input *wrapper.Input) {
 	for Tchan := range input.TransactionChan() {
 
-		_, ok := m.Pipelines[Tchan.PipelineTag]
+		_, ok := a.pipelines[Tchan.PipelineTag]
 		if !ok {
 			Tchan.ResponseChan <- response.Error(
 				fmt.Errorf("pipeline [%s] is not defined", Tchan.PipelineTag),
@@ -39,7 +31,7 @@ func (m *Mux) forwardPerInput(input *wrapper.Input) {
 		// Add defaults to transaction Image Data
 		applyDefaultFields(Tchan.ImageData)
 
-		m.Pipelines[Tchan.PipelineTag].ReceiveChan <- Tchan.Transaction
+		a.pipelines[Tchan.PipelineTag].ReceiveChan <- Tchan.Transaction
 	}
 }
 

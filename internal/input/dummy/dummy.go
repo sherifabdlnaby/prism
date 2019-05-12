@@ -55,7 +55,7 @@ func (d *Dummy) Init(config config.Config, logger zap.SugaredLogger) error {
 	return nil
 }
 
-// Start Starts Plugin
+// startMux Starts Plugin
 func (d *Dummy) Start() error {
 	d.logger.Debugw("Started Input, Hooray!")
 

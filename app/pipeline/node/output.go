@@ -15,7 +15,7 @@ type Output struct {
 	Resource     resource.Resource
 }
 
-//Start Start receiving transactions
+//startMux startMux receiving transactions
 func (n *Output) Start() {
 	go func() {
 		for value := range n.ReceiverChan {

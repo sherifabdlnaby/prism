@@ -1,4 +1,4 @@
-package manager
+package app
 
 import (
 	"github.com/sherifabdlnaby/prism/app/config"
@@ -6,7 +6,7 @@ import (
 )
 
 type logger struct {
-	baseLogger       zap.SugaredLogger
+	zap.SugaredLogger
 	inputLogger      zap.SugaredLogger
 	processingLogger zap.SugaredLogger
 	outputLogger     zap.SugaredLogger
@@ -15,10 +15,10 @@ type logger struct {
 
 func newLoggers(c config.Config) *logger {
 	l := logger{}
-	l.baseLogger = *c.Logger
-	l.inputLogger = *l.baseLogger.Named("input")
-	l.processingLogger = *l.baseLogger.Named("processor")
-	l.outputLogger = *l.baseLogger.Named("output")
-	l.pipelineLogger = *l.baseLogger.Named("pipeline")
+	l.SugaredLogger = c.Logger
+	l.inputLogger = *l.SugaredLogger.Named("input")
+	l.processingLogger = *l.SugaredLogger.Named("processor")
+	l.outputLogger = *l.SugaredLogger.Named("output")
+	l.pipelineLogger = *l.SugaredLogger.Named("pipeline")
 	return &l
 }

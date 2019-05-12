@@ -16,7 +16,7 @@ type Dummy struct {
 	Resource     resource.Resource
 }
 
-//Start Start receiving transactions
+//startMux startMux receiving transactions
 func (n *Dummy) Start() {
 	go func() {
 		for value := range n.RecieverChan {

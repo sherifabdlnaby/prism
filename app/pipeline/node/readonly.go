@@ -18,7 +18,7 @@ type ReadOnly struct {
 	Resource     resource.Resource
 }
 
-//Start Start receiving transactions
+//startMux startMux receiving transactions
 func (n *ReadOnly) Start() {
 	go func() {
 		for value := range n.ReceiverChan {
