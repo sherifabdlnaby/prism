@@ -18,7 +18,7 @@ type ReadWrite struct {
 	Resource     resource.Resource
 }
 
-//Start Start receiving transactions
+//startMux startMux receiving transactions
 func (n *ReadWrite) Start() {
 	go func() {
 		for value := range n.ReceiverChan {

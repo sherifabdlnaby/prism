@@ -35,7 +35,7 @@ const (
 	closed  status = 1 + iota
 )
 
-//Start starts the pipeline and start accepting Input
+//startMux starts the pipeline and start accepting Input
 func (p *Pipeline) Start() error {
 
 	if p.status != new {
