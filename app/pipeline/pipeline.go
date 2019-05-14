@@ -17,9 +17,8 @@ import (
 
 //Pipeline Holds the recursive tree of Nodes and their next nodes, etc
 type Pipeline struct {
-	ReceiveChan chan transaction.Transaction
-	Resource    resource.Resource
-	Next        node.Node
+	receiveChan <-chan transaction.Transaction
+	Root        node.Next
 	NodesList   []node.Node
 	Logger      zap.SugaredLogger
 	wg          sync.WaitGroup
@@ -38,23 +37,19 @@ const (
 //startMux starts the pipeline and start accepting Input
 func (p *Pipeline) Start() error {
 
-	if p.status != new {
-		// set status = started (no need atomic here, just for sake of consistency)
-		atomic.SwapInt32((*int32)(&p.status), int32(started))
-
-		return nil
+	// start pipeline node back to front
+	for i := range p.NodesList {
+		err := p.NodesList[len(p.NodesList)-i-1].Start()
+		if err != nil {
+			return fmt.Errorf("failed to start pipeline: %s", err.Error())
+		}
 	}
 
 	// set status = started (no need atomic here, just for sake of consistency)
 	atomic.SwapInt32((*int32)(&p.status), int32(started))
 
 	go func() {
-		for value := range p.ReceiveChan {
-			if p.status != started {
-				value.ResponseChan <- response.Error(fmt.Errorf("pipeline is not started, request terminated"))
-				continue
-			}
-			p.wg.Add(1)
+		for value := range p.receiveChan {
 			go p.job(value)
 		}
 	}()
@@ -66,13 +61,30 @@ func (p *Pipeline) Start() error {
 // error response unless re-started again.
 func (p *Pipeline) Stop() error {
 	atomic.SwapInt32((*int32)(&p.status), int32(closed))
+
+	// Wait all running jobs to return
 	p.wg.Wait()
+
+	// Stop Nodes
+	close(p.Root.TransactionChan)
+	for _, Node := range p.NodesList {
+		err := Node.Stop()
+		if err != nil {
+			return fmt.Errorf("failed to stop pipeline: %s", err.Error())
+		}
+	}
+
 	return nil
 }
 
+func (n *Pipeline) SetTransactionChan(tc <-chan transaction.Transaction) {
+	n.receiveChan = tc
+}
+
 func (p *Pipeline) job(txn transaction.Transaction) {
+	p.wg.Add(1)
 	responseChan := make(chan response.Response, 1)
-	p.Next.GetReceiverChan() <- transaction.Transaction{
+	p.Root.TransactionChan <- transaction.Transaction{
 		Payload:      txn.Payload,
 		ImageData:    txn.ImageData,
 		ResponseChan: responseChan,
@@ -85,45 +97,41 @@ func (p *Pipeline) job(txn transaction.Transaction) {
 //NewPipeline Construct a NewPipeline using config.
 func NewPipeline(pc config.Pipeline, registry registery.Registry, logger zap.SugaredLogger) (*Pipeline, error) {
 
-	next := make([]node.Next, 0)
-	NodesList := make([]node.Node, 0)
-	resource := resource.NewResource(pc.Concurrency, logger)
+	pipelineResource := resource.NewResource(pc.Concurrency, logger)
 
+	// Dummy Node is the start of every pipeline, and its next(s) are the pipeline starting nodes.
 	beginNode := node.Dummy{
-		RecieverChan: make(chan transaction.Transaction),
-		Resource:     *resource,
+		Resource: *pipelineResource,
 	}
 
+	// NodesList will contain all nodes of the pipeline. (will be useful later.
+	NodesList := make([]node.Node, 0)
 	NodesList = append(NodesList, &beginNode)
 
+	next := make([]node.Next, 0)
 	for key, value := range pc.Pipeline {
-		Node, err := buildTree(key, value, registry, &NodesList)
-
+		Node, err := getNext(key, value, registry, &NodesList)
 		if err != nil {
-			resource.Logger.Error(err.Error())
+			pipelineResource.Logger.Error(err.Error())
 			return &Pipeline{}, err
 		}
-
-		next = append(next, node.Next{
-			Async: value.Async,
-			Node:  Node,
-		})
+		next = append(next, Node)
 	}
-
 	beginNode.Next = next
 
-	pip := Pipeline{
-		ReceiveChan: make(chan transaction.Transaction),
-		Next:        &beginNode,
-		NodesList:   NodesList,
-		Logger:      logger,
-		Resource:    *resource,
-		status:      new,
-	}
+	// give dummy node its receive chan
+	tc := make(chan transaction.Transaction)
+	beginNode.SetTransactionChan(tc)
 
-	// start pipeline node wrappers
-	for _, value := range pip.NodesList {
-		value.Start()
+	pip := Pipeline{
+		receiveChan: make(chan transaction.Transaction),
+		Root: node.Next{
+			Node:            &beginNode,
+			TransactionChan: tc,
+		},
+		NodesList: NodesList,
+		Logger:    logger,
+		status:    new,
 	}
 
 	return &pip, nil
@@ -137,16 +145,11 @@ func buildTree(name string, n config.Node, registry registery.Registry, NodesLis
 
 	if n.Next != nil {
 		for key, value := range n.Next {
-			Node, err := buildTree(key, value, registry, NodesList)
-
+			Node, err := getNext(key, value, registry, NodesList)
 			if err != nil {
-				return Node, err
+				return nil, err
 			}
-
-			next = append(next, node.Next{
-				Async: value.Async,
-				Node:  Node,
-			})
+			next = append(next, Node)
 		}
 	}
 
@@ -160,14 +163,12 @@ func buildTree(name string, n config.Node, registry registery.Registry, NodesLis
 		case component.ProcessorReadOnly:
 			currNode = &node.ReadOnly{
 				ProcessorReadOnly: p,
-				ReceiverChan:      make(chan transaction.Transaction),
 				Next:              next,
 				Resource:          processor.Resource,
 			}
 		case component.ProcessorReadWrite:
 			currNode = &node.ReadWrite{
 				ProcessorReadWrite: p,
-				ReceiverChan:       make(chan transaction.Transaction),
 				Next:               next,
 				Resource:           processor.Resource,
 			}
@@ -182,10 +183,9 @@ func buildTree(name string, n config.Node, registry registery.Registry, NodesLis
 				return nil, fmt.Errorf("plugin [%s] has next(s), output plugins must not have next(s)", name)
 			}
 			currNode = &node.Output{
-				Output:       output,
-				ReceiverChan: make(chan transaction.Transaction),
-				Next:         next,
-				Resource:     output.Resource,
+				Output:   output,
+				Next:     next,
+				Resource: output.Resource,
 			}
 		} else {
 			return nil, fmt.Errorf("plugin [%s] doesn't exists", name)
@@ -194,7 +194,23 @@ func buildTree(name string, n config.Node, registry registery.Registry, NodesLis
 
 	*NodesList = append(*NodesList, currNode)
 
-	currNode.Start()
-
 	return currNode, nil
+}
+
+func getNext(name string, n config.Node, registry registery.Registry, NodesList *[]node.Node) (node.Next, error) {
+	Node, err := buildTree(name, n, registry, NodesList)
+
+	if err != nil {
+		return node.Next{}, err
+	}
+
+	tc := make(chan transaction.Transaction)
+
+	// give node its receive chan
+	Node.SetTransactionChan(tc)
+
+	return node.Next{
+		Node:            Node,
+		TransactionChan: tc,
+	}, nil
 }

@@ -13,23 +13,26 @@ import (
 //ReadWrite Wraps a readwrite component
 type ReadWrite struct {
 	component.ProcessorReadWrite
-	ReceiverChan chan transaction.Transaction
-	Next         []Next
-	Resource     resource.Resource
+	receiveChan <-chan transaction.Transaction
+	Next        []Next
+	Resource    resource.Resource
 }
 
 //startMux startMux receiving transactions
-func (n *ReadWrite) Start() {
+func (n *ReadWrite) Start() error {
 	go func() {
-		for value := range n.ReceiverChan {
+		for value := range n.receiveChan {
 			go n.job(value)
 		}
 	}()
+	return nil
 }
 
-//GetReceiverChan Return chan used to receive transactions
-func (n *ReadWrite) GetReceiverChan() chan transaction.Transaction {
-	return n.ReceiverChan
+func (n *ReadWrite) Stop() error {
+	for _, value := range n.Next {
+		close(value.TransactionChan)
+	}
+	return nil
 }
 
 //job Process transaction by calling Decode-> Process-> Encode->
@@ -86,7 +89,7 @@ func (n *ReadWrite) job(t transaction.Transaction) {
 	}
 
 	for _, next := range n.Next {
-		next.GetReceiverChan() <- transaction.Transaction{
+		next.TransactionChan <- transaction.Transaction{
 			Payload: transaction.Payload{
 				Reader:     writerCloner.Clone(),
 				ImageBytes: baseOutput.ImageBytes,
@@ -116,4 +119,8 @@ loop:
 
 	// Send Response back.
 	t.ResponseChan <- Response
+}
+
+func (n *ReadWrite) SetTransactionChan(tc <-chan transaction.Transaction) {
+	n.receiveChan = tc
 }

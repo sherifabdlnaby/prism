@@ -6,6 +6,7 @@ import (
 	"github.com/sherifabdlnaby/prism/app/config"
 	"github.com/sherifabdlnaby/prism/app/pipeline"
 	componentConfig "github.com/sherifabdlnaby/prism/pkg/config"
+	"github.com/sherifabdlnaby/prism/pkg/transaction"
 )
 
 // loadPlugins Load all plugins in Config
@@ -139,7 +140,13 @@ func (a *App) initPipelines(c config.Config) error {
 			return fmt.Errorf("error occured when constructing pipeline [%s]: %s", key, err.Error())
 		}
 
-		a.pipelines[key] = pip
+		tc := make(chan transaction.Transaction)
+		pip.SetTransactionChan(tc)
+
+		a.pipelines[key] = Pipeline{
+			Pipeline:        *pip,
+			TransactionChan: tc,
+		}
 	}
 
 	return nil
@@ -165,6 +172,10 @@ func (a *App) startPipelines(c config.Config) error {
 func (a *App) stopPipelines(c config.Config) error {
 
 	for _, value := range a.pipelines {
+		// close receiving chan
+		close(value.TransactionChan)
+
+		// stop pipeline
 		err := value.Stop()
 		if err != nil {
 			return err
@@ -212,111 +223,6 @@ func (a *App) stopOutputPlugins(c config.Config) error {
 			return err
 		}
 	}
-
-	return nil
-}
-
-//startComponents startMux components
-func (a *App) startComponents(c config.Config) error {
-	err := a.loadPlugins(c)
-	if err != nil {
-		a.logger.Error(err)
-		return err
-	}
-
-	err = a.initPlugins(c)
-	if err != nil {
-		a.logger.Error(err)
-		return err
-	}
-
-	err = a.initPipelines(c)
-	if err != nil {
-		a.logger.Error(err)
-		return err
-	}
-
-	err = a.startPipelines(c)
-	if err != nil {
-		a.logger.Error(err)
-		return err
-	}
-
-	a.startMux()
-
-	err = a.startOutputPlugins(c)
-	if err != nil {
-		a.logger.Error(err)
-		return err
-	}
-
-	err = a.startProcessorPlugins(c)
-	if err != nil {
-		a.logger.Error(err)
-		return err
-	}
-
-	err = a.startInputPlugins(c)
-	if err != nil {
-		a.logger.Error(err)
-		return err
-	}
-
-	return nil
-}
-
-//stopComponentsGracefully Stop components in graceful strategy
-// 		1- Stop Input Components.
-// 		2- Stop Pipelines.
-// 		3- Stop Processor Components.
-// 		4- Stop Output Components.
-// As by definition each stop functionality in these components is graceful, this should guarantee graceful shutdown.
-func (a *App) stopComponentsGracefully(c config.Config) error {
-	a.logger.Info("stopping all components gracefully...")
-
-	///////////////////////////////////////
-
-	a.logger.inputLogger.Info("stopping input plugins...")
-	err := a.stopInputPlugins(c)
-	if err != nil {
-		a.logger.inputLogger.Errorw("failed to stop input plugins", "error", err.Error())
-		return err
-	}
-	a.logger.inputLogger.Info("stopped input plugins successfully.")
-
-	///////////////////////////////////////
-
-	a.logger.pipelineLogger.Info("stopping pipelines...")
-	err = a.stopPipelines(c)
-	if err != nil {
-		a.logger.pipelineLogger.Errorw("failed to stop pipelines", "error", err.Error())
-		return err
-	}
-	a.logger.pipelineLogger.Info("stopping pipelines successfully.")
-
-	///////////////////////////////////////
-
-	err = a.stopProcessorPlugins(c)
-	a.logger.processingLogger.Info("stopping processor plugins...")
-	if err != nil {
-		a.logger.processingLogger.Errorw("failed to stop input plugins", "error", err.Error())
-		return err
-	}
-	a.logger.processingLogger.Info("stopping processor successfully.")
-
-	///////////////////////////////////////
-
-	err = a.stopOutputPlugins(c)
-	a.logger.outputLogger.Info("stopping output plugins...")
-	if err != nil {
-		a.logger.outputLogger.Errorw("failed to stop output plugins", "error", err.Error())
-		return err
-	}
-	a.logger.outputLogger.Info("stopped output successfully.")
-
-	///////////////////////////////////////
-
-	a.logger.Info("stopped all components successfully")
 
 	return nil
 }
