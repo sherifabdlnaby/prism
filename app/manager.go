@@ -75,7 +75,7 @@ func (a *App) initPlugins(c config.Config) error {
 	return nil
 }
 
-// startInputPlugins startMux all input plugins in Config by calling their startMux() function
+// startInputPlugins start all input plugins in Config by calling their start() function
 func (a *App) startInputPlugins(c config.Config) error {
 
 	for name, value := range a.registry.InputPlugins {
@@ -89,7 +89,7 @@ func (a *App) startInputPlugins(c config.Config) error {
 	return nil
 }
 
-// startProcessorPlugins startMux all processor plugins in Config by calling their startMux() function
+// startProcessorPlugins start all processor plugins in Config by calling their start() function
 func (a *App) startProcessorPlugins(c config.Config) error {
 
 	for name, value := range a.registry.ProcessorPlugins {
@@ -103,7 +103,7 @@ func (a *App) startProcessorPlugins(c config.Config) error {
 	return nil
 }
 
-// startOutputPlugins startMux all output plugins in Config by calling their startMux() function
+// startOutputPlugins start all output plugins in Config by calling their start() function
 func (a *App) startOutputPlugins(c config.Config) error {
 
 	for name, value := range a.registry.OutputPlugins {
@@ -137,7 +137,7 @@ func (a *App) initPipelines(c config.Config) error {
 		tc := make(chan transaction.Transaction)
 		pip.SetTransactionChan(tc)
 
-		a.pipelines[key] = Pipeline{
+		a.pipelines[key] = pipelineWrapper{
 			Pipeline:        *pip,
 			TransactionChan: tc,
 		}
@@ -146,7 +146,7 @@ func (a *App) initPipelines(c config.Config) error {
 	return nil
 }
 
-// startPipelines startMux all pipelines and start accepting input
+// startPipelines start all pipelines and start accepting input
 func (a *App) startPipelines(c config.Config) error {
 
 	for _, value := range a.pipelines {

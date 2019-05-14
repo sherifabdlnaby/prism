@@ -18,10 +18,12 @@ func NewResource(concurrency int) *Resource {
 	}
 }
 
+// Acquire resource, will block until resource is acquired or context is canceled
 func (r *Resource) Acquire(ctx context.Context) error {
 	return r.sema.Acquire(ctx, 1)
 }
 
+// Release resource
 func (r *Resource) Release() {
 	r.sema.Release(1)
 }

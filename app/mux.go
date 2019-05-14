@@ -10,8 +10,8 @@ import (
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
 )
 
-//startMux starts the mux that forwards the transactions from input to pipelines based on PipelineTag in transaction.
-func (a *App) startMux() {
+//start starts the mux that forwards the transactions from input to pipelines based on PipelineTag in transaction.
+func (a *App) start() {
 	for _, value := range a.registry.InputPlugins {
 		go a.forwardPerInput(value)
 	}

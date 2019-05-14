@@ -23,7 +23,7 @@ func main() {
 	// Create new app instance
 	app := app.NewApp(config)
 
-	// startMux app
+	// start app
 	err = app.Start(config)
 	if err != nil {
 		panic(err)

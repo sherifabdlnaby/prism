@@ -23,21 +23,50 @@ type ReadOnly struct {
 	Resource       resource.Resource
 }
 
-//startMux startMux receiving transactions
+// Start starts this node and all its next nodes to start receiving transactions
+// By starting all next nodes, start async request handler, and start receiving transactions
 func (n *ReadOnly) Start() error {
+	// Start next nodes
+	for _, value := range n.nexts {
+		err := value.Start()
+		if err != nil {
+			return err
+		}
+	}
 
 	// start Async Handler
 	n.startAsyncHandling()
 
 	go func() {
-		for value := range n.receiveChan {
-			go n.job(value)
+		for t := range n.receiveChan {
+
+			// if node is set async, send ack response now,
+			// and navigate actual response to asyncResponses which should handle async responses
+			if n.async {
+				// since it will be async, sync transaction context is irrelevant.
+				// (we don't want sync nodes -that cancel transaction context when finishing to avoid ctx leak- to
+				// cancel async nodes too )
+				t.Context = context.Background()
+
+				// return ack response
+				t.ResponseChan <- response.Ack()
+
+				// now actual response is given to asyncResponds that should handle async responds
+				t.ResponseChan = n.asyncResponses
+
+				// used so that stop() wait for async responses to finish. (to be actually handled later)
+				n.wg.Add(1)
+			}
+
+			// Start Job
+			go n.job(t)
 		}
 	}()
 
 	return nil
 }
 
+//Stop Stop this Node and stop all its next nodes.
 func (n *ReadOnly) Stop() error {
 	//wait async jobs to finish
 	n.wg.Wait()
@@ -144,14 +173,17 @@ loop:
 	t.ResponseChan <- Response
 }
 
+//SetTransactionChan Set the transaction chan node will use to receive input
 func (n *ReadOnly) SetTransactionChan(tc <-chan transaction.Transaction) {
 	n.receiveChan = tc
 }
 
+//SetNexts Set this node's next nodes.
 func (n *ReadOnly) SetNexts(nexts []Next) {
 	n.nexts = nexts
 }
 
+//SetAsync Set if this node is sync/async
 func (n *ReadOnly) SetAsync(async bool) {
 	if async {
 		n.asyncResponses = make(chan response.Response)

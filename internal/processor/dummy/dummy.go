@@ -86,7 +86,7 @@ func (d *Dummy) Init(config config.Config, logger zap.SugaredLogger) error {
 	return nil
 }
 
-//startMux startMux the plugin to begin receiving input
+//Start start the plugin to begin receiving input
 func (d *Dummy) Start() error {
 	d.logger.Info("Started Dummy processor.")
 	return nil
