@@ -104,7 +104,7 @@ func (d *Disk) writeOnDisk(txn transaction.Transaction) {
 	return
 }
 
-// startMux the plugin and be ready for taking transactions
+// Start the plugin and be ready for taking transactions
 func (d *Disk) Start() error {
 	d.wg.Add(1)
 	go func() {
@@ -113,9 +113,9 @@ func (d *Disk) Start() error {
 			select {
 			case <-d.stopChan:
 				return
-			case transaction, _ := <-d.Transactions:
+			case txn, _ := <-d.Transactions:
 				d.wg.Add(1)
-				go d.writeOnDisk(transaction)
+				go d.writeOnDisk(txn)
 			}
 		}
 	}()

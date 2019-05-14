@@ -34,15 +34,13 @@ const (
 	closed  status = 1 + iota
 )
 
-//startMux starts the pipeline and start accepting Input
+//Start starts the pipeline and start accepting Input
 func (p *Pipeline) Start() error {
 
-	// start pipeline node back to front
-	for i := range p.NodesList {
-		err := p.NodesList[len(p.NodesList)-i-1].Start()
-		if err != nil {
-			return fmt.Errorf("failed to start pipeline: %s", err.Error())
-		}
+	// start pipeline nodes
+	err := p.Root.Start()
+	if err != nil {
+		return err
 	}
 
 	// set status = started (no need atomic here, just for sake of consistency)
@@ -74,6 +72,7 @@ func (p *Pipeline) Stop() error {
 	return nil
 }
 
+//SetTransactionChan Set the transaction chan pipeline will use to receive input
 func (p *Pipeline) SetTransactionChan(tc <-chan transaction.Transaction) {
 	p.receiveChan = tc
 }

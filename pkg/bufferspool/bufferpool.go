@@ -18,10 +18,12 @@ var bufferPool = sync.Pool{
 	},
 }
 
+//Get Get a new buffer slice
 func Get() []byte {
 	return bufferPool.Get().([]byte)
 }
 
+//Put a buffer slice into pool, will discard the pool if expanded beyond a certain threshold
 func Put(buffer []byte) {
 	if len(buffer) > maxBufferSize {
 		return

@@ -17,16 +17,26 @@ type Dummy struct {
 	Resource    resource.Resource
 }
 
-//startMux startMux receiving transactions
+// Start starts this node and all its next nodes to start receiving transactions
 func (n *Dummy) Start() error {
+	// Start next nodes
+	for _, value := range n.nexts {
+		err := value.Start()
+		if err != nil {
+			return err
+		}
+	}
+
 	go func() {
 		for value := range n.receiveChan {
 			go n.job(value)
 		}
 	}()
+
 	return nil
 }
 
+//Stop Stop this Node and stop all its next nodes.
 func (n *Dummy) Stop() error {
 
 	for _, value := range n.nexts {
@@ -117,14 +127,18 @@ loop:
 	n.Resource.Release()
 }
 
+//SetTransactionChan Set the transaction chan node will use to receive input
 func (n *Dummy) SetTransactionChan(tc <-chan transaction.Transaction) {
 	n.receiveChan = tc
 }
 
+//SetNexts Set this node's next nodes.
 func (n *Dummy) SetNexts(nexts []Next) {
 	n.nexts = nexts
 }
 
+//SetAsync Set if this node is sync/async
+// as dummy node can never be Async, this method has no effect.
 func (n *Dummy) SetAsync(async bool) {
 	// Dummy can't be async.
 	return
