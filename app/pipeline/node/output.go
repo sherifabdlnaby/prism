@@ -1,7 +1,6 @@
 package node
 
 import (
-	"github.com/sherifabdlnaby/prism/app/resource"
 	"github.com/sherifabdlnaby/prism/pkg/component"
 	"github.com/sherifabdlnaby/prism/pkg/response"
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
@@ -12,7 +11,7 @@ type Output struct {
 	component.Output
 	receiveChan <-chan transaction.Transaction
 	Next        []Next
-	Resource    resource.Resource
+	Resource    Resource
 }
 
 //startMux startMux receiving transactions

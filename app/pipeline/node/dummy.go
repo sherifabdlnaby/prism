@@ -3,7 +3,7 @@ package node
 import (
 	"context"
 
-	"github.com/sherifabdlnaby/prism/app/resource"
+	"github.com/sherifabdlnaby/prism/pkg/bufferspool"
 	"github.com/sherifabdlnaby/prism/pkg/mirror"
 	"github.com/sherifabdlnaby/prism/pkg/response"
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
@@ -13,7 +13,7 @@ import (
 type Dummy struct {
 	receiveChan <-chan transaction.Transaction
 	Next        []Next
-	Resource    resource.Resource
+	Resource    Resource
 }
 
 //startMux startMux receiving transactions
@@ -65,8 +65,8 @@ func (n *Dummy) job(t transaction.Transaction) {
 		}
 	} else {
 		// Create a reader cloner
-		buffer := buffersPool.Get()
-		defer buffersPool.Put(buffer)
+		buffer := bufferspool.Get()
+		defer bufferspool.Put(buffer)
 		readerCloner := mirror.NewReader(t.Reader, buffer)
 
 		for _, next := range n.Next {

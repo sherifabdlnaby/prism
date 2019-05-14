@@ -1,4 +1,4 @@
-package resource
+package node
 
 import (
 	"github.com/sherifabdlnaby/semaphore"

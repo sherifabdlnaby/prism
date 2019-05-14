@@ -3,7 +3,7 @@ package node
 import (
 	"context"
 
-	"github.com/sherifabdlnaby/prism/app/resource"
+	"github.com/sherifabdlnaby/prism/pkg/bufferspool"
 	"github.com/sherifabdlnaby/prism/pkg/component"
 	"github.com/sherifabdlnaby/prism/pkg/mirror"
 	"github.com/sherifabdlnaby/prism/pkg/response"
@@ -15,7 +15,7 @@ type ReadWrite struct {
 	component.ProcessorReadWrite
 	receiveChan <-chan transaction.Transaction
 	Next        []Next
-	Resource    resource.Resource
+	Resource    Resource
 }
 
 //startMux startMux receiving transactions
@@ -71,8 +71,8 @@ func (n *ReadWrite) job(t transaction.Transaction) {
 	defer cancel()
 
 	// base Output writerCloner
-	buffer := buffersPool.Get()
-	defer buffersPool.Put(buffer)
+	buffer := bufferspool.Get()
+	defer bufferspool.Put(buffer)
 	writerCloner := mirror.NewWriter(buffer)
 
 	baseOutput = transaction.OutputPayload{

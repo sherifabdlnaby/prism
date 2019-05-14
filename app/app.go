@@ -49,47 +49,55 @@ func (a *App) Stop(config config.Config) error {
 
 //startComponents startMux components
 func (a *App) startComponents(c config.Config) error {
+
+	a.logger.Info("loading plugins configuration...")
 	err := a.loadPlugins(c)
 	if err != nil {
-		a.logger.Error(err)
+		a.logger.Errorf("error while loading plugins: %v", err)
 		return err
 	}
 
+	a.logger.Info("initializing plugins...")
 	err = a.initPlugins(c)
 	if err != nil {
-		a.logger.Error(err)
+		a.logger.Errorf("error while initializing plugins: %v", err)
 		return err
 	}
 
+	a.logger.Info("initializing pipelines...")
 	err = a.initPipelines(c)
 	if err != nil {
-		a.logger.Error(err)
+		a.logger.Errorf("error while initializing pipelines: %v", err)
 		return err
 	}
 
+	a.logger.Info("starting pipelines...")
 	err = a.startPipelines(c)
 	if err != nil {
-		a.logger.Error(err)
+		a.logger.Errorf("error while starting pipelines: %v", err)
 		return err
 	}
 
 	a.startMux()
 
+	a.logger.Info("starting output plugins...")
 	err = a.startOutputPlugins(c)
 	if err != nil {
-		a.logger.Error(err)
+		a.logger.Errorf("error while starting output plugins: %v", err)
 		return err
 	}
 
+	a.logger.Info("starting processor plugins...")
 	err = a.startProcessorPlugins(c)
 	if err != nil {
-		a.logger.Error(err)
+		a.logger.Errorf("error while starting processor plugins: %v", err)
 		return err
 	}
 
+	a.logger.inputLogger.Info("starting input plugins...")
 	err = a.startInputPlugins(c)
 	if err != nil {
-		a.logger.Error(err)
+		a.logger.Errorf("error while starting input plugins: %v", err)
 		return err
 	}
 
@@ -107,43 +115,43 @@ func (a *App) stopComponentsGracefully(c config.Config) error {
 
 	///////////////////////////////////////
 
-	a.logger.inputLogger.Info("stopping input plugins...")
+	a.logger.Info("stopping input plugins...")
 	err := a.stopInputPlugins(c)
 	if err != nil {
-		a.logger.inputLogger.Errorw("failed to stop input plugins", "error", err.Error())
+		a.logger.Errorf("failed to stop input plugins: %v", err)
 		return err
 	}
-	a.logger.inputLogger.Info("stopped input plugins successfully.")
+	a.logger.Info("stopped input plugins successfully.")
 
 	///////////////////////////////////////
 
-	a.logger.pipelineLogger.Info("stopping pipelines...")
+	a.logger.Info("stopping pipelines...")
 	err = a.stopPipelines(c)
 	if err != nil {
-		a.logger.pipelineLogger.Errorw("failed to stop pipelines", "error", err.Error())
+		a.logger.Errorf("failed to stop pipelines: %v", err)
 		return err
 	}
-	a.logger.pipelineLogger.Info("stopping pipelines successfully.")
+	a.logger.Info("stopping pipelines successfully.")
 
 	///////////////////////////////////////
 
 	err = a.stopProcessorPlugins(c)
-	a.logger.processingLogger.Info("stopping processor plugins...")
+	a.logger.Info("stopping processor plugins...")
 	if err != nil {
-		a.logger.processingLogger.Errorw("failed to stop input plugins", "error", err.Error())
+		a.logger.Errorf("failed to stop input plugins: %v", err)
 		return err
 	}
-	a.logger.processingLogger.Info("stopping processor successfully.")
+	a.logger.Info("stopping processor successfully.")
 
 	///////////////////////////////////////
 
 	err = a.stopOutputPlugins(c)
-	a.logger.outputLogger.Info("stopping output plugins...")
+	a.logger.Info("stopping output plugins...")
 	if err != nil {
-		a.logger.outputLogger.Errorw("failed to stop output plugins", "error", err.Error())
+		a.logger.Errorf("failed to stop output plugins: %v", err)
 		return err
 	}
-	a.logger.outputLogger.Info("stopped output successfully.")
+	a.logger.Info("stopped output successfully.")
 
 	///////////////////////////////////////
 
