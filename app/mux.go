@@ -31,7 +31,7 @@ func (a *App) forwardPerInput(input *wrapper.Input) {
 		// Add defaults to transaction Image Data
 		applyDefaultFields(Tchan.ImageData)
 
-		a.pipelines[Tchan.PipelineTag].ReceiveChan <- Tchan.Transaction
+		a.pipelines[Tchan.PipelineTag].TransactionChan <- Tchan.Transaction
 	}
 }
 

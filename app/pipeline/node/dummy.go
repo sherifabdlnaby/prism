@@ -11,23 +11,26 @@ import (
 
 //Dummy Used at the start of every pipeline.
 type Dummy struct {
-	RecieverChan chan transaction.Transaction
-	Next         []Next
-	Resource     resource.Resource
+	receiveChan <-chan transaction.Transaction
+	Next        []Next
+	Resource    resource.Resource
 }
 
 //startMux startMux receiving transactions
-func (n *Dummy) Start() {
+func (n *Dummy) Start() error {
 	go func() {
-		for value := range n.RecieverChan {
+		for value := range n.receiveChan {
 			go n.job(value)
 		}
 	}()
+	return nil
 }
 
-//GetReceiverChan Return chan used to receive transactions
-func (n *Dummy) GetReceiverChan() chan transaction.Transaction {
-	return n.RecieverChan
+func (n *Dummy) Stop() error {
+	for _, value := range n.Next {
+		close(value.TransactionChan)
+	}
+	return nil
 }
 
 //job Just forwards the input.
@@ -51,7 +54,7 @@ func (n *Dummy) job(t transaction.Transaction) {
 	defer cancel()
 
 	if len(n.Next) == 1 {
-		n.Next[0].GetReceiverChan() <- transaction.Transaction{
+		n.Next[0].TransactionChan <- transaction.Transaction{
 			Payload: transaction.Payload{
 				Reader:     t.Reader,
 				ImageBytes: t.ImageBytes,
@@ -67,7 +70,7 @@ func (n *Dummy) job(t transaction.Transaction) {
 		readerCloner := mirror.NewReader(t.Reader, buffer)
 
 		for _, next := range n.Next {
-			next.GetReceiverChan() <- transaction.Transaction{
+			next.TransactionChan <- transaction.Transaction{
 				Payload: transaction.Payload{
 					Reader:     readerCloner.Clone(),
 					ImageBytes: t.ImageBytes,
@@ -102,4 +105,8 @@ loop:
 
 	// Dummy Node release after receive response as it is used to limit the entire pipeline concurrency.
 	n.Resource.Release(1)
+}
+
+func (n *Dummy) SetTransactionChan(tc <-chan transaction.Transaction) {
+	n.receiveChan = tc
 }

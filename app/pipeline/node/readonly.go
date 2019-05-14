@@ -13,23 +13,26 @@ import (
 //ReadOnly Wraps a ReadOnly component
 type ReadOnly struct {
 	component.ProcessorReadOnly
-	ReceiverChan chan transaction.Transaction
-	Next         []Next
-	Resource     resource.Resource
+	receiveChan <-chan transaction.Transaction
+	Next        []Next
+	Resource    resource.Resource
 }
 
 //startMux startMux receiving transactions
-func (n *ReadOnly) Start() {
+func (n *ReadOnly) Start() error {
 	go func() {
-		for value := range n.ReceiverChan {
+		for value := range n.receiveChan {
 			go n.job(value)
 		}
 	}()
+	return nil
 }
 
-//GetReceiverChan Return chan used to receive transactions
-func (n *ReadOnly) GetReceiverChan() chan transaction.Transaction {
-	return n.ReceiverChan
+func (n *ReadOnly) Stop() error {
+	for _, value := range n.Next {
+		close(value.TransactionChan)
+	}
+	return nil
 }
 
 //job Process transaction by calling Decode-> Process-> Encode->
@@ -79,7 +82,7 @@ func (n *ReadOnly) job(t transaction.Transaction) {
 	////////////////////////////////////////////
 	// forward to next nodes
 	for _, next := range n.Next {
-		next.GetReceiverChan() <- transaction.Transaction{
+		next.TransactionChan <- transaction.Transaction{
 			Payload: transaction.Payload{
 				Reader:     readerCloner.Clone(),
 				ImageBytes: t.ImageBytes,
@@ -109,4 +112,8 @@ loop:
 
 	// Send Response back.
 	t.ResponseChan <- Response
+}
+
+func (n *ReadOnly) SetTransactionChan(tc <-chan transaction.Transaction) {
+	n.receiveChan = tc
 }

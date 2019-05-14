@@ -10,23 +10,26 @@ import (
 //Output Wraps an output component
 type Output struct {
 	component.Output
-	ReceiverChan chan transaction.Transaction
-	Next         []Next
-	Resource     resource.Resource
+	receiveChan <-chan transaction.Transaction
+	Next        []Next
+	Resource    resource.Resource
 }
 
 //startMux startMux receiving transactions
-func (n *Output) Start() {
+func (n *Output) Start() error {
 	go func() {
-		for value := range n.ReceiverChan {
+		for value := range n.receiveChan {
 			go n.job(value)
 		}
 	}()
+	return nil
 }
 
-//GetReceiverChan Return chan used to receive transactions
-func (n *Output) GetReceiverChan() chan transaction.Transaction {
-	return n.ReceiverChan
+func (n *Output) Stop() error {
+	for _, value := range n.Next {
+		close(value.TransactionChan)
+	}
+	return nil
 }
 
 //job Output job will send the transaction to output plugin and await its result.
@@ -49,4 +52,8 @@ func (n *Output) job(t transaction.Transaction) {
 	t.ResponseChan <- <-responseChan
 
 	n.Resource.Release(1)
+}
+
+func (n *Output) SetTransactionChan(tc <-chan transaction.Transaction) {
+	n.receiveChan = tc
 }
