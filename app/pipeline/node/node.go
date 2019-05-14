@@ -8,11 +8,20 @@ import "github.com/sherifabdlnaby/prism/pkg/transaction"
 type Node interface {
 	Start() error
 	Stop() error
-	SetTransactionChan(tc <-chan transaction.Transaction)
+	SetTransactionChan(<-chan transaction.Transaction)
+	SetAsync(bool)
+	SetNexts([]Next)
 }
 
 //Root Wraps the next node plus its attributes.
 type Next struct {
 	Node
-	TransactionChan chan<- transaction.Transaction
+	TransactionChan chan transaction.Transaction
+}
+
+func NewNext(Node Node) *Next {
+	return &Next{
+		Node:            Node,
+		TransactionChan: make(chan transaction.Transaction),
+	}
 }

@@ -82,8 +82,8 @@ func (d *Dummy) Start() error {
 					}
 
 					pipeline, _ := d.Pipeline.Evaluate(nil)
-					ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*3500)
-					defer cancel()
+					ctx := context.Background()
+					//defer cancel()
 
 					// Send Transaction
 					d.Transactions <- transaction.InputTransaction{

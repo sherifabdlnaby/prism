@@ -55,7 +55,7 @@ func (d *Dummy) Decode(in transaction.Payload, data transaction.ImageData) (inte
 //Process Simulate Processing the Image
 func (d *Dummy) Process(dp interface{}, data transaction.ImageData) (interface{}, response.Response) {
 	//literally do nothing lol
-	time.Sleep(300 + time.Duration(rand.Intn(1500))*time.Millisecond)
+	time.Sleep(50000 + time.Duration(rand.Intn(1500))*time.Millisecond)
 	return dp, response.ACK
 }
 

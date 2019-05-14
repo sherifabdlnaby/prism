@@ -46,7 +46,7 @@ func (a *App) initPlugins(c config.Config) error {
 	for name, input := range c.Inputs.Inputs {
 		plugin, _ := a.registry.GetInput(name)
 		pluginConfig := *componentConfig.NewConfig(input.Config)
-		err := plugin.Init(pluginConfig, plugin.Logger)
+		err := plugin.Init(pluginConfig, *a.logger.inputLogger.Named(name))
 		if err != nil {
 			return fmt.Errorf("failed to initalize plugin [%s]: %s", name, err.Error())
 		}
@@ -56,7 +56,7 @@ func (a *App) initPlugins(c config.Config) error {
 	for name, processor := range c.Processors.Processors {
 		plugin, _ := a.registry.GetProcessor(name)
 		pluginConfig := *componentConfig.NewConfig(processor.Config)
-		err := plugin.Init(pluginConfig, plugin.Logger)
+		err := plugin.Init(pluginConfig, *a.logger.processingLogger.Named(name))
 		if err != nil {
 			return fmt.Errorf("failed to initalize plugin [%s]: %s", name, err.Error())
 		}
@@ -66,7 +66,7 @@ func (a *App) initPlugins(c config.Config) error {
 	for name, output := range c.Outputs.Outputs {
 		plugin, _ := a.registry.GetOutput(name)
 		pluginConfig := *componentConfig.NewConfig(output.Config)
-		err := plugin.Init(pluginConfig, plugin.Logger)
+		err := plugin.Init(pluginConfig, *a.logger.outputLogger.Named(name))
 		if err != nil {
 			return fmt.Errorf("failed to initalize plugin [%s]: %s", name, err.Error())
 		}
@@ -78,10 +78,10 @@ func (a *App) initPlugins(c config.Config) error {
 // startInputPlugins startMux all input plugins in Config by calling their startMux() function
 func (a *App) startInputPlugins(c config.Config) error {
 
-	for _, value := range a.registry.InputPlugins {
+	for name, value := range a.registry.InputPlugins {
 		err := value.Start()
 		if err != nil {
-			value.Logger.Error(err.Error())
+			a.logger.inputLogger.Errorf("failed to start input plugin [%s]: %v", name, err)
 			return err
 		}
 	}
@@ -92,10 +92,10 @@ func (a *App) startInputPlugins(c config.Config) error {
 // startProcessorPlugins startMux all processor plugins in Config by calling their startMux() function
 func (a *App) startProcessorPlugins(c config.Config) error {
 
-	for _, value := range a.registry.ProcessorPlugins {
+	for name, value := range a.registry.ProcessorPlugins {
 		err := value.Start()
 		if err != nil {
-			value.Logger.Error(err.Error())
+			a.logger.processingLogger.Errorf("failed to start processor plugin [%s]: %v", name, err)
 			return err
 		}
 	}
@@ -106,10 +106,10 @@ func (a *App) startProcessorPlugins(c config.Config) error {
 // startOutputPlugins startMux all output plugins in Config by calling their startMux() function
 func (a *App) startOutputPlugins(c config.Config) error {
 
-	for _, value := range a.registry.OutputPlugins {
+	for name, value := range a.registry.OutputPlugins {
 		err := value.Start()
 		if err != nil {
-			value.Logger.Error(err.Error())
+			a.logger.outputLogger.Errorf("failed to start output plugin [%s]: %v", name, err)
 			return err
 		}
 	}
@@ -180,10 +180,10 @@ func (a *App) stopPipelines(c config.Config) error {
 // stopInputPlugins Stop all input plugins in Config by calling their Stop() function
 func (a *App) stopInputPlugins(c config.Config) error {
 
-	for _, value := range a.registry.InputPlugins {
+	for name, value := range a.registry.InputPlugins {
 		err := value.Close()
 		if err != nil {
-			value.Logger.Error(err.Error())
+			a.logger.inputLogger.Errorf("failed to stop input plugin [%s]: %v", name, err)
 			return err
 		}
 	}
@@ -194,10 +194,10 @@ func (a *App) stopInputPlugins(c config.Config) error {
 // stopProcessorPlugins Stop all processor plugins in Config by calling their Stop() function
 func (a *App) stopProcessorPlugins(c config.Config) error {
 
-	for _, value := range a.registry.ProcessorPlugins {
+	for name, value := range a.registry.ProcessorPlugins {
 		err := value.Close()
 		if err != nil {
-			value.Logger.Error(err.Error())
+			a.logger.processingLogger.Errorf("failed to stop processor plugin [%s]: %v", name, err)
 			return err
 		}
 	}
@@ -208,10 +208,10 @@ func (a *App) stopProcessorPlugins(c config.Config) error {
 // stopOutputPlugins Stop all output plugins in Config by calling their Stop() function
 func (a *App) stopOutputPlugins(c config.Config) error {
 
-	for _, value := range a.registry.OutputPlugins {
+	for name, value := range a.registry.OutputPlugins {
 		err := value.Close()
 		if err != nil {
-			value.Logger.Error(err.Error())
+			a.logger.outputLogger.Errorf("failed to stop output plugin [%s]: %v", name, err)
 			return err
 		}
 	}

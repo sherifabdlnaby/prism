@@ -2,7 +2,9 @@ package node
 
 import (
 	"context"
+	"sync"
 
+	"github.com/sherifabdlnaby/prism/app/resource"
 	"github.com/sherifabdlnaby/prism/pkg/bufferspool"
 	"github.com/sherifabdlnaby/prism/pkg/component"
 	"github.com/sherifabdlnaby/prism/pkg/mirror"
@@ -13,25 +15,44 @@ import (
 //ReadOnly Wraps a ReadOnly component
 type ReadOnly struct {
 	component.ProcessorReadOnly
-	receiveChan <-chan transaction.Transaction
-	Next        []Next
-	Resource    Resource
+	receiveChan    <-chan transaction.Transaction
+	asyncResponses chan response.Response
+	async          bool
+	wg             sync.WaitGroup
+	nexts          []Next
+	Resource       resource.Resource
 }
 
 //startMux startMux receiving transactions
 func (n *ReadOnly) Start() error {
+
+	// start Async Handler
+	n.startAsyncHandling()
+
 	go func() {
 		for value := range n.receiveChan {
 			go n.job(value)
 		}
 	}()
+
 	return nil
 }
 
 func (n *ReadOnly) Stop() error {
-	for _, value := range n.Next {
+	//wait async jobs to finish
+	n.wg.Wait()
+
+	for _, value := range n.nexts {
+		// close this next-node chan
 		close(value.TransactionChan)
+
+		// tell this next-node to stop which in turn will close all its next(s) too.
+		err := value.Stop()
+		if err != nil {
+			return err
+		}
 	}
+
 	return nil
 }
 
@@ -40,11 +61,20 @@ func (n *ReadOnly) job(t transaction.Transaction) {
 
 	////////////////////////////////////////////
 	// Acquire Resource (limit concurrency)
-	err := n.Resource.Acquire(t.Context, 1)
+	err := n.Resource.Acquire(t.Context)
 	if err != nil {
 		t.ResponseChan <- response.NoAck(err)
-		n.Resource.Release(1)
 		return
+	}
+
+	// if node is set async, send response now, and navigate actual response to asyncResponses which should handle async responses
+	if n.async {
+		t.ResponseChan <- response.Ack()
+
+		// used so that stop() wait for async responses to finish. (may be improved later)
+		n.wg.Add(1)
+
+		t.ResponseChan = n.asyncResponses
 	}
 
 	////////////////////////////////////////////
@@ -62,7 +92,7 @@ func (n *ReadOnly) job(t transaction.Transaction) {
 	decoded, Response := n.Decode(mirrorPayload, t.ImageData)
 	if !Response.Ack {
 		t.ResponseChan <- Response
-		n.Resource.Release(1)
+		n.Resource.Release()
 		return
 	}
 
@@ -70,18 +100,18 @@ func (n *ReadOnly) job(t transaction.Transaction) {
 	Response = n.Process(decoded, t.ImageData)
 	if !Response.Ack {
 		t.ResponseChan <- Response
-		n.Resource.Release(1)
+		n.Resource.Release()
 		return
 	}
 
-	n.Resource.Release(1)
-	responseChan := make(chan response.Response, len(n.Next))
+	n.Resource.Release()
+	responseChan := make(chan response.Response, len(n.nexts))
 	ctx, cancel := context.WithCancel(t.Context)
 	defer cancel()
 
 	////////////////////////////////////////////
 	// forward to next nodes
-	for _, next := range n.Next {
+	for _, next := range n.nexts {
 		next.TransactionChan <- transaction.Transaction{
 			Payload: transaction.Payload{
 				Reader:     readerCloner.Clone(),
@@ -95,7 +125,7 @@ func (n *ReadOnly) job(t transaction.Transaction) {
 
 	////////////////////////////////////////////
 	// receive from next nodes
-	count, total := 0, len(n.Next)
+	count, total := 0, len(n.nexts)
 
 loop:
 	for ; count < total; count++ {
@@ -116,4 +146,24 @@ loop:
 
 func (n *ReadOnly) SetTransactionChan(tc <-chan transaction.Transaction) {
 	n.receiveChan = tc
+}
+
+func (n *ReadOnly) SetNexts(nexts []Next) {
+	n.nexts = nexts
+}
+
+func (n *ReadOnly) SetAsync(async bool) {
+	if async {
+		n.asyncResponses = make(chan response.Response)
+	}
+	n.async = async
+}
+
+// TODO to handle failing/success async requests later.
+func (n *ReadOnly) startAsyncHandling() {
+	go func() {
+		for range n.asyncResponses {
+			n.wg.Done()
+		}
+	}()
 }
