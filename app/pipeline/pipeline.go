@@ -8,6 +8,7 @@ import (
 	"github.com/sherifabdlnaby/prism/app/config"
 	"github.com/sherifabdlnaby/prism/app/pipeline/node"
 	"github.com/sherifabdlnaby/prism/app/registery"
+	"github.com/sherifabdlnaby/prism/app/resource"
 	"github.com/sherifabdlnaby/prism/pkg/component"
 	"github.com/sherifabdlnaby/prism/pkg/response"
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
@@ -64,20 +65,17 @@ func (p *Pipeline) Stop() error {
 	// Wait all running jobs to return
 	p.wg.Wait()
 
-	// Stop Nodes
-	close(p.Root.TransactionChan)
-	for _, Node := range p.NodesList {
-		err := Node.Stop()
-		if err != nil {
-			return fmt.Errorf("failed to stop pipeline: %s", err.Error())
-		}
+	//Stop
+	err := p.Root.Stop()
+	if err != nil {
+		return err
 	}
 
 	return nil
 }
 
-func (n *Pipeline) SetTransactionChan(tc <-chan transaction.Transaction) {
-	n.receiveChan = tc
+func (p *Pipeline) SetTransactionChan(tc <-chan transaction.Transaction) {
+	p.receiveChan = tc
 }
 
 func (p *Pipeline) job(txn transaction.Transaction) {
@@ -96,9 +94,9 @@ func (p *Pipeline) job(txn transaction.Transaction) {
 //NewPipeline Construct a NewPipeline using config.
 func NewPipeline(pc config.Pipeline, registry registery.Registry, logger zap.SugaredLogger) (*Pipeline, error) {
 
-	pipelineResource := node.NewResource(pc.Concurrency, logger)
+	pipelineResource := resource.NewResource(pc.Concurrency)
 
-	// Dummy Node is the start of every pipeline, and its next(s) are the pipeline starting nodes.
+	// Dummy Node is the start of every pipeline, and its nexts(s) are the pipeline starting nodes.
 	beginNode := node.Dummy{
 		Resource: *pipelineResource,
 	}
@@ -107,68 +105,103 @@ func NewPipeline(pc config.Pipeline, registry registery.Registry, logger zap.Sug
 	NodesList := make([]node.Node, 0)
 	NodesList = append(NodesList, &beginNode)
 
-	next := make([]node.Next, 0)
+	nexts := make([]node.Next, 0)
 	for key, value := range pc.Pipeline {
-		Node, err := getNext(key, value, registry, &NodesList)
+		Node, err := buildTree(key, value, registry, &NodesList, false)
 		if err != nil {
-			pipelineResource.Logger.Error(err.Error())
-			return &Pipeline{}, err
+			return nil, err
 		}
-		next = append(next, Node)
+
+		Node.SetAsync(value.Async)
+
+		// create a next wrapper
+		next := *node.NewNext(Node)
+
+		// gives the next's node its TransactionChan, now owner of the 'next' owns closing the chan.
+		Node.SetTransactionChan(next.TransactionChan)
+
+		// append to nexts
+		nexts = append(nexts, next)
 	}
-	beginNode.Next = next
+
+	beginNode.SetNexts(nexts)
 
 	// give dummy node its receive chan
-	tc := make(chan transaction.Transaction)
-	beginNode.SetTransactionChan(tc)
+	Next := node.NewNext(&beginNode)
+
+	// give node its receive chan
+	beginNode.SetTransactionChan(Next.TransactionChan)
 
 	pip := Pipeline{
 		receiveChan: make(chan transaction.Transaction),
-		Root: node.Next{
-			Node:            &beginNode,
-			TransactionChan: tc,
-		},
-		NodesList: NodesList,
-		Logger:    logger,
-		status:    new,
+		Root:        *Next,
+		NodesList:   NodesList,
+		Logger:      logger,
+		status:      new,
 	}
 
 	return &pip, nil
 }
 
-func buildTree(name string, n config.Node, registry registery.Registry, NodesList *[]node.Node) (node.Node, error) {
+func buildTree(name string, n config.Node, registry registery.Registry, NodesList *[]node.Node, forceSync bool) (node.Node, error) {
 
-	next := make([]node.Next, 0)
+	// create node of the configure components
+	currNode, err := chooseComponent(name, registry, len(n.Next))
+	if err != nil {
+		return nil, err
+	}
 
-	var currNode node.Node
+	*NodesList = append(*NodesList, currNode)
+
+	// add nexts
+	nexts := make([]node.Next, 0)
 
 	if n.Next != nil {
 		for key, value := range n.Next {
-			Node, err := getNext(key, value, registry, NodesList)
+
+			Node, err := buildTree(key, value, registry, NodesList, n.Async)
 			if err != nil {
 				return nil, err
 			}
-			next = append(next, Node)
+
+			// create a next wrapper
+			next := *node.NewNext(Node)
+
+			// gives the next's node its TransactionChan, now owner of the 'next' owns closing the chan.
+			Node.SetTransactionChan(next.TransactionChan)
+
+			// append to nexts
+			nexts = append(nexts, next)
 		}
 	}
+
+	// set nexts
+	currNode.SetNexts(nexts)
+
+	// set node async
+	currNode.SetAsync(n.Async && !forceSync)
+
+	return currNode, nil
+}
+
+func chooseComponent(name string, registry registery.Registry, nextsCount int) (node.Node, error) {
+	var Node node.Node
 
 	// check if Processor(and which types)
 	processor, ok := registry.GetProcessor(name)
 	if ok {
-		if len(next) == 0 {
-			return nil, fmt.Errorf("plugin [%s] has no next(s) of type output, a pipeline path must end with an output plugin", name)
+		if nextsCount == 0 {
+			return nil, fmt.Errorf("plugin [%s] has no nexts(s) of type output, a pipeline path must end with an output plugin", name)
 		}
 		switch p := processor.ProcessorBase.(type) {
 		case component.ProcessorReadOnly:
-			currNode = &node.ReadOnly{
+			Node = &node.ReadOnly{
 				ProcessorReadOnly: p,
-				Next:              next,
 				Resource:          processor.Resource,
 			}
 		case component.ProcessorReadWrite:
-			currNode = &node.ReadWrite{
+			Node = &node.ReadWrite{
 				ProcessorReadWrite: p,
-				Next:               next,
 				Resource:           processor.Resource,
 			}
 		default:
@@ -178,12 +211,11 @@ func buildTree(name string, n config.Node, registry registery.Registry, NodesLis
 	} else {
 		output, ok := registry.GetOutput(name)
 		if ok {
-			if len(next) > 0 {
-				return nil, fmt.Errorf("plugin [%s] has next(s), output plugins must not have next(s)", name)
+			if nextsCount > 0 {
+				return nil, fmt.Errorf("plugin [%s] has nexts(s), output plugins must not have nexts(s)", name)
 			}
-			currNode = &node.Output{
+			Node = &node.Output{
 				Output:   output,
-				Next:     next,
 				Resource: output.Resource,
 			}
 		} else {
@@ -191,25 +223,5 @@ func buildTree(name string, n config.Node, registry registery.Registry, NodesLis
 		}
 	}
 
-	*NodesList = append(*NodesList, currNode)
-
-	return currNode, nil
-}
-
-func getNext(name string, n config.Node, registry registery.Registry, NodesList *[]node.Node) (node.Next, error) {
-	Node, err := buildTree(name, n, registry, NodesList)
-
-	if err != nil {
-		return node.Next{}, err
-	}
-
-	tc := make(chan transaction.Transaction)
-
-	// give node its receive chan
-	Node.SetTransactionChan(tc)
-
-	return node.Next{
-		Node:            Node,
-		TransactionChan: tc,
-	}, nil
+	return Node, nil
 }

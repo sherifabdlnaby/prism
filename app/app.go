@@ -94,7 +94,7 @@ func (a *App) startComponents(c config.Config) error {
 		return err
 	}
 
-	a.logger.inputLogger.Info("starting input plugins...")
+	a.logger.Info("starting input plugins...")
 	err = a.startInputPlugins(c)
 	if err != nil {
 		a.logger.Errorf("error while starting input plugins: %v", err)
