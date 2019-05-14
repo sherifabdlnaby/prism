@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"github.com/sherifabdlnaby/prism/app/config"
+	"github.com/sherifabdlnaby/prism/app/pipeline/node"
 	"github.com/sherifabdlnaby/prism/app/registery/wrapper"
-	"github.com/sherifabdlnaby/prism/app/resource"
 	"github.com/sherifabdlnaby/prism/pkg/component"
 	"go.uber.org/zap"
 )
@@ -29,7 +29,7 @@ func (m *Registry) LoadInput(name string, input config.Input, Logger zap.Sugared
 
 	m.InputPlugins[name] = &wrapper.Input{
 		Input:    pluginInstance,
-		Resource: *resource.NewResource(input.Concurrency, *Logger.Named(name)),
+		Resource: *node.NewResource(input.Concurrency, *Logger.Named(name)),
 	}
 	return nil
 }
@@ -63,7 +63,7 @@ func (m *Registry) LoadProcessor(name string, processor config.Processor, Logger
 
 	m.ProcessorPlugins[name] = &wrapper.Processor{
 		ProcessorBase: pluginInstance,
-		Resource:      *resource.NewResource(processor.Concurrency, *Logger.Named(name)),
+		Resource:      *node.NewResource(processor.Concurrency, *Logger.Named(name)),
 	}
 
 	return nil
@@ -96,7 +96,7 @@ func (m *Registry) LoadOutput(name string, output config.Output, Logger zap.Suga
 
 	m.OutputPlugins[name] = &wrapper.Output{
 		Output:   pluginInstance,
-		Resource: *resource.NewResource(output.Concurrency, *Logger.Named(name)),
+		Resource: *node.NewResource(output.Concurrency, *Logger.Named(name)),
 	}
 
 	return nil

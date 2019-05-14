@@ -8,7 +8,6 @@ import (
 	"github.com/sherifabdlnaby/prism/app/config"
 	"github.com/sherifabdlnaby/prism/app/pipeline/node"
 	"github.com/sherifabdlnaby/prism/app/registery"
-	"github.com/sherifabdlnaby/prism/app/resource"
 	"github.com/sherifabdlnaby/prism/pkg/component"
 	"github.com/sherifabdlnaby/prism/pkg/response"
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
@@ -97,7 +96,7 @@ func (p *Pipeline) job(txn transaction.Transaction) {
 //NewPipeline Construct a NewPipeline using config.
 func NewPipeline(pc config.Pipeline, registry registery.Registry, logger zap.SugaredLogger) (*Pipeline, error) {
 
-	pipelineResource := resource.NewResource(pc.Concurrency, logger)
+	pipelineResource := node.NewResource(pc.Concurrency, logger)
 
 	// Dummy Node is the start of every pipeline, and its next(s) are the pipeline starting nodes.
 	beginNode := node.Dummy{

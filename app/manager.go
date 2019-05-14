@@ -11,7 +11,6 @@ import (
 
 // loadPlugins Load all plugins in Config
 func (a *App) loadPlugins(c config.Config) error {
-	a.logger.Info("loading plugins configuration...")
 
 	// Load Input Plugins
 	for name, plugin := range c.Inputs.Inputs {
@@ -42,7 +41,6 @@ func (a *App) loadPlugins(c config.Config) error {
 
 // initPlugins Init all plugins in Config by calling their Init() function
 func (a *App) initPlugins(c config.Config) error {
-	a.logger.Info("initializing plugins...")
 
 	// Init Input Plugins
 	for name, input := range c.Inputs.Inputs {
@@ -79,7 +77,6 @@ func (a *App) initPlugins(c config.Config) error {
 
 // startInputPlugins startMux all input plugins in Config by calling their startMux() function
 func (a *App) startInputPlugins(c config.Config) error {
-	a.logger.inputLogger.Info("starting input plugins...")
 
 	for _, value := range a.registry.InputPlugins {
 		err := value.Start()
@@ -94,7 +91,6 @@ func (a *App) startInputPlugins(c config.Config) error {
 
 // startProcessorPlugins startMux all processor plugins in Config by calling their startMux() function
 func (a *App) startProcessorPlugins(c config.Config) error {
-	a.logger.processingLogger.Info("starting processor plugins...")
 
 	for _, value := range a.registry.ProcessorPlugins {
 		err := value.Start()
@@ -109,7 +105,6 @@ func (a *App) startProcessorPlugins(c config.Config) error {
 
 // startOutputPlugins startMux all output plugins in Config by calling their startMux() function
 func (a *App) startOutputPlugins(c config.Config) error {
-	a.logger.Info("starting output plugins...")
 
 	for _, value := range a.registry.OutputPlugins {
 		err := value.Start()
@@ -124,7 +119,6 @@ func (a *App) startOutputPlugins(c config.Config) error {
 
 // initPipelines Initialize and build all configured pipelines
 func (a *App) initPipelines(c config.Config) error {
-	a.logger.Info("initializing pipelines...")
 
 	for key, value := range c.Pipeline.Pipelines {
 
@@ -154,8 +148,6 @@ func (a *App) initPipelines(c config.Config) error {
 
 // startPipelines startMux all pipelines and start accepting input
 func (a *App) startPipelines(c config.Config) error {
-
-	a.logger.Info("starting pipelines...")
 
 	for _, value := range a.pipelines {
 		err := value.Start()
