@@ -10,55 +10,25 @@ import (
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
 )
 
-//Dummy Used at the start of every pipeline.
-type Dummy struct {
-	receiveChan <-chan transaction.Transaction
-	nexts       []Next
-	Resource    resource.Resource
+//dummy Used at the start of every pipeline.
+type dummy struct {
+	*base
 }
 
-// Start starts this node and all its next nodes to start receiving transactions
-func (n *Dummy) Start() error {
-	// Start next nodes
-	for _, value := range n.nexts {
-		err := value.Start()
-		if err != nil {
-			return err
-		}
-	}
-
-	go func() {
-		for value := range n.receiveChan {
-			go n.job(value)
-		}
-	}()
-
-	return nil
-}
-
-//Stop Stop this Node and stop all its next nodes.
-func (n *Dummy) Stop() error {
-
-	for _, value := range n.nexts {
-		// close this next-node chan
-		close(value.TransactionChan)
-
-		// tell this next-node to stop which in turn will close all its next(s) too.
-		err := value.Stop()
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
+//NewDummy Construct a new Dummy Node
+func NewDummy(r resource.Resource) Node {
+	Node := &dummy{}
+	base := newBase(Node, r)
+	Node.base = base
+	return Node
 }
 
 //job Just forwards the input.
-func (n *Dummy) job(t transaction.Transaction) {
+func (n *dummy) job(t transaction.Transaction) {
 
 	////////////////////////////////////////////
-	// Acquire Resource (limit concurrency)
-	err := n.Resource.Acquire(t.Context)
+	// Acquire resource (limit concurrency)
+	err := n.resource.Acquire(t.Context)
 	if err != nil {
 		t.ResponseChan <- response.NoAck(err)
 		return
@@ -123,23 +93,6 @@ loop:
 	// Send Response back.
 	t.ResponseChan <- Response
 
-	// Dummy Node release after receive response as it is used to limit the entire pipeline concurrency.
-	n.Resource.Release()
-}
-
-//SetTransactionChan Set the transaction chan node will use to receive input
-func (n *Dummy) SetTransactionChan(tc <-chan transaction.Transaction) {
-	n.receiveChan = tc
-}
-
-//SetNexts Set this node's next nodes.
-func (n *Dummy) SetNexts(nexts []Next) {
-	n.nexts = nexts
-}
-
-//SetAsync Set if this node is sync/async
-// as dummy node can never be Async, this method has no effect.
-func (n *Dummy) SetAsync(async bool) {
-	// Dummy can't be async.
-	return
+	// dummy Node release after receive response as it is used to limit the entire pipeline concurrency.
+	n.resource.Release()
 }

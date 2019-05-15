@@ -11,7 +11,7 @@ type Resource struct {
 	sema *semaphore.Weighted
 }
 
-//NewResource Resource Constructor
+//NewResource resource Constructor
 func NewResource(concurrency int) *Resource {
 	return &Resource{
 		sema: semaphore.NewWeighted(int64(concurrency)),
