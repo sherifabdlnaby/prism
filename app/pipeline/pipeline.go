@@ -95,14 +95,12 @@ func NewPipeline(pc config.Pipeline, registry registery.Registry, logger zap.Sug
 
 	pipelineResource := resource.NewResource(pc.Concurrency)
 
-	// Dummy Node is the start of every pipeline, and its nexts(s) are the pipeline starting nodes.
-	beginNode := node.Dummy{
-		Resource: *pipelineResource,
-	}
+	// dummy Node is the start of every pipeline, and its nexts(s) are the pipeline starting nodes.
+	beginNode := node.NewDummy(*pipelineResource)
 
 	// NodesList will contain all nodes of the pipeline. (will be useful later.
 	NodesList := make([]node.Node, 0)
-	NodesList = append(NodesList, &beginNode)
+	NodesList = append(NodesList, beginNode)
 
 	nexts := make([]node.Next, 0)
 	for key, value := range pc.Pipeline {
@@ -126,7 +124,7 @@ func NewPipeline(pc config.Pipeline, registry registery.Registry, logger zap.Sug
 	beginNode.SetNexts(nexts)
 
 	// give dummy node its receive chan
-	Next := node.NewNext(&beginNode)
+	Next := node.NewNext(beginNode)
 
 	// give node its receive chan
 	beginNode.SetTransactionChan(Next.TransactionChan)
@@ -194,15 +192,9 @@ func chooseComponent(name string, registry registery.Registry, nextsCount int) (
 		}
 		switch p := processor.ProcessorBase.(type) {
 		case component.ProcessorReadOnly:
-			Node = &node.ReadOnly{
-				ProcessorReadOnly: p,
-				Resource:          processor.Resource,
-			}
+			Node = node.NewReadOnly(p, processor.Resource)
 		case component.ProcessorReadWrite:
-			Node = &node.ReadWrite{
-				ProcessorReadWrite: p,
-				Resource:           processor.Resource,
-			}
+			Node = node.NewReadWrite(p, processor.Resource)
 		default:
 			return nil, fmt.Errorf("plugin [%s] doesn't exists", name)
 		}
@@ -213,10 +205,7 @@ func chooseComponent(name string, registry registery.Registry, nextsCount int) (
 			if nextsCount > 0 {
 				return nil, fmt.Errorf("plugin [%s] has nexts(s), output plugins must not have nexts(s)", name)
 			}
-			Node = &node.Output{
-				Output:   output,
-				Resource: output.Resource,
-			}
+			Node = node.NewOutput(output, output.Resource)
 		} else {
 			return nil, fmt.Errorf("plugin [%s] doesn't exists", name)
 		}
