@@ -68,6 +68,17 @@ func (cw *Config) Get(key string, data transaction.ImageData) (Value, error) {
 	return cacheField, nil
 }
 
+//NewValue creates a temporary value and it doesn't cache it
+func (cw *Config) NewValue(data interface{}) Value {
+
+	val := objx.NewValue(data)
+
+	value := Value{
+		value: *val,
+	}
+	return value
+}
+
 func splitToParts(str string) []part {
 	parts := make([]part, 0)
 	matches := fieldsRegex.FindAllStringSubmatch(str, -1)

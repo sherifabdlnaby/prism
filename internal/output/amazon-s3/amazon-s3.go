@@ -57,10 +57,10 @@ func (s *S3) Init(Config config.Config, logger zap.SugaredLogger) error {
 	}
 
 	optionalConfig := []string{"access_key_id", "secret_access_key", "session_token", "canned_acl", "encoding", "server_side_encryption_algorithm", "storage_class"}
-	/*s.Settings["canned_acl"] = "private"
-	s.Settings["encoding"] = "none"
-	s.Settings["server_side_encryption_algorithm"] = "AES256"
-	s.Settings["storage_class"] = "STANDARD"*/
+	s.Settings["canned_acl"] = Config.NewValue("private")
+	s.Settings["encoding"] = Config.NewValue("none")
+	s.Settings["server_side_encryption_algorithm"] = Config.NewValue("AES256")
+	s.Settings["storage_class"] = Config.NewValue("STANDARD")
 	for _, op := range optionalConfig {
 		value, err := Config.Get(op, nil)
 		if err != nil {
