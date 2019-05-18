@@ -20,6 +20,7 @@ import (
 //S3 struct
 type S3 struct {
 	Settings     map[string]config.Value
+	Values       map[string]string
 	TypeCheck    bool
 	Transactions chan transaction.Transaction
 	stopChan     chan struct{}
@@ -41,6 +42,7 @@ func (s *S3) TransactionChan() chan<- transaction.Transaction {
 func (s *S3) Init(Config config.Config, logger zap.SugaredLogger) error {
 
 	s.Settings = make(map[string]config.Value)
+	s.Values = make(map[string]string)
 
 	requiredConfig := []string{"filepath", "s3_region", "s3_bucket"}
 
@@ -54,13 +56,18 @@ func (s *S3) Init(Config config.Config, logger zap.SugaredLogger) error {
 			return err
 		}
 		s.Settings[rq] = value
+		s.Values[rq] = value.Get().String()
 	}
 
 	optionalConfig := []string{"access_key_id", "secret_access_key", "session_token", "canned_acl", "encoding", "server_side_encryption_algorithm", "storage_class"}
 	s.Settings["canned_acl"] = Config.NewValue("private")
+	s.Values["canned_acl"] = "private"
 	s.Settings["encoding"] = Config.NewValue("none")
+	s.Values["encoding"] = "node"
 	s.Settings["server_side_encryption_algorithm"] = Config.NewValue("AES256")
+	s.Values["server_side_encryption_algorithm"] = "AES256"
 	s.Settings["storage_class"] = Config.NewValue("STANDARD")
+	s.Values["storage_class"] = "STANDARD"
 	for _, op := range optionalConfig {
 		value, err := Config.Get(op, nil)
 		if err != nil {
@@ -71,6 +78,7 @@ func (s *S3) Init(Config config.Config, logger zap.SugaredLogger) error {
 			return err
 		}
 		s.Settings[op] = value
+		s.Values[op] = value.Get().String()
 	}
 	s.Transactions = make(chan transaction.Transaction)
 	s.stopChan = make(chan struct{})
@@ -89,18 +97,26 @@ func (s *S3) writeOnS3(svc *s3.S3, txn transaction.Transaction) {
 	buffer, err := ioutil.ReadAll(txn)
 	size := int64(len(buffer))
 
+	FilePathValue := s.Settings["filepath"]
+	filePathV, evaluateErr := (&FilePathValue).Evaluate(txn.ImageData)
+	if evaluateErr != nil {
+		txn.ResponseChan <- response.Error(evaluateErr)
+		return
+	}
+	filePath := filePathV.String()
+
 	if err == nil {
 		_, err = svc.PutObject(&s3.PutObjectInput{
-			Bucket:               aws.String(s.Settings["s3_bucket"].Get().String()),
-			Key:                  aws.String(s.Settings["filepath"].Get().String()),
-			ACL:                  aws.String(s.Settings["canned_acl"].Get().String()),
+			Bucket:               aws.String(s.Values["s3_bucket"]),
+			Key:                  aws.String(filePath),
+			ACL:                  aws.String(s.Values["canned_acl"]),
 			Body:                 bytes.NewReader(buffer),
 			ContentLength:        aws.Int64(size),
 			ContentType:          aws.String(http.DetectContentType(buffer)),
 			ContentDisposition:   aws.String("attachment"),
-			ContentEncoding:      aws.String(s.Settings["encoding"].Get().String()),
-			ServerSideEncryption: aws.String(s.Settings["server_side_encryption_algorithm"].Get().String()),
-			StorageClass:         aws.String(s.Settings["storage_class"].Get().String()),
+			ContentEncoding:      aws.String(s.Values["encoding"]),
+			ServerSideEncryption: aws.String(s.Values["server_side_encryption_algorithm"]),
+			StorageClass:         aws.String(s.Values["storage_class"]),
 		})
 	}
 	if err != nil {
@@ -117,7 +133,7 @@ func (s *S3) writeOnS3(svc *s3.S3, txn transaction.Transaction) {
 // Start the plugin and be ready for taking transactions
 func (s *S3) Start() error {
 
-	staticCreds := credentials.NewStaticCredentials(s.Settings["access_key_id"].Get().String(), s.Settings["secret_access_key"].Get().String(), s.Settings["session_token"].Get().String())
+	staticCreds := credentials.NewStaticCredentials(s.Values["access_key_id"], s.Values["secret_access_key"], s.Values["session_token"])
 	val, _ := staticCreds.Get()
 	creds := credentials.NewChainCredentials(
 		[]credentials.Provider{
@@ -131,11 +147,11 @@ func (s *S3) Start() error {
 	if err != nil {
 		return err
 	}
-	cfg := aws.NewConfig().WithRegion(s.Settings["s3_region"].Get().String()).WithCredentials(creds)
+	cfg := aws.NewConfig().WithRegion(s.Values["s3_region"]).WithCredentials(creds)
 	svc := s3.New(session.New(), cfg)
 
 	//Test if the given credentials are valid or not by getting the bucket logging
-	bucketName := s.Settings["s3_bucket"].Get().String()
+	bucketName := s.Values["s3_bucket"]
 	tst := s3.GetBucketLoggingInput{Bucket: &bucketName}
 	_, err = svc.GetBucketLogging(&tst)
 	if err != nil {

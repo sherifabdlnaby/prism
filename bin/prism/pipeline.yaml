@@ -11,7 +11,7 @@ pipelines:
                             dummy_processor2:
                                 async: true
                                 next:
-                                    disk1:
+                                    s3First:
                                         async: true
                     dummy_processor2:
                         async: true
