@@ -133,8 +133,8 @@ func (a *App) stopComponents(c config.Config) error {
 
 	///////////////////////////////////////
 
-	err = a.stopProcessorPlugins(c)
 	a.logger.Info("stopping processor plugins...")
+	err = a.stopProcessorPlugins(c)
 	if err != nil {
 		a.logger.Errorf("failed to stop input plugins: %v", err)
 		return err
@@ -143,8 +143,8 @@ func (a *App) stopComponents(c config.Config) error {
 
 	///////////////////////////////////////
 
-	err = a.stopOutputPlugins(c)
 	a.logger.Info("stopping output plugins...")
+	err = a.stopOutputPlugins(c)
 	if err != nil {
 		a.logger.Errorf("failed to stop output plugins: %v", err)
 		return err

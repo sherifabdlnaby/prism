@@ -8,7 +8,7 @@ import (
 )
 
 type pipelineWrapper struct {
-	pipeline.Pipeline
+	*pipeline.Pipeline
 	TransactionChan chan transaction.Transaction
 }
 

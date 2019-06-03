@@ -7,6 +7,7 @@ import (
 	"github.com/sherifabdlnaby/prism/app/registery/wrapper"
 	"github.com/sherifabdlnaby/prism/app/resource"
 	"github.com/sherifabdlnaby/prism/pkg/component"
+	"github.com/sherifabdlnaby/prism/pkg/transaction"
 	"go.uber.org/zap"
 )
 
@@ -94,9 +95,13 @@ func (m *Registry) LoadOutput(name string, output config.Output, Logger zap.Suga
 		return fmt.Errorf("plugin type [%s] is not an output plugin", output.Plugin)
 	}
 
+	txnChan := make(chan transaction.Transaction)
+	pluginInstance.SetTransactionChan(txnChan)
+
 	m.OutputPlugins[name] = &wrapper.Output{
-		Output:   pluginInstance,
-		Resource: *resource.NewResource(output.Concurrency),
+		Output:          pluginInstance,
+		Resource:        *resource.NewResource(output.Concurrency),
+		TransactionChan: txnChan,
 	}
 
 	return nil

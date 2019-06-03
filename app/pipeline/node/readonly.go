@@ -36,16 +36,6 @@ func (n *readOnly) job(t transaction.Transaction) {
 		return
 	}
 
-	// if nodeType is set async, send response now, and navigate actual response to asyncResponses which should handle async responses
-	if n.async {
-		t.ResponseChan <- response.Ack()
-
-		// used so that stop() wait for async responses to finish. (may be improved later)
-		n.wg.Add(1)
-
-		t.ResponseChan = n.asyncResponses
-	}
-
 	////////////////////////////////////////////
 	// PROCESS ( DECODE -> PROCESS )
 

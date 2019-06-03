@@ -46,7 +46,6 @@ func (r *Reader) readMore() {
 
 	r.stepSize *= 2
 
-	return
 }
 
 type readerCloner struct {

@@ -138,7 +138,7 @@ func (a *App) initPipelines(c config.Config) error {
 		pip.SetTransactionChan(tc)
 
 		a.pipelines[key] = pipelineWrapper{
-			Pipeline:        *pip,
+			Pipeline:        pip,
 			TransactionChan: tc,
 		}
 	}
@@ -209,7 +209,12 @@ func (a *App) stopProcessorPlugins(c config.Config) error {
 func (a *App) stopOutputPlugins(c config.Config) error {
 
 	for name, value := range a.registry.OutputPlugins {
+		// close its transaction chan (stop sending txns to it)
+		close(value.TransactionChan)
+
+		// close plugin
 		err := value.Close()
+
 		if err != nil {
 			a.logger.outputLogger.Errorf("failed to stop output plugin [%s]: %v", name, err)
 			return err

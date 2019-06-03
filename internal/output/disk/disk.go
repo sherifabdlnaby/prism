@@ -20,7 +20,7 @@ type Disk struct {
 	FilePath       config.Value
 	Permission     os.FileMode
 	TypeCheck      bool
-	Transactions   chan transaction.Transaction
+	Transactions   <-chan transaction.Transaction
 	stopChan       chan struct{}
 	logger         zap.SugaredLogger
 	wg             sync.WaitGroup
@@ -32,8 +32,8 @@ func NewComponent() component.Component {
 }
 
 //TransactionChan just return the channel of the transactions
-func (d *Disk) TransactionChan() chan<- transaction.Transaction {
-	return d.Transactions
+func (d *Disk) SetTransactionChan(t <-chan transaction.Transaction) {
+	d.Transactions = t
 }
 
 //Init func Initialize the disk output plugin
@@ -57,7 +57,6 @@ func (d *Disk) Init(config config.Config, logger zap.SugaredLogger) error {
 	}
 
 	d.Permission = os.FileMode(perm32)
-	d.Transactions = make(chan transaction.Transaction)
 	d.stopChan = make(chan struct{})
 	d.logger = logger
 
@@ -100,8 +99,6 @@ func (d *Disk) writeOnDisk(txn transaction.Transaction) {
 		Error: err,
 		Ack:   ack,
 	}
-
-	return
 }
 
 // Start the plugin and be ready for taking transactions
@@ -109,26 +106,17 @@ func (d *Disk) Start() error {
 	d.wg.Add(1)
 	go func() {
 		defer d.wg.Done()
-		for {
-			select {
-			case <-d.stopChan:
-				return
-			case txn, _ := <-d.Transactions:
-				d.wg.Add(1)
-				go d.writeOnDisk(txn)
-			}
+		for txn := range d.Transactions {
+			d.wg.Add(1)
+			go d.writeOnDisk(txn)
 		}
 	}()
-
 	return nil
 }
 
 //Close func Send a close signal to stop chan
 // to stop taking transactions and Close everything safely
 func (d *Disk) Close() error {
-	d.stopChan <- struct{}{}
 	d.wg.Wait()
-	close(d.Transactions)
-	close(d.stopChan)
 	return nil
 }

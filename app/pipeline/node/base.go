@@ -43,7 +43,7 @@ func (n *base) Start() error {
 	}
 
 	// start Async Handler
-	n.asyncHandler()
+	go n.asyncHandler()
 
 	go func() {
 		for t := range n.receiveChan {
@@ -110,9 +110,7 @@ func (n *base) SetAsync(async bool) {
 
 // TODO to handle failing/success async requests later.
 func (n *base) asyncHandler() {
-	go func() {
-		for range n.asyncResponses {
-			n.wg.Done()
-		}
-	}()
+	for range n.asyncResponses {
+		n.wg.Done()
+	}
 }

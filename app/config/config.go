@@ -110,6 +110,10 @@ func unmarshal(bytes []byte, out interface{}) error {
 
 	err := yaml.Unmarshal(bytes, &mapRaw)
 
+	if err != nil {
+		return err
+	}
+
 	mapString := recursivelyTurnYAMLMaps(mapRaw)
 
 	config := &mapstructure.DecoderConfig{

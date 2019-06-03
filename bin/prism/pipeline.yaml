@@ -3,15 +3,15 @@ pipelines:
         concurrency: 120
         pipeline:
             dummy_processor1:
-                async: true
+                async: false
                 next:
                     dummy_processor1:
-                        async: true
+                        async: false
                         next:
                             dummy_processor2:
-                                async: true
+                                async: false
                                 next:
-                                    s3First:
+                                    disk1:
                                         async: true
                     dummy_processor2:
                         async: true

@@ -205,7 +205,7 @@ func chooseComponent(name string, registry registery.Registry, nextsCount int) (
 			if nextsCount > 0 {
 				return nil, fmt.Errorf("plugin [%s] has nexts(s), output plugins must not have nexts(s)", name)
 			}
-			Node = node.NewOutput(output, output.Resource)
+			Node = node.NewOutput(output)
 		} else {
 			return nil, fmt.Errorf("plugin [%s] doesn't exists", name)
 		}

@@ -36,7 +36,7 @@ type Input interface {
 // Output Component used for outputting data to external destination
 type Output interface {
 	// TransactionChan returns a channel used to send transactions for saving.
-	TransactionChan() chan<- transaction.Transaction
+	SetTransactionChan(<-chan transaction.Transaction)
 
 	Component
 }

@@ -48,5 +48,4 @@ func addDefaultValueToMap(data transaction.ImageData, key string, val interface{
 		return
 	}
 	data[key] = val
-	return
 }

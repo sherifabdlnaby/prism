@@ -22,7 +22,7 @@ type S3 struct {
 	Settings     map[string]config.Value
 	Values       map[string]string
 	TypeCheck    bool
-	Transactions chan transaction.Transaction
+	Transactions <-chan transaction.Transaction
 	stopChan     chan struct{}
 	logger       zap.SugaredLogger
 	wg           sync.WaitGroup
@@ -34,8 +34,8 @@ func NewComponent() component.Component {
 }
 
 //TransactionChan just return the channel of the transactions
-func (s *S3) TransactionChan() chan<- transaction.Transaction {
-	return s.Transactions
+func (s *S3) TransactionChan(t <-chan transaction.Transaction) {
+	s.Transactions = t
 }
 
 //Init func Initialize the S3 output plugin
@@ -80,7 +80,6 @@ func (s *S3) Init(Config config.Config, logger zap.SugaredLogger) error {
 		s.Settings[op] = value
 		s.Values[op] = value.Get().String()
 	}
-	s.Transactions = make(chan transaction.Transaction)
 	s.stopChan = make(chan struct{})
 	s.logger = logger
 
@@ -127,7 +126,6 @@ func (s *S3) writeOnS3(svc *s3.S3, txn transaction.Transaction) {
 		Error: err,
 		Ack:   ack,
 	}
-	return
 }
 
 // Start the plugin and be ready for taking transactions
@@ -148,7 +146,13 @@ func (s *S3) Start() error {
 		return err
 	}
 	cfg := aws.NewConfig().WithRegion(s.Values["s3_region"]).WithCredentials(creds)
-	svc := s3.New(session.New(), cfg)
+
+	sess, err := session.NewSession(cfg)
+	if err != nil {
+		return err
+	}
+
+	svc := s3.New(sess, cfg)
 
 	//Test if the given credentials are valid or not by getting the bucket logging
 	bucketName := s.Values["s3_bucket"]
@@ -165,7 +169,7 @@ func (s *S3) Start() error {
 			select {
 			case <-s.stopChan:
 				return
-			case transaction, _ := <-s.Transactions:
+			case transaction := <-s.Transactions:
 				s.wg.Add(1)
 				go s.writeOnS3(svc, transaction)
 			}
@@ -180,7 +184,6 @@ func (s *S3) Start() error {
 func (s *S3) Close() error {
 	s.stopChan <- struct{}{}
 	s.wg.Wait()
-	close(s.Transactions)
 	close(s.stopChan)
 	return nil
 }
