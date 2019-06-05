@@ -6,13 +6,13 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/sherifabdlnaby/prism/app/registery/wrapper"
+	"github.com/sherifabdlnaby/prism/pkg/payload"
 	"github.com/sherifabdlnaby/prism/pkg/response"
-	"github.com/sherifabdlnaby/prism/pkg/transaction"
 )
 
 //start starts the mux that forwards the transactions from input to pipelines based on PipelineTag in transaction.
 func (a *App) start() {
-	for _, value := range a.registry.InputPlugins {
+	for _, value := range a.registry.Inputs {
 		go a.forwardPerInput(value)
 	}
 }
@@ -29,20 +29,20 @@ func (a *App) forwardPerInput(input *wrapper.Input) {
 		}
 
 		// Add defaults to transaction Image Data
-		applyDefaultFields(Tchan.ImageData)
+		applyDefaultFields(Tchan.Data)
 
 		a.pipelines[Tchan.PipelineTag].TransactionChan <- Tchan.Transaction
 	}
 }
 
-func applyDefaultFields(d transaction.ImageData) {
+func applyDefaultFields(d payload.Data) {
 	id := uuid.New()
 	epoch := time.Now().Unix()
 	addDefaultValueToMap(d, "_id", id.String())
 	addDefaultValueToMap(d, "_timestamp", epoch)
 }
 
-func addDefaultValueToMap(data transaction.ImageData, key string, val interface{}) {
+func addDefaultValueToMap(data payload.Data, key string, val interface{}) {
 	_, ok := data[key]
 	if ok {
 		return

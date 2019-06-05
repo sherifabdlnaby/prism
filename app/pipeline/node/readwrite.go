@@ -5,20 +5,21 @@ import (
 
 	"github.com/sherifabdlnaby/prism/app/resource"
 	"github.com/sherifabdlnaby/prism/pkg/bufferspool"
-	"github.com/sherifabdlnaby/prism/pkg/component"
+	"github.com/sherifabdlnaby/prism/pkg/component/processor"
 	"github.com/sherifabdlnaby/prism/pkg/mirror"
+	"github.com/sherifabdlnaby/prism/pkg/payload"
 	"github.com/sherifabdlnaby/prism/pkg/response"
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
 )
 
 //readWrite Wraps a readwrite component
 type readWrite struct {
-	processor component.ProcessorReadWrite
+	processor processor.ReadWrite
 	*base
 }
 
 //NewReadWrite Construct a new ReadWrite Node
-func NewReadWrite(processorReadWrite component.ProcessorReadWrite, r resource.Resource) Node {
+func NewReadWrite(processorReadWrite processor.ReadWrite, r resource.Resource) Node {
 	Node := &readWrite{processor: processorReadWrite}
 	base := newBase(Node, r)
 	Node.base = base
@@ -40,7 +41,7 @@ func (n *readWrite) job(t transaction.Transaction) {
 	// PROCESS ( DECODE -> PROCESS -> ENCODE )
 
 	/// DECODE
-	decoded, Response := n.processor.Decode(t.Payload, t.ImageData)
+	decoded, Response := n.processor.Decode(t.Payload, t.Data)
 	if !Response.Ack {
 		t.ResponseChan <- Response
 		n.resource.Release()
@@ -48,14 +49,14 @@ func (n *readWrite) job(t transaction.Transaction) {
 	}
 
 	/// PROCESS
-	decodedPayload, Response := n.processor.Process(decoded, t.ImageData)
+	decodedPayload, Response := n.processor.Process(decoded, t.Data)
 	if !Response.Ack {
 		t.ResponseChan <- Response
 		n.resource.Release()
 		return
 	}
 
-	var baseOutput = transaction.OutputPayload{}
+	var baseOutput = payload.Output{}
 	responseChan := make(chan response.Response, len(n.nexts))
 	ctx, cancel := context.WithCancel(t.Context)
 	defer cancel()
@@ -65,13 +66,13 @@ func (n *readWrite) job(t transaction.Transaction) {
 	defer bufferspool.Put(buffer)
 	writerCloner := mirror.NewWriter(buffer)
 
-	baseOutput = transaction.OutputPayload{
+	baseOutput = payload.Output{
 		WriteCloser: writerCloner,
-		ImageBytes:  nil,
+		Bytes:       nil,
 	}
 
 	/// ENCODE
-	Response = n.processor.Encode(decodedPayload, t.ImageData, &baseOutput)
+	Response = n.processor.Encode(decodedPayload, t.Data, &baseOutput)
 	n.resource.Release()
 	if !Response.Ack {
 		t.ResponseChan <- Response
@@ -80,11 +81,11 @@ func (n *readWrite) job(t transaction.Transaction) {
 
 	for _, next := range n.nexts {
 		next.TransactionChan <- transaction.Transaction{
-			Payload: transaction.Payload{
-				Reader:     writerCloner.Clone(),
-				ImageBytes: baseOutput.ImageBytes,
+			Payload: payload.Payload{
+				Reader: writerCloner.Clone(),
+				Bytes:  baseOutput.Bytes,
 			},
-			ImageData:    t.ImageData,
+			Data:         t.Data,
 			Context:      ctx,
 			ResponseChan: responseChan,
 		}

@@ -3,18 +3,19 @@ package s3
 import (
 	"bytes"
 	"errors"
+	"io/ioutil"
+	"net/http"
+	"sync"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/sherifabdlnaby/prism/pkg/component"
+	"github.com/sherifabdlnaby/prism/pkg/component/processor"
 	"github.com/sherifabdlnaby/prism/pkg/config"
 	"github.com/sherifabdlnaby/prism/pkg/response"
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
 	"go.uber.org/zap"
-	"io/ioutil"
-	"net/http"
-	"sync"
 )
 
 //S3 struct
@@ -29,7 +30,7 @@ type S3 struct {
 }
 
 // NewComponent Return a new Component
-func NewComponent() component.Component {
+func NewComponent() processor.Component {
 	return &S3{}
 }
 
@@ -97,7 +98,7 @@ func (s *S3) writeOnS3(svc *s3.S3, txn transaction.Transaction) {
 	size := int64(len(buffer))
 
 	FilePathValue := s.Settings["filepath"]
-	filePathV, evaluateErr := (&FilePathValue).Evaluate(txn.ImageData)
+	filePathV, evaluateErr := (&FilePathValue).Evaluate(txn.Data)
 	if evaluateErr != nil {
 		txn.ResponseChan <- response.Error(evaluateErr)
 		return

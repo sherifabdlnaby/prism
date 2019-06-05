@@ -9,7 +9,7 @@ import (
 	"github.com/sherifabdlnaby/prism/app/pipeline/node"
 	"github.com/sherifabdlnaby/prism/app/registery"
 	"github.com/sherifabdlnaby/prism/app/resource"
-	"github.com/sherifabdlnaby/prism/pkg/component"
+	processor2 "github.com/sherifabdlnaby/prism/pkg/component/processor"
 	"github.com/sherifabdlnaby/prism/pkg/response"
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
 	"go.uber.org/zap"
@@ -82,7 +82,7 @@ func (p *Pipeline) job(txn transaction.Transaction) {
 	responseChan := make(chan response.Response, 1)
 	p.Root.TransactionChan <- transaction.Transaction{
 		Payload:      txn.Payload,
-		ImageData:    txn.ImageData,
+		Data:         txn.Data,
 		ResponseChan: responseChan,
 		Context:      txn.Context,
 	}
@@ -184,21 +184,21 @@ func buildTree(name string, n config.Node, registry registery.Registry, NodesLis
 func chooseComponent(name string, registry registery.Registry, nextsCount int) (node.Node, error) {
 	var Node node.Node
 
-	// check if Processor(and which types)
+	// check if ProcessReadWrite(and which types)
 	processor, ok := registry.GetProcessor(name)
 	if ok {
 		if nextsCount == 0 {
 			return nil, fmt.Errorf("plugin [%s] has no nexts(s) of type output, a pipeline path must end with an output plugin", name)
 		}
-		switch p := processor.ProcessorBase.(type) {
-		case component.ProcessorReadOnly:
+		switch p := processor.Base.(type) {
+		case processor2.ReadOnly:
 			Node = node.NewReadOnly(p, processor.Resource)
-		case component.ProcessorReadWrite:
+		case processor2.ReadWrite:
 			Node = node.NewReadWrite(p, processor.Resource)
 		default:
 			return nil, fmt.Errorf("plugin [%s] doesn't exists", name)
 		}
-		// Not Processor, check if output.
+		// Not ProcessReadWrite, check if output.
 	} else {
 		output, ok := registry.GetOutput(name)
 		if ok {

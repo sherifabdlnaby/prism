@@ -32,7 +32,7 @@ func (n *output) job(t transaction.Transaction) {
 
 	n.output.TransactionChan <- transaction.Transaction{
 		Payload:      t.Payload,
-		ImageData:    t.ImageData,
+		Data:         t.Data,
 		ResponseChan: responseChan,
 		Context:      t.Context,
 	}

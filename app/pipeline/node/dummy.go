@@ -6,6 +6,7 @@ import (
 	"github.com/sherifabdlnaby/prism/app/resource"
 	"github.com/sherifabdlnaby/prism/pkg/bufferspool"
 	"github.com/sherifabdlnaby/prism/pkg/mirror"
+	"github.com/sherifabdlnaby/prism/pkg/payload"
 	"github.com/sherifabdlnaby/prism/pkg/response"
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
 )
@@ -45,11 +46,11 @@ func (n *dummy) job(t transaction.Transaction) {
 
 	if len(n.nexts) == 1 {
 		n.nexts[0].TransactionChan <- transaction.Transaction{
-			Payload: transaction.Payload{
-				Reader:     t.Reader,
-				ImageBytes: t.ImageBytes,
+			Payload: payload.Payload{
+				Reader: t.Reader,
+				Bytes:  t.Bytes,
 			},
-			ImageData:    t.ImageData,
+			Data:         t.Data,
 			Context:      ctx,
 			ResponseChan: responseChan,
 		}
@@ -61,11 +62,11 @@ func (n *dummy) job(t transaction.Transaction) {
 
 		for _, next := range n.nexts {
 			next.TransactionChan <- transaction.Transaction{
-				Payload: transaction.Payload{
-					Reader:     readerCloner.Clone(),
-					ImageBytes: t.ImageBytes,
+				Payload: payload.Payload{
+					Reader: readerCloner.Clone(),
+					Bytes:  t.Bytes,
 				},
-				ImageData:    t.ImageData,
+				Data:         t.Data,
 				Context:      ctx,
 				ResponseChan: responseChan,
 			}

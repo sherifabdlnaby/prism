@@ -6,8 +6,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sherifabdlnaby/prism/pkg/component"
+	"github.com/sherifabdlnaby/prism/pkg/component/processor"
 	"github.com/sherifabdlnaby/prism/pkg/config"
+	"github.com/sherifabdlnaby/prism/pkg/payload"
 	response2 "github.com/sherifabdlnaby/prism/pkg/response"
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
 	"go.uber.org/zap"
@@ -25,7 +26,7 @@ type Dummy struct {
 }
 
 // NewComponent Return a new Component
-func NewComponent() component.Component {
+func NewComponent() processor.Component {
 	return &Dummy{}
 }
 
@@ -88,11 +89,11 @@ func (d *Dummy) Start() error {
 					// Send Transaction
 					d.Transactions <- transaction.InputTransaction{
 						Transaction: transaction.Transaction{
-							Payload: transaction.Payload{
-								Reader:     reader,
-								ImageBytes: nil,
+							Payload: payload.Payload{
+								Reader: reader,
+								Bytes:  nil,
 							},
-							ImageData:    transaction.ImageData{"count": i},
+							Data:         payload.Data{"count": i},
 							ResponseChan: responseChan,
 							Context:      ctx,
 						},

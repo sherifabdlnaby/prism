@@ -6,16 +6,16 @@ import (
 
 //Registry Contains Plugin Instances
 type Registry struct {
-	InputPlugins     map[string]*wrapper.Input
-	ProcessorPlugins map[string]*wrapper.Processor
-	OutputPlugins    map[string]*wrapper.Output
+	Inputs     map[string]*wrapper.Input
+	Processors map[string]*wrapper.Processor
+	Outputs    map[string]*wrapper.Output
 }
 
 //NewRegistry Register constructor.
 func NewRegistry() *Registry {
 	return &Registry{
-		InputPlugins:     make(map[string]*wrapper.Input),
-		ProcessorPlugins: make(map[string]*wrapper.Processor),
-		OutputPlugins:    make(map[string]*wrapper.Output),
+		Inputs:     make(map[string]*wrapper.Input),
+		Processors: make(map[string]*wrapper.Processor),
+		Outputs:    make(map[string]*wrapper.Output),
 	}
 }

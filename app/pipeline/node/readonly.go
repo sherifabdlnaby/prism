@@ -5,20 +5,21 @@ import (
 
 	"github.com/sherifabdlnaby/prism/app/resource"
 	"github.com/sherifabdlnaby/prism/pkg/bufferspool"
-	"github.com/sherifabdlnaby/prism/pkg/component"
+	"github.com/sherifabdlnaby/prism/pkg/component/processor"
 	"github.com/sherifabdlnaby/prism/pkg/mirror"
+	"github.com/sherifabdlnaby/prism/pkg/payload"
 	"github.com/sherifabdlnaby/prism/pkg/response"
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
 )
 
 //readOnly Wraps a readOnly component
 type readOnly struct {
-	processor component.ProcessorReadOnly
+	processor processor.ReadOnly
 	*base
 }
 
 //NewReadOnly Construct a new ReadOnly node
-func NewReadOnly(ProcessorReadOnly component.ProcessorReadOnly, resource resource.Resource) Node {
+func NewReadOnly(ProcessorReadOnly processor.ReadOnly, resource resource.Resource) Node {
 	Node := &readOnly{processor: ProcessorReadOnly}
 	base := newBase(Node, resource)
 	Node.base = base
@@ -42,13 +43,13 @@ func (n *readOnly) job(t transaction.Transaction) {
 	buffer := bufferspool.Get()
 	defer bufferspool.Put(buffer)
 	readerCloner := mirror.NewReader(t.Payload.Reader, buffer)
-	mirrorPayload := transaction.Payload{
-		Reader:     readerCloner.Clone(),
-		ImageBytes: t.ImageBytes,
+	mirrorPayload := payload.Payload{
+		Reader: readerCloner.Clone(),
+		Bytes:  t.Bytes,
 	}
 
 	/// DECODE
-	decoded, Response := n.processor.Decode(mirrorPayload, t.ImageData)
+	decoded, Response := n.processor.Decode(mirrorPayload, t.Data)
 	if !Response.Ack {
 		t.ResponseChan <- Response
 		n.resource.Release()
@@ -56,7 +57,7 @@ func (n *readOnly) job(t transaction.Transaction) {
 	}
 
 	/// PROCESS
-	Response = n.processor.Process(decoded, t.ImageData)
+	Response = n.processor.Process(decoded, t.Data)
 	if !Response.Ack {
 		t.ResponseChan <- Response
 		n.resource.Release()
@@ -72,11 +73,11 @@ func (n *readOnly) job(t transaction.Transaction) {
 	// forward to next nodes
 	for _, next := range n.nexts {
 		next.TransactionChan <- transaction.Transaction{
-			Payload: transaction.Payload{
-				Reader:     readerCloner.Clone(),
-				ImageBytes: t.ImageBytes,
+			Payload: payload.Payload{
+				Reader: readerCloner.Clone(),
+				Bytes:  t.Bytes,
 			},
-			ImageData:    t.ImageData,
+			Data:         t.Data,
 			Context:      ctx,
 			ResponseChan: responseChan,
 		}

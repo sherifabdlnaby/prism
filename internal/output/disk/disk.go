@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/sherifabdlnaby/prism/pkg/component"
+	"github.com/sherifabdlnaby/prism/pkg/component/processor"
 	"github.com/sherifabdlnaby/prism/pkg/config"
 	"github.com/sherifabdlnaby/prism/pkg/response"
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
@@ -27,7 +27,7 @@ type Disk struct {
 }
 
 // NewComponent Return a new Component
-func NewComponent() component.Component {
+func NewComponent() processor.Component {
 	return &Disk{}
 }
 
@@ -69,7 +69,7 @@ func (d *Disk) writeOnDisk(txn transaction.Transaction) {
 	defer d.wg.Done()
 	ack := true
 
-	filePathV, err := d.FilePath.Evaluate(txn.ImageData)
+	filePathV, err := d.FilePath.Evaluate(txn.Data)
 	if err != nil {
 		txn.ResponseChan <- response.Error(err)
 		return
