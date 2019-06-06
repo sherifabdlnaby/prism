@@ -39,34 +39,34 @@ type ReadOnly interface {
 
 //Decoder A Component that can decodes an Input
 type Decoder interface {
-	Decode(in payload.Payload, data payload.Data) (payload.Decoded, response.Response)
+	Decode(in payload.Payload, data payload.Data) (payload.DecodedImage, response.Response)
 }
 
 //Decoder A Component that can decodes an Input
 type DecoderStream interface {
-	DecodeStream(in payload.Stream, data payload.Data) (payload.Decoded, response.Response)
+	DecodeStream(in payload.Stream, data payload.Data) (payload.DecodedImage, response.Response)
 }
 
 //------------------------------------------------------------------------------
 
 //Encoder A Component that encode an Image
 type Encoder interface {
-	Encode(in payload.Decoded, data payload.Data) (payload.Payload, response.Response)
+	Encode(in payload.DecodedImage, data payload.Data) (payload.Payload, response.Response)
 }
 
 //Encoder A Component that encode an Image
 type EncoderStream interface {
-	EncodeStream(in payload.Decoded, data payload.Data, out *payload.Output) response.Response
+	EncodeStream(in payload.DecodedImage, data payload.Data, out payload.OutputStream) response.Response
 }
 
 //------------------------------------------------------------------------------
 
 //ProcessReadWrite A Component that can process an image
 type ProcessReadWrite interface {
-	Process(in payload.Decoded, data payload.Data) (payload.Decoded, response.Response)
+	Process(in payload.DecodedImage, data payload.Data) (payload.DecodedImage, response.Response)
 }
 
 //Read A base component that can process images in read-only mode (no-output)
 type ProcessReadOnly interface {
-	Process(in payload.Decoded, data payload.Data) response.Response
+	Process(in payload.DecodedImage, data payload.Data) response.Response
 }

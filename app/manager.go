@@ -135,11 +135,14 @@ func (a *App) initPipelines(c config.Config) error {
 		}
 
 		tc := make(chan transaction.Transaction)
+		stc := make(chan transaction.Streamable)
 		pip.SetTransactionChan(tc)
+		pip.SetStreamTransactionChan(stc)
 
 		a.pipelines[key] = pipelineWrapper{
-			Pipeline:        pip,
-			TransactionChan: tc,
+			Pipeline:              pip,
+			TransactionChan:       tc,
+			StreamTransactionChan: stc,
 		}
 	}
 
@@ -166,6 +169,7 @@ func (a *App) stopPipelines(c config.Config) error {
 	for _, value := range a.pipelines {
 		// close receiving chan
 		close(value.TransactionChan)
+		close(value.StreamTransactionChan)
 
 		// stop pipeline
 		err := value.Stop()
@@ -211,6 +215,7 @@ func (a *App) stopOutputPlugins(c config.Config) error {
 	for name, value := range a.registry.Outputs {
 		// close its transaction chan (stop sending txns to it)
 		close(value.TransactionChan)
+		close(value.StreamTransactionChan)
 
 		// close plugin
 		err := value.Close()

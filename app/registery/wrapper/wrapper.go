@@ -32,9 +32,15 @@ type ProcessorReadWrite struct {
 	Resource resource.Resource
 }
 
+type ProcessorReadWriteStream struct {
+	processor.ReadWriteStream
+	Resource resource.Resource
+}
+
 // Output Wraps and Input Plugin Instance
 type Output struct {
 	output.Output
-	Resource        resource.Resource
-	TransactionChan chan transaction.Transaction
+	Resource              resource.Resource
+	TransactionChan       chan transaction.Transaction
+	StreamTransactionChan chan transaction.Streamable
 }

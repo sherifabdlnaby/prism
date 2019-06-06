@@ -11,7 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/sherifabdlnaby/prism/pkg/component/processor"
+	"github.com/sherifabdlnaby/prism/pkg/component"
 	"github.com/sherifabdlnaby/prism/pkg/config"
 	"github.com/sherifabdlnaby/prism/pkg/response"
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
@@ -20,23 +20,29 @@ import (
 
 //S3 struct
 type S3 struct {
-	Settings     map[string]config.Value
-	Values       map[string]string
-	TypeCheck    bool
-	Transactions <-chan transaction.Transaction
-	stopChan     chan struct{}
-	logger       zap.SugaredLogger
-	wg           sync.WaitGroup
+	Settings           map[string]config.Value
+	Values             map[string]string
+	TypeCheck          bool
+	Transactions       <-chan transaction.Transaction
+	StreamTransactions <-chan transaction.Streamable
+	stopChan           chan struct{}
+	logger             zap.SugaredLogger
+	wg                 sync.WaitGroup
 }
 
 // NewComponent Return a new Component
-func NewComponent() processor.Component {
+func NewComponent() component.Component {
 	return &S3{}
 }
 
 //TransactionChan just return the channel of the transactions
 func (s *S3) TransactionChan(t <-chan transaction.Transaction) {
 	s.Transactions = t
+}
+
+//TransactionChan just return the channel of the transactions
+func (s *S3) StreamTransactionChan(t <-chan transaction.Streamable) {
+	s.StreamTransactions = t
 }
 
 //Init func Initialize the S3 output plugin
@@ -90,11 +96,52 @@ func (s *S3) Init(Config config.Config, logger zap.SugaredLogger) error {
 //writeOnS3 func takes the transaction and session
 //that to be written on the amazon S3
 func (s *S3) writeOnS3(svc *s3.S3, txn transaction.Transaction) {
+	defer s.wg.Done()
+	ack := true
+
+	buffer := txn.Payload
+	size := int64(len(buffer))
+
+	FilePathValue := s.Settings["filepath"]
+	filePathV, evaluateErr := (&FilePathValue).Evaluate(txn.Data)
+	if evaluateErr != nil {
+		txn.ResponseChan <- response.Error(evaluateErr)
+		return
+	}
+	filePath := filePathV.String()
+
+	_, err := svc.PutObject(&s3.PutObjectInput{
+		Bucket:               aws.String(s.Values["s3_bucket"]),
+		Key:                  aws.String(filePath),
+		ACL:                  aws.String(s.Values["canned_acl"]),
+		Body:                 bytes.NewReader(buffer),
+		ContentLength:        aws.Int64(size),
+		ContentType:          aws.String(http.DetectContentType(buffer)),
+		ContentDisposition:   aws.String("attachment"),
+		ContentEncoding:      aws.String(s.Values["encoding"]),
+		ServerSideEncryption: aws.String(s.Values["server_side_encryption_algorithm"]),
+		StorageClass:         aws.String(s.Values["storage_class"]),
+	})
+
+	if err != nil {
+		ack = false
+	}
+
+	// send response
+	txn.ResponseChan <- response.Response{
+		Error: err,
+		Ack:   ack,
+	}
+}
+
+//writeOnS3 func takes the transaction and session
+//that to be written on the amazon S3
+func (s *S3) writeOnS3Stream(svc *s3.S3, txn transaction.Streamable) {
 
 	defer s.wg.Done()
 	ack := true
 
-	buffer, err := ioutil.ReadAll(txn)
+	buffer, err := ioutil.ReadAll(txn.Payload)
 	size := int64(len(buffer))
 
 	FilePathValue := s.Settings["filepath"]
@@ -162,6 +209,20 @@ func (s *S3) Start() error {
 	if err != nil {
 		return err
 	}
+
+	s.wg.Add(1)
+	go func() {
+		defer s.wg.Done()
+		for {
+			select {
+			case <-s.stopChan:
+				return
+			case transaction := <-s.Transactions:
+				s.wg.Add(1)
+				go s.writeOnS3(svc, transaction)
+			}
+		}
+	}()
 
 	s.wg.Add(1)
 	go func() {

@@ -4,27 +4,29 @@ import (
 	"context"
 
 	"github.com/sherifabdlnaby/prism/app/resource"
+	"github.com/sherifabdlnaby/prism/pkg/bufferspool"
 	"github.com/sherifabdlnaby/prism/pkg/component/processor"
+	"github.com/sherifabdlnaby/prism/pkg/mirror"
 	"github.com/sherifabdlnaby/prism/pkg/response"
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
 )
 
 //readWrite Wraps a readwrite component
-type readWrite struct {
-	processor processor.ReadWrite
+type readWriteStream struct {
+	processor processor.ReadWriteStream
 	*base
 }
 
 //NewReadWrite Construct a new ReadWrite Node
-func NewReadWrite(processorReadWrite processor.ReadWrite, r resource.Resource) Node {
-	Node := &readWrite{processor: processorReadWrite}
+func NewReadWriteStream(processorReadWrite processor.ReadWriteStream, r resource.Resource) Node {
+	Node := &readWriteStream{processor: processorReadWrite}
 	base := newBase(Node, r)
 	Node.base = base
 	return Node
 }
 
 //job Process transaction by calling Decode-> Process-> Encode->
-func (n *readWrite) job(t transaction.Transaction) {
+func (n *readWriteStream) job(t transaction.Transaction) {
 
 	////////////////////////////////////////////
 	// Acquire resource (limit concurrency)
@@ -53,8 +55,13 @@ func (n *readWrite) job(t transaction.Transaction) {
 		return
 	}
 
+	// base output writerCloner
+	buffer := bufferspool.Get()
+	defer bufferspool.Put(buffer)
+	writerCloner := mirror.NewWriter(buffer)
+
 	/// ENCODE
-	output, Response := n.processor.Encode(decodedPayload, t.Data)
+	Response = n.processor.EncodeStream(decodedPayload, t.Data, writerCloner)
 	n.resource.Release()
 	if !Response.Ack {
 		t.ResponseChan <- Response
@@ -64,8 +71,8 @@ func (n *readWrite) job(t transaction.Transaction) {
 	ctx, cancel := context.WithCancel(t.Context)
 	defer cancel()
 
-	// send to next channels
-	responseChan := n.sendNexts(output, t.Data, ctx)
+	// Send to nexts
+	responseChan := n.sendNextsStream(writerCloner, t.Data, ctx)
 
 	// Await Responses
 	Response = n.waitResponses(responseChan, ctx)
@@ -74,7 +81,7 @@ func (n *readWrite) job(t transaction.Transaction) {
 	t.ResponseChan <- Response
 }
 
-func (n *readWrite) jobStream(t transaction.Streamable) {
+func (n *readWriteStream) jobStream(t transaction.Streamable) {
 
 	////////////////////////////////////////////
 	// Acquire resource (limit concurrency)
@@ -103,8 +110,13 @@ func (n *readWrite) jobStream(t transaction.Streamable) {
 		return
 	}
 
+	// base output writerCloner
+	buffer := bufferspool.Get()
+	defer bufferspool.Put(buffer)
+	writerCloner := mirror.NewWriter(buffer)
+
 	/// ENCODE
-	output, Response := n.processor.Encode(decodedPayload, t.Data)
+	Response = n.processor.EncodeStream(decodedPayload, t.Data, writerCloner)
 	n.resource.Release()
 	if !Response.Ack {
 		t.ResponseChan <- Response
@@ -114,8 +126,8 @@ func (n *readWrite) jobStream(t transaction.Streamable) {
 	ctx, cancel := context.WithCancel(t.Context)
 	defer cancel()
 
-	// send to next channels
-	responseChan := n.sendNexts(output, t.Data, ctx)
+	// Send to nexts
+	responseChan := n.sendNextsStream(writerCloner, t.Data, ctx)
 
 	// Await Responses
 	Response = n.waitResponses(responseChan, ctx)

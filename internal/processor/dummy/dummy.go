@@ -5,7 +5,7 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/sherifabdlnaby/prism/pkg/component/processor"
+	"github.com/sherifabdlnaby/prism/pkg/component"
 	"github.com/sherifabdlnaby/prism/pkg/config"
 	"github.com/sherifabdlnaby/prism/pkg/payload"
 	"github.com/sherifabdlnaby/prism/pkg/response"
@@ -22,25 +22,29 @@ type internalImage struct {
 }
 
 // NewComponent Return a new Component
-func NewComponent() processor.Component {
+func NewComponent() component.Component {
 	return &Dummy{}
 }
 
 //Decode Simulate Decoding the Image
-func (d *Dummy) Decode(in payload.Payload, data payload.Data) (interface{}, response.Response) {
+func (d *Dummy) Decode(in payload.Payload, data payload.Data) (payload.DecodedImage, response.Response) {
+	// create internal decoded object (varies with each plugin)`
+	out := internalImage{
+		internal: in,
+	}
+
+	// Return it as it is (dummy).
+	return out, response.ACK
+}
+
+//Decode Simulate Decoding the Image
+func (d *Dummy) DecodeStream(in payload.Stream, data payload.Data) (payload.DecodedImage, response.Response) {
 	var imgBytes []byte
 	var err error
 
-	// Previous plugins has passed its output as a whole via byte slice,
-	// (no need to read it using reader (which will duplicate data in ram) if its available as reference)
-	if in.Bytes != nil {
-		imgBytes = in.Bytes
-	} else {
-		// Read all bytes using input's reader.
-		imgBytes, err = ioutil.ReadAll(in)
-		if err != nil {
-			return payload.Decoded{}, response.Error(err)
-		}
+	imgBytes, err = ioutil.ReadAll(in)
+	if err != nil {
+		return nil, response.Error(err)
 	}
 
 	// create internal decoded object (varies with each plugin)`
@@ -53,31 +57,18 @@ func (d *Dummy) Decode(in payload.Payload, data payload.Data) (interface{}, resp
 }
 
 //Process Simulate Processing the Image
-func (d *Dummy) Process(dp interface{}, data payload.Data) (interface{}, response.Response) {
+func (d *Dummy) Process(in payload.DecodedImage, data payload.Data) (payload.DecodedImage, response.Response) {
 	//literally do nothing lol
 	time.Sleep(50000 + time.Duration(rand.Intn(1500))*time.Millisecond)
-	return dp, response.ACK
+	return in, response.ACK
 }
 
 //Encode Simulate Encoding the Image
-func (d *Dummy) Encode(in interface{}, data payload.Data, out *payload.Output) response.Response {
-
+func (d *Dummy) Encode(in payload.DecodedImage, data payload.Data) (payload.Payload, response.Response) {
 	// Since in this dummy case we have processed output as a whole, we can just pass it to next node.
-	out.Bytes = in.(internalImage).internal
+	Payload := in.(internalImage).internal
 
-	// Write plugin's output, to the output object.
-	_, err := out.Write(out.Bytes)
-	if err != nil {
-		return response.Error(err)
-	}
-
-	// Close() must be called to indicate EOF.
-	err = out.Close()
-	if err != nil {
-		return response.Error(err)
-	}
-
-	return response.ACK
+	return Payload, response.ACK
 }
 
 //Init Initialize Plugin based on parsed config

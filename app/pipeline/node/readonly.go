@@ -40,16 +40,8 @@ func (n *readOnly) job(t transaction.Transaction) {
 	////////////////////////////////////////////
 	// PROCESS ( DECODE -> PROCESS )
 
-	buffer := bufferspool.Get()
-	defer bufferspool.Put(buffer)
-	readerCloner := mirror.NewReader(t.Payload.Reader, buffer)
-	mirrorPayload := payload.Payload{
-		Reader: readerCloner.Clone(),
-		Bytes:  t.Bytes,
-	}
-
 	/// DECODE
-	decoded, Response := n.processor.Decode(mirrorPayload, t.Data)
+	decoded, Response := n.processor.Decode(t.Payload, t.Data)
 	if !Response.Ack {
 		t.ResponseChan <- Response
 		n.resource.Release()
@@ -65,40 +57,64 @@ func (n *readOnly) job(t transaction.Transaction) {
 	}
 
 	n.resource.Release()
-	responseChan := make(chan response.Response, len(n.nexts))
+
 	ctx, cancel := context.WithCancel(t.Context)
 	defer cancel()
 
+	// send to next channels
+	responseChan := n.sendNexts(t.Payload, t.Data, ctx)
+
+	// Await Responses
+	Response = n.waitResponses(responseChan, ctx)
+
+	// Send Response back.
+	t.ResponseChan <- Response
+}
+
+func (n *readOnly) jobStream(t transaction.Streamable) {
+
 	////////////////////////////////////////////
-	// forward to next nodes
-	for _, next := range n.nexts {
-		next.TransactionChan <- transaction.Transaction{
-			Payload: payload.Payload{
-				Reader: readerCloner.Clone(),
-				Bytes:  t.Bytes,
-			},
-			Data:         t.Data,
-			Context:      ctx,
-			ResponseChan: responseChan,
-		}
+	// Acquire resource (limit concurrency)
+	err := n.resource.Acquire(t.Context)
+	if err != nil {
+		t.ResponseChan <- response.NoAck(err)
+		return
 	}
 
 	////////////////////////////////////////////
-	// receive from next nodes
-	count, total := 0, len(n.nexts)
+	// PROCESS ( DECODE -> PROCESS )
 
-loop:
-	for ; count < total; count++ {
-		select {
-		case Response = <-responseChan:
-			if !Response.Ack {
-				break loop
-			}
-		case <-t.Context.Done():
-			Response = response.NoAck(t.Context.Err())
-			break loop
-		}
+	buffer := bufferspool.Get()
+	defer bufferspool.Put(buffer)
+	readerCloner := mirror.NewReader(t.Payload, buffer)
+	var mirrorPayload payload.Stream = readerCloner.Clone()
+
+	/// DECODE
+	decoded, Response := n.processor.DecodeStream(mirrorPayload, t.Data)
+	if !Response.Ack {
+		t.ResponseChan <- Response
+		n.resource.Release()
+		return
 	}
+
+	/// PROCESS
+	Response = n.processor.Process(decoded, t.Data)
+	if !Response.Ack {
+		t.ResponseChan <- Response
+		n.resource.Release()
+		return
+	}
+
+	n.resource.Release()
+
+	ctx, cancel := context.WithCancel(t.Context)
+	defer cancel()
+
+	// send to next channels
+	responseChan := n.sendNextsStream(readerCloner, t.Data, ctx)
+
+	// Await Responses
+	Response = n.waitResponses(responseChan, ctx)
 
 	// Send Response back.
 	t.ResponseChan <- Response

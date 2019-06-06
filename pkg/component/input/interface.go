@@ -10,7 +10,9 @@ import (
 type Input interface {
 	// TransactionChan returns a channel used for consuming transactions from
 	// this type.
-	TransactionChan() <-chan transaction.InputTransaction
+	TransactionChan() <-chan transaction.Transaction
+
+	StreamTransactionChan() <-chan transaction.Streamable
 
 	component.Component
 }

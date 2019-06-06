@@ -41,3 +41,24 @@ func (n *output) job(t transaction.Transaction) {
 
 	n.resource.Release()
 }
+
+func (n *output) jobStream(t transaction.Streamable) {
+	err := n.resource.Acquire(t.Context)
+	if err != nil {
+		t.ResponseChan <- response.NoAck(err)
+		return
+	}
+
+	responseChan := make(chan response.Response)
+
+	n.output.StreamTransactionChan <- transaction.Streamable{
+		Payload:      t.Payload,
+		Data:         t.Data,
+		ResponseChan: responseChan,
+		Context:      t.Context,
+	}
+
+	t.ResponseChan <- <-responseChan
+
+	n.resource.Release()
+}

@@ -13,26 +13,67 @@ import (
 //start starts the mux that forwards the transactions from input to pipelines based on PipelineTag in transaction.
 func (a *App) start() {
 	for _, value := range a.registry.Inputs {
-		go a.forwardPerInput(value)
+		go a.forwardInputToPipeline(value)
+		go a.forwardStreamInputToPipeline(value)
 	}
 }
 
-func (a *App) forwardPerInput(input *wrapper.Input) {
-	for Tchan := range input.TransactionChan() {
+func (a *App) forwardInputToPipeline(input *wrapper.Input) {
+	for transaction := range input.TransactionChan() {
 
-		_, ok := a.pipelines[Tchan.PipelineTag]
-		if !ok {
-			Tchan.ResponseChan <- response.Error(
-				fmt.Errorf("pipeline [%s] is not defined", Tchan.PipelineTag),
-			)
+		//get pipeline tag
+		tag, err := a.getValidPipelineTag(transaction.Data)
+
+		if err != nil {
+			transaction.ResponseChan <- response.Error(err)
 			continue
 		}
 
 		// Add defaults to transaction Image Data
-		applyDefaultFields(Tchan.Data)
+		applyDefaultFields(transaction.Data)
 
-		a.pipelines[Tchan.PipelineTag].TransactionChan <- Tchan.Transaction
+		// Forward
+		a.pipelines[tag].TransactionChan <- transaction
 	}
+}
+
+func (a *App) forwardStreamInputToPipeline(input *wrapper.Input) {
+	for transaction := range input.StreamTransactionChan() {
+
+		//get pipeline tag
+		tag, err := a.getValidPipelineTag(transaction.Data)
+
+		if err != nil {
+			transaction.ResponseChan <- response.Error(err)
+			continue
+		}
+
+		// Add defaults to transaction Image Data
+		applyDefaultFields(transaction.Data)
+
+		// Forward
+		a.pipelines[tag].StreamTransactionChan <- transaction
+	}
+}
+
+func (a *App) getValidPipelineTag(data payload.Data) (string, error) {
+	tag, ok := data["_pipeline"]
+	if !ok {
+		return "", fmt.Errorf("no pipeline is defined for transaction")
+	}
+
+	// validate tag is string
+	tagString, ok := tag.(string)
+	if !ok {
+		return "", fmt.Errorf("pipeline tag is not a string")
+	}
+
+	_, ok = a.pipelines[tagString]
+	if !ok {
+		return "", fmt.Errorf("pipeline [%s] is not defined", tagString)
+	}
+
+	return tagString, nil
 }
 
 func applyDefaultFields(d payload.Data) {

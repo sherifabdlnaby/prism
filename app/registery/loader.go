@@ -14,25 +14,25 @@ import (
 )
 
 // LoadInput Load wrapper.Input Plugin in the loaded registry, according to the parsed config.
-func (m *Registry) LoadInput(name string, input config.Input, Logger zap.SugaredLogger) error {
+func (m *Registry) LoadInput(name string, config config.Input, Logger zap.SugaredLogger) error {
 	ok := m.exists(name)
 	if ok {
 		return fmt.Errorf("duplicate plugin instance with name [%s]", name)
 	}
 
-	constructor, ok := registered[input.Plugin]
+	constructor, ok := registered[config.Plugin]
 	if !ok {
-		return fmt.Errorf("plugin type [%s] doesn't exist", input.Plugin)
+		return fmt.Errorf("plugin type [%s] doesn't exist", config.Plugin)
 	}
 
 	pluginInstance, ok := constructor().(input.Input)
 	if !ok {
-		return fmt.Errorf("plugin type [%s] is not an input plugin", input.Plugin)
+		return fmt.Errorf("plugin type [%s] is not an input plugin", config.Plugin)
 	}
 
 	m.Inputs[name] = &wrapper.Input{
 		Input:    pluginInstance,
-		Resource: *resource.NewResource(input.Concurrency),
+		Resource: *resource.NewResource(config.Concurrency),
 	}
 	return nil
 }
@@ -49,18 +49,22 @@ func (m *Registry) GetInput(name string) (a *wrapper.Input, b bool) {
 func (m *Registry) LoadProcessor(name string, config config.Processor, Logger zap.SugaredLogger) error {
 	ok := m.exists(name)
 	if ok {
-		return fmt.Errorf("processor plugin instance with name [%s] is already loaded", name)
+		return fmt.Errorf("config plugin instance with name [%s] is already loaded", name)
 	}
 
-	componentConst, ok := registered[processor.Plugin]
+	componentConst, ok := registered[config.Plugin]
 	if !ok {
-		return fmt.Errorf("processor plugin type [%s] doesn't exist", processor.Plugin)
+		return fmt.Errorf("config plugin type [%s] doesn't exist", config.Plugin)
 	}
 
 	pluginInstance := componentConst()
 
-	if !ok {
-		return fmt.Errorf("plugin type [%s] is not a processor plugin", processor.Plugin)
+	switch pluginInstance.(type) {
+	case processor.ReadWrite:
+	case processor.ReadWriteStream:
+	case processor.ReadOnly:
+	default:
+		return fmt.Errorf("plugin type [%s] is not a processor plugin", config.Plugin)
 	}
 
 	m.Processors[name] = &wrapper.Processor{
@@ -80,29 +84,32 @@ func (m *Registry) GetProcessor(name string) (a *wrapper.Processor, b bool) {
 /////////////
 
 // LoadOutput Load wrapper.Output Plugin in the loaded registry, according to the parsed config.
-func (m *Registry) LoadOutput(name string, output config.Output, Logger zap.SugaredLogger) error {
+func (m *Registry) LoadOutput(name string, config config.Output, Logger zap.SugaredLogger) error {
 	ok := m.exists(name)
 	if ok {
-		return fmt.Errorf("output plugin instance with name [%s] is already loaded", name)
+		return fmt.Errorf("config plugin instance with name [%s] is already loaded", name)
 	}
 
-	componentConst, ok := registered[output.Plugin]
+	componentConst, ok := registered[config.Plugin]
 	if !ok {
-		return fmt.Errorf("output plugin type [%s] doesn't exist", output.Plugin)
+		return fmt.Errorf("config plugin type [%s] doesn't exist", config.Plugin)
 	}
 
 	pluginInstance, ok := componentConst().(output.Output)
 	if !ok {
-		return fmt.Errorf("plugin type [%s] is not an output plugin", output.Plugin)
+		return fmt.Errorf("plugin type [%s] is not an output plugin", config.Plugin)
 	}
 
 	txnChan := make(chan transaction.Transaction)
+	txnStreamChan := make(chan transaction.Streamable)
 	pluginInstance.SetTransactionChan(txnChan)
+	pluginInstance.SetStreamTransactionChan(txnStreamChan)
 
 	m.Outputs[name] = &wrapper.Output{
-		Output:          pluginInstance,
-		Resource:        *resource.NewResource(output.Concurrency),
-		TransactionChan: txnChan,
+		Output:                pluginInstance,
+		Resource:              *resource.NewResource(config.Concurrency),
+		TransactionChan:       txnChan,
+		StreamTransactionChan: txnStreamChan,
 	}
 
 	return nil
