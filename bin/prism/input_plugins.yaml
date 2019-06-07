@@ -1,9 +1,19 @@
 inputs:
     http_server:
-        plugin: dummy_input
+        plugin: http_input
+        concurrency: 10
         config:
-            filename: "input/test@{fileNum}.png"
-            pipeline: "profile_pic_pipeline"
-            timeout: 5000000
-            tick: 350
-            count: 30000
+            port: 8080
+#    http_server:
+#        plugin: dummy_input
+#        concurrency: 10
+#        config:
+#            filename: "test.jpg"
+#            host: -@{port}--@{nested.length}----@{length}--------@{nested.width}------------@{width}------
+#            port: "${HTTP_SERVER_PORT}"
+#            filepath: /asdfa/asdg/asd/asgd@{name}.jpg
+#            urls:
+#                "/profile_picture":
+#                    pipeline: profile_pic_pipeline
+#                "/cover_picture":
+#                    pipeline: cover_picture_pipeline

@@ -2,6 +2,7 @@ package registery
 
 import (
 	dummyinput "github.com/sherifabdlnaby/prism/internal/input/dummy"
+	"github.com/sherifabdlnaby/prism/internal/input/http"
 	s3 "github.com/sherifabdlnaby/prism/internal/output/amazon-s3"
 	"github.com/sherifabdlnaby/prism/internal/output/disk"
 	"github.com/sherifabdlnaby/prism/internal/output/mysql"
@@ -15,6 +16,7 @@ import (
 var registered = map[string]func() component.Component{
 	"dummy_processor": dummyprocessor.NewComponent,
 	"dummy_input":     dummyinput.NewComponent,
+	"http_input":      http.NewComponent,
 	"disk":            disk.NewComponent,
 	"s3":              s3.NewComponent,
 	"mysql":           mysql.NewComponent,
