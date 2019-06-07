@@ -24,21 +24,3 @@ type Transaction struct {
 	// to the next destinations.
 	ResponseChan chan<- response.Response
 }
-
-// Transaction represent a transaction containing a streamable payload (the message) and a response channel,
-// which is used to indicate whether the payload was successfully processed and propagated to the next destinations.
-type Streamable struct {
-	// Payload is the message payload of this transaction.
-	Payload payload.Stream
-
-	// Data is the message data of this transaction.
-	Data payload.Data
-
-	// Context of the transaction
-	Context context.Context
-
-	// ResponseChan should receive a response at the end of a transaction,
-	// The response itself indicates whether the payload was successfully processed and propagated
-	// to the next destinations.
-	ResponseChan chan<- response.Response
-}

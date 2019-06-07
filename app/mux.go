@@ -14,7 +14,6 @@ import (
 func (a *App) start() {
 	for _, value := range a.registry.Inputs {
 		go a.forwardInputToPipeline(value)
-		go a.forwardStreamInputToPipeline(value)
 	}
 }
 
@@ -34,25 +33,6 @@ func (a *App) forwardInputToPipeline(input *wrapper.Input) {
 
 		// Forward
 		a.pipelines[tag].TransactionChan <- transaction
-	}
-}
-
-func (a *App) forwardStreamInputToPipeline(input *wrapper.Input) {
-	for transaction := range input.StreamTransactionChan() {
-
-		//get pipeline tag
-		tag, err := a.getValidPipelineTag(transaction.Data)
-
-		if err != nil {
-			transaction.ResponseChan <- response.Error(err)
-			continue
-		}
-
-		// Add defaults to transaction Image Data
-		applyDefaultFields(transaction.Data)
-
-		// Forward
-		a.pipelines[tag].StreamTransactionChan <- transaction
 	}
 }
 

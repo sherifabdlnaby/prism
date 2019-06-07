@@ -17,14 +17,13 @@ import (
 
 // Dummy Input that read a file from root just for testing.
 type Dummy struct {
-	FileName           config.Value
-	Pipeline           config.Value
-	Transactions       chan transaction.Transaction
-	StreamTransactions chan transaction.Streamable
-	stopChan           chan struct{}
-	logger             zap.SugaredLogger
-	wg                 sync.WaitGroup
-	metric             int
+	FileName     config.Value
+	Pipeline     config.Value
+	Transactions chan transaction.Transaction
+	stopChan     chan struct{}
+	logger       zap.SugaredLogger
+	wg           sync.WaitGroup
+	metric       int
 }
 
 // NewComponent Return a new Component
@@ -35,11 +34,6 @@ func NewComponent() component.Component {
 // TransactionChan Return Transaction Chan used to send transaction to this Component
 func (d *Dummy) TransactionChan() <-chan transaction.Transaction {
 	return d.Transactions
-}
-
-// TransactionChan Return Transaction Chan used to send transaction to this Component
-func (d *Dummy) StreamTransactionChan() <-chan transaction.Streamable {
-	return d.StreamTransactions
 }
 
 // Init Initializes Plugin
@@ -57,7 +51,6 @@ func (d *Dummy) Init(config config.Config, logger zap.SugaredLogger) error {
 	d.FileName = FileName
 	d.Pipeline = Pipeline
 	d.Transactions = make(chan transaction.Transaction)
-	d.StreamTransactions = make(chan transaction.Streamable)
 	d.stopChan = make(chan struct{})
 	d.logger = logger
 	return nil
@@ -93,10 +86,10 @@ func (d *Dummy) Start() error {
 						return
 					}
 
-					// Send Transaction
-					d.logger.Debugw("SENDING A TRANSACTION...", "ID", i)
 					if flag {
 						bytes, _ := ioutil.ReadAll(reader)
+						// Send Transaction
+						d.logger.Debugw("SENDING A TRANSACTION (bytes)....", "ID", i)
 						d.Transactions <- transaction.Transaction{
 							Payload:      bytes,
 							Data:         payload.Data{"_pipeline": pipeline.String(), "count": i},
@@ -104,7 +97,8 @@ func (d *Dummy) Start() error {
 							Context:      ctx,
 						}
 					} else {
-						d.StreamTransactions <- transaction.Streamable{
+						d.logger.Debugw("SENDING A TRANSACTION (stream)...", "ID", i)
+						d.Transactions <- transaction.Transaction{
 							Payload:      reader,
 							Data:         payload.Data{"_pipeline": pipeline.String(), "count": i},
 							ResponseChan: responseChan,
@@ -112,9 +106,7 @@ func (d *Dummy) Start() error {
 						}
 					}
 
-					d.logger.Debugw("SENT", "ID", i)
-
-					//flag = !flag
+					flag = !flag
 
 					// Wait Transaction
 					response := <-responseChan
@@ -123,7 +115,7 @@ func (d *Dummy) Start() error {
 				}(d.metric)
 
 				d.metric++
-				time.Sleep(time.Millisecond * 5000)
+				time.Sleep(time.Millisecond * 1000)
 			}
 		}
 	}()
@@ -137,7 +129,6 @@ func (d *Dummy) Close() error {
 	d.stopChan <- struct{}{}
 	d.wg.Wait()
 	close(d.Transactions)
-	close(d.StreamTransactions)
 	d.logger.Debugw("closed.")
 	return nil
 }

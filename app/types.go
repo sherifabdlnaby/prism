@@ -9,8 +9,7 @@ import (
 
 type pipelineWrapper struct {
 	*pipeline.Pipeline
-	TransactionChan       chan transaction.Transaction
-	StreamTransactionChan chan transaction.Streamable
+	TransactionChan chan transaction.Transaction
 }
 
 type logger struct {

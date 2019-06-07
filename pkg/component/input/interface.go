@@ -12,7 +12,5 @@ type Input interface {
 	// this type.
 	TransactionChan() <-chan transaction.Transaction
 
-	StreamTransactionChan() <-chan transaction.Streamable
-
 	component.Component
 }

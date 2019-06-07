@@ -6,6 +6,7 @@ import (
 	"github.com/sherifabdlnaby/prism/app/resource"
 	"github.com/sherifabdlnaby/prism/pkg/bufferspool"
 	"github.com/sherifabdlnaby/prism/pkg/mirror"
+	"github.com/sherifabdlnaby/prism/pkg/payload"
 	"github.com/sherifabdlnaby/prism/pkg/response"
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
 )
@@ -43,10 +44,10 @@ func (n *dummy) job(t transaction.Transaction) {
 	ctx, cancel := context.WithCancel(t.Context)
 	defer cancel()
 
-	responseChan := n.sendNexts(t.Payload, t.Data, ctx)
+	responseChan := n.sendNexts(ctx, t.Payload.(payload.Bytes), t.Data)
 
 	// Await Responses
-	Response := n.waitResponses(responseChan, ctx)
+	Response := n.waitResponses(ctx, responseChan)
 
 	// Send Response back.
 	t.ResponseChan <- Response
@@ -55,7 +56,7 @@ func (n *dummy) job(t transaction.Transaction) {
 	n.resource.Release()
 }
 
-func (n *dummy) jobStream(t transaction.Streamable) {
+func (n *dummy) jobStream(t transaction.Transaction) {
 
 	////////////////////////////////////////////
 	// Acquire resource (limit concurrency of entire pipeline)
@@ -71,32 +72,31 @@ func (n *dummy) jobStream(t transaction.Streamable) {
 	////////////////////////////////////////////
 	// Send to next nodes
 	var responseChan chan response.Response
-	ctx, cancel := context.WithCancel(t.Context)
-	defer cancel()
 
+	// Micro Optimization
 	if len(n.nexts) == 1 {
 		// micro optimization. no need to put buffer cloner in-front of a single node
 		responseChan = make(chan response.Response)
-		n.nexts[0].StreamTransactionChan <- transaction.Streamable{
+		n.nexts[0].TransactionChan <- transaction.Transaction{
 			Payload:      t.Payload,
 			Data:         t.Data,
-			Context:      ctx,
+			Context:      t.Context,
 			ResponseChan: responseChan,
 		}
-
 	} else {
-		// Create a reader cloner
+		// Get Buffer from pool
 		buffer := bufferspool.Get()
 		defer bufferspool.Put(buffer)
-		readerCloner := mirror.NewReader(t.Payload, buffer)
 
-		responseChan = n.sendNextsStream(readerCloner, t.Data, ctx)
+		// Create a reader cloner from incoming stream (to clone the reader stream as it comes in)
+		stream := t.Payload.(payload.Stream)
+		readerCloner := mirror.NewReader(stream, buffer)
+
+		responseChan = n.sendNextsStream(t.Context, readerCloner, t.Data)
 	}
 
-	////////////////////////////////////////////
-
 	// Await Responses
-	Response := n.waitResponses(responseChan, t.Context)
+	Response := n.waitResponses(t.Context, responseChan)
 
 	// Send Response back.
 	t.ResponseChan <- Response

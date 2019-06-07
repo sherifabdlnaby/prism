@@ -101,15 +101,12 @@ func (m *Registry) LoadOutput(name string, config config.Output, Logger zap.Suga
 	}
 
 	txnChan := make(chan transaction.Transaction)
-	txnStreamChan := make(chan transaction.Streamable)
 	pluginInstance.SetTransactionChan(txnChan)
-	pluginInstance.SetStreamTransactionChan(txnStreamChan)
 
 	m.Outputs[name] = &wrapper.Output{
-		Output:                pluginInstance,
-		Resource:              *resource.NewResource(config.Concurrency),
-		TransactionChan:       txnChan,
-		StreamTransactionChan: txnStreamChan,
+		Output:          pluginInstance,
+		Resource:        *resource.NewResource(config.Concurrency),
+		TransactionChan: txnChan,
 	}
 
 	return nil

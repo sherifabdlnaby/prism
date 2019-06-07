@@ -5,6 +5,7 @@ import (
 
 	"github.com/sherifabdlnaby/prism/app/resource"
 	"github.com/sherifabdlnaby/prism/pkg/component/processor"
+	"github.com/sherifabdlnaby/prism/pkg/payload"
 	"github.com/sherifabdlnaby/prism/pkg/response"
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
 )
@@ -38,7 +39,7 @@ func (n *readWrite) job(t transaction.Transaction) {
 	// PROCESS ( DECODE -> PROCESS -> ENCODE )
 
 	/// DECODE
-	decoded, Response := n.processor.Decode(t.Payload, t.Data)
+	decoded, Response := n.processor.Decode(t.Payload.(payload.Bytes), t.Data)
 	if !Response.Ack {
 		t.ResponseChan <- Response
 		n.resource.Release()
@@ -65,16 +66,16 @@ func (n *readWrite) job(t transaction.Transaction) {
 	defer cancel()
 
 	// send to next channels
-	responseChan := n.sendNexts(output, t.Data, ctx)
+	responseChan := n.sendNexts(ctx, output, t.Data)
 
 	// Await Responses
-	Response = n.waitResponses(responseChan, ctx)
+	Response = n.waitResponses(ctx, responseChan)
 
 	// Send Response back.
 	t.ResponseChan <- Response
 }
 
-func (n *readWrite) jobStream(t transaction.Streamable) {
+func (n *readWrite) jobStream(t transaction.Transaction) {
 
 	////////////////////////////////////////////
 	// Acquire resource (limit concurrency)
@@ -88,7 +89,8 @@ func (n *readWrite) jobStream(t transaction.Streamable) {
 	// PROCESS ( DECODE -> PROCESS -> ENCODE )
 
 	/// DECODE
-	decoded, Response := n.processor.DecodeStream(t.Payload, t.Data)
+	stream := t.Payload.(payload.Stream)
+	decoded, Response := n.processor.DecodeStream(stream, t.Data)
 	if !Response.Ack {
 		t.ResponseChan <- Response
 		n.resource.Release()
@@ -115,10 +117,10 @@ func (n *readWrite) jobStream(t transaction.Streamable) {
 	defer cancel()
 
 	// send to next channels
-	responseChan := n.sendNexts(output, t.Data, ctx)
+	responseChan := n.sendNexts(ctx, output, t.Data)
 
 	// Await Responses
-	Response = n.waitResponses(responseChan, ctx)
+	Response = n.waitResponses(ctx, responseChan)
 
 	// Send Response back.
 	t.ResponseChan <- Response

@@ -41,7 +41,7 @@ func (n *readOnly) job(t transaction.Transaction) {
 	// PROCESS ( DECODE -> PROCESS )
 
 	/// DECODE
-	decoded, Response := n.processor.Decode(t.Payload, t.Data)
+	decoded, Response := n.processor.Decode(t.Payload.(payload.Bytes), t.Data)
 	if !Response.Ack {
 		t.ResponseChan <- Response
 		n.resource.Release()
@@ -62,16 +62,16 @@ func (n *readOnly) job(t transaction.Transaction) {
 	defer cancel()
 
 	// send to next channels
-	responseChan := n.sendNexts(t.Payload, t.Data, ctx)
+	responseChan := n.sendNexts(ctx, t.Payload.(payload.Bytes), t.Data)
 
 	// Await Responses
-	Response = n.waitResponses(responseChan, ctx)
+	Response = n.waitResponses(ctx, responseChan)
 
 	// Send Response back.
 	t.ResponseChan <- Response
 }
 
-func (n *readOnly) jobStream(t transaction.Streamable) {
+func (n *readOnly) jobStream(t transaction.Transaction) {
 
 	////////////////////////////////////////////
 	// Acquire resource (limit concurrency)
@@ -81,13 +81,17 @@ func (n *readOnly) jobStream(t transaction.Streamable) {
 		return
 	}
 
-	////////////////////////////////////////////
-	// PROCESS ( DECODE -> PROCESS )
-
+	// Get Buffer from pool
 	buffer := bufferspool.Get()
 	defer bufferspool.Put(buffer)
-	readerCloner := mirror.NewReader(t.Payload, buffer)
+
+	// Create a reader cloner from incoming stream (to clone the reader stream as it comes in)
+	stream := t.Payload.(payload.Stream)
+	readerCloner := mirror.NewReader(stream, buffer)
 	var mirrorPayload payload.Stream = readerCloner.Clone()
+
+	////////////////////////////////////////////
+	// PROCESS ( DECODE -> PROCESS )
 
 	/// DECODE
 	decoded, Response := n.processor.DecodeStream(mirrorPayload, t.Data)
@@ -111,10 +115,10 @@ func (n *readOnly) jobStream(t transaction.Streamable) {
 	defer cancel()
 
 	// send to next channels
-	responseChan := n.sendNextsStream(readerCloner, t.Data, ctx)
+	responseChan := n.sendNextsStream(ctx, readerCloner, t.Data)
 
 	// Await Responses
-	Response = n.waitResponses(responseChan, ctx)
+	Response = n.waitResponses(ctx, responseChan)
 
 	// Send Response back.
 	t.ResponseChan <- Response

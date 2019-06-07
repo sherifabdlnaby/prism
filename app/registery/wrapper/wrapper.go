@@ -14,24 +14,25 @@ type Input struct {
 	Resource resource.Resource
 }
 
-// ProcessReadWrite wraps a processor Plugin Instance
+// Processor wraps a processor Plugin Instance
 type Processor struct {
 	processor.Base
 	Resource resource.Resource
 }
 
-// ProcessReadWrite wraps a processor Plugin Instance
+// ProcessorReadOnly wraps a readonly processor Plugin Instance and its resource
 type ProcessorReadOnly struct {
 	processor.ReadOnly
 	Resource resource.Resource
 }
 
-// ProcessReadWrite wraps a processor Plugin Instance
+// ProcessorReadWrite wraps a read-write processor Plugin Instance and its resource
 type ProcessorReadWrite struct {
 	processor.ReadWrite
 	Resource resource.Resource
 }
 
+//ProcessorReadWriteStream wraps a read-write-stream processor Plugin Instance and its resource
 type ProcessorReadWriteStream struct {
 	processor.ReadWriteStream
 	Resource resource.Resource
@@ -40,7 +41,6 @@ type ProcessorReadWriteStream struct {
 // Output Wraps and Input Plugin Instance
 type Output struct {
 	output.Output
-	Resource              resource.Resource
-	TransactionChan       chan transaction.Transaction
-	StreamTransactionChan chan transaction.Streamable
+	Resource        resource.Resource
+	TransactionChan chan transaction.Transaction
 }

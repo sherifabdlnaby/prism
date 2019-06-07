@@ -27,7 +27,7 @@ func NewComponent() component.Component {
 }
 
 //Decode Simulate Decoding the Image
-func (d *Dummy) Decode(in payload.Payload, data payload.Data) (payload.DecodedImage, response.Response) {
+func (d *Dummy) Decode(in payload.Bytes, data payload.Data) (payload.DecodedImage, response.Response) {
 	// create internal decoded object (varies with each plugin)`
 	out := internalImage{
 		internal: in,
@@ -37,7 +37,7 @@ func (d *Dummy) Decode(in payload.Payload, data payload.Data) (payload.DecodedIm
 	return out, response.ACK
 }
 
-//Decode Simulate Decoding the Image
+//DecodeStream Simulate Decoding the Image
 func (d *Dummy) DecodeStream(in payload.Stream, data payload.Data) (payload.DecodedImage, response.Response) {
 	var imgBytes []byte
 	var err error
@@ -64,7 +64,7 @@ func (d *Dummy) Process(in payload.DecodedImage, data payload.Data) (payload.Dec
 }
 
 //Encode Simulate Encoding the Image
-func (d *Dummy) Encode(in payload.DecodedImage, data payload.Data) (payload.Payload, response.Response) {
+func (d *Dummy) Encode(in payload.DecodedImage, data payload.Data) (payload.Bytes, response.Response) {
 	// Since in this dummy case we have processed output as a whole, we can just pass it to next node.
 	Payload := in.(internalImage).internal
 

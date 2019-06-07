@@ -15,9 +15,6 @@ type Node interface {
 	//SetTransactionChan Set the transaction chan nodeType will use to receive input
 	SetTransactionChan(<-chan transaction.Transaction)
 
-	//SetTransactionChan Set the transaction chan nodeType will use to receive input
-	SetStreamTransactionChan(<-chan transaction.Streamable)
-
 	//SetAsync Set if this nodeType is sync/async
 	SetAsync(bool)
 
@@ -28,21 +25,19 @@ type Node interface {
 //TODO rename
 type nodeType interface {
 	job(t transaction.Transaction)
-	jobStream(t transaction.Streamable)
+	jobStream(t transaction.Transaction)
 }
 
 //Next Wraps the next nodeType plus the channel used to communicate with this nodeType to send input transactions.
 type Next struct {
 	Node
-	TransactionChan       chan transaction.Transaction
-	StreamTransactionChan chan transaction.Streamable
+	TransactionChan chan transaction.Transaction
 }
 
 //NewNext Create a new Next nodeType with the supplied Node.
 func NewNext(Node Node) *Next {
 	return &Next{
-		Node:                  Node,
-		TransactionChan:       make(chan transaction.Transaction),
-		StreamTransactionChan: make(chan transaction.Streamable),
+		Node:            Node,
+		TransactionChan: make(chan transaction.Transaction),
 	}
 }

@@ -2,6 +2,7 @@ package node
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/sherifabdlnaby/prism/app/resource"
@@ -12,14 +13,13 @@ import (
 )
 
 type base struct {
-	receiveTxnChan       <-chan transaction.Transaction
-	receiveStreamTxnChan <-chan transaction.Streamable
-	asyncResponses       chan response.Response
-	async                bool
-	wg                   sync.WaitGroup
-	nexts                []Next
-	resource             resource.Resource
-	nodeType             nodeType
+	receiveTxnChan <-chan transaction.Transaction
+	asyncResponses chan response.Response
+	async          bool
+	wg             sync.WaitGroup
+	nexts          []Next
+	resource       resource.Resource
+	nodeType       nodeType
 }
 
 func newBase(nodeType nodeType, resource resource.Resource) *base {
@@ -49,53 +49,7 @@ func (n *base) Start() error {
 
 	go func() {
 		for t := range n.receiveTxnChan {
-
-			// if nodeType is set async, send ack response now,
-			// and navigate actual response to asyncResponses which should handle async responses
-			if n.async {
-				// since it will be async, sync transaction context is irrelevant.
-				// (we don't want sync nodes -that cancel transaction context when finishing to avoid ctx leak- to
-				// cancel async nodes too )
-				t.Context = context.Background()
-
-				// return ack response
-				t.ResponseChan <- response.Ack()
-
-				// now actual response is given to asyncResponds that should handle async responds
-				t.ResponseChan = n.asyncResponses
-
-				// used so that stop() wait for async responses to finish. (to be actually handled later)
-				n.wg.Add(1)
-			}
-
-			// Start Job
-			go n.nodeType.job(t)
-		}
-	}()
-
-	go func() {
-		for t := range n.receiveStreamTxnChan {
-
-			// if nodeType is set async, send ack response now,
-			// and navigate actual response to asyncResponses which should handle async responses
-			if n.async {
-				// since it will be async, sync transaction context is irrelevant.
-				// (we don't want sync nodes -that cancel transaction context when finishing to avoid ctx leak- to
-				// cancel async nodes too )
-				t.Context = context.Background()
-
-				// return ack response
-				t.ResponseChan <- response.Ack()
-
-				// now actual response is given to asyncResponds that should handle async responds
-				t.ResponseChan = n.asyncResponses
-
-				// used so that stop() wait for async responses to finish. (to be actually handled later)
-				n.wg.Add(1)
-			}
-
-			// Start Job
-			go n.nodeType.jobStream(t)
+			n.handleTransaction(t)
 		}
 	}()
 
@@ -126,11 +80,6 @@ func (n *base) SetTransactionChan(tc <-chan transaction.Transaction) {
 	n.receiveTxnChan = tc
 }
 
-//SetTransactionChan Set the transaction chan nodeType will use to receive input
-func (n *base) SetStreamTransactionChan(tc <-chan transaction.Streamable) {
-	n.receiveStreamTxnChan = tc
-}
-
 //SetNexts Set this nodeType's next nodes.
 func (n *base) SetNexts(nexts []Next) {
 	n.nexts = nexts
@@ -141,6 +90,38 @@ func (n *base) SetAsync(async bool) {
 	n.async = async
 }
 
+func (n *base) handleTransaction(t transaction.Transaction) {
+	// if nodeType is set async, send ack response now,
+	// and navigate actual response to asyncResponses which should handle async responses
+	if n.async {
+		// since it will be async, sync transaction context is irrelevant.
+		// (we don't want sync nodes -that cancel transaction context when finishing to avoid ctx leak- to
+		// cancel async nodes too )
+		t.Context = context.Background()
+
+		// return ack response
+		t.ResponseChan <- response.Ack()
+
+		// now actual response is given to asyncResponds that should handle async responds
+		t.ResponseChan = n.asyncResponses
+
+		// used so that stop() wait for async responses to finish. (to be actually handled later)
+		n.wg.Add(1)
+	}
+
+	// Start Job according to transaction payload Type
+	switch t.Payload.(type) {
+	case payload.Bytes:
+		go n.nodeType.job(t)
+	case payload.Stream:
+		go n.nodeType.jobStream(t)
+	default:
+		// This theoretically shouldn't happen
+		t.ResponseChan <- response.Error(fmt.Errorf("invalid transaction payload type, must be payload.Bytes or payload.Stream"))
+	}
+
+}
+
 // TODO to handle failing/success async requests later.
 func (n *base) asyncHandler() {
 	for range n.asyncResponses {
@@ -148,7 +129,7 @@ func (n *base) asyncHandler() {
 	}
 }
 
-func (n base) waitResponses(responseChan chan response.Response, ctx context.Context) response.Response {
+func (n *base) waitResponses(ctx context.Context, responseChan chan response.Response) response.Response {
 	////////////////////////////////////////////
 	// receive from next nodes
 	count, total := 0, len(n.nexts)
@@ -170,10 +151,10 @@ loop:
 	return Response
 }
 
-func (n *base) sendNextsStream(writerCloner mirror.Cloner, data payload.Data, ctx context.Context) chan response.Response {
+func (n *base) sendNextsStream(ctx context.Context, writerCloner mirror.Cloner, data payload.Data) chan response.Response {
 	responseChan := make(chan response.Response, len(n.nexts))
 	for _, next := range n.nexts {
-		next.StreamTransactionChan <- transaction.Streamable{
+		next.TransactionChan <- transaction.Transaction{
 			Payload:      writerCloner.Clone(),
 			Data:         data,
 			Context:      ctx,
@@ -183,7 +164,7 @@ func (n *base) sendNextsStream(writerCloner mirror.Cloner, data payload.Data, ct
 	return responseChan
 }
 
-func (n *base) sendNexts(output payload.Payload, data payload.Data, ctx context.Context) chan response.Response {
+func (n *base) sendNexts(ctx context.Context, output payload.Bytes, data payload.Data) chan response.Response {
 	responseChan := make(chan response.Response, len(n.nexts))
 	for _, next := range n.nexts {
 		next.TransactionChan <- transaction.Transaction{

@@ -7,6 +7,7 @@ import (
 	"github.com/sherifabdlnaby/prism/pkg/bufferspool"
 	"github.com/sherifabdlnaby/prism/pkg/component/processor"
 	"github.com/sherifabdlnaby/prism/pkg/mirror"
+	"github.com/sherifabdlnaby/prism/pkg/payload"
 	"github.com/sherifabdlnaby/prism/pkg/response"
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
 )
@@ -17,7 +18,7 @@ type readWriteStream struct {
 	*base
 }
 
-//NewReadWrite Construct a new ReadWrite Node
+//NewReadWriteStream Construct a new ReadWriteStream Node
 func NewReadWriteStream(processorReadWrite processor.ReadWriteStream, r resource.Resource) Node {
 	Node := &readWriteStream{processor: processorReadWrite}
 	base := newBase(Node, r)
@@ -40,7 +41,7 @@ func (n *readWriteStream) job(t transaction.Transaction) {
 	// PROCESS ( DECODE -> PROCESS -> ENCODE )
 
 	/// DECODE
-	decoded, Response := n.processor.Decode(t.Payload, t.Data)
+	decoded, Response := n.processor.Decode(t.Payload.(payload.Bytes), t.Data)
 	if !Response.Ack {
 		t.ResponseChan <- Response
 		n.resource.Release()
@@ -72,16 +73,16 @@ func (n *readWriteStream) job(t transaction.Transaction) {
 	defer cancel()
 
 	// Send to nexts
-	responseChan := n.sendNextsStream(writerCloner, t.Data, ctx)
+	responseChan := n.sendNextsStream(ctx, writerCloner, t.Data)
 
 	// Await Responses
-	Response = n.waitResponses(responseChan, ctx)
+	Response = n.waitResponses(ctx, responseChan)
 
 	// Send Response back.
 	t.ResponseChan <- Response
 }
 
-func (n *readWriteStream) jobStream(t transaction.Streamable) {
+func (n *readWriteStream) jobStream(t transaction.Transaction) {
 
 	////////////////////////////////////////////
 	// Acquire resource (limit concurrency)
@@ -95,7 +96,8 @@ func (n *readWriteStream) jobStream(t transaction.Streamable) {
 	// PROCESS ( DECODE -> PROCESS -> ENCODE )
 
 	/// DECODE
-	decoded, Response := n.processor.DecodeStream(t.Payload, t.Data)
+	stream := t.Payload.(payload.Stream)
+	decoded, Response := n.processor.DecodeStream(stream, t.Data)
 	if !Response.Ack {
 		t.ResponseChan <- Response
 		n.resource.Release()
@@ -127,10 +129,10 @@ func (n *readWriteStream) jobStream(t transaction.Streamable) {
 	defer cancel()
 
 	// Send to nexts
-	responseChan := n.sendNextsStream(writerCloner, t.Data, ctx)
+	responseChan := n.sendNextsStream(ctx, writerCloner, t.Data)
 
 	// Await Responses
-	Response = n.waitResponses(responseChan, ctx)
+	Response = n.waitResponses(ctx, responseChan)
 
 	// Send Response back.
 	t.ResponseChan <- Response

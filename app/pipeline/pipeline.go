@@ -17,13 +17,12 @@ import (
 
 //Pipeline Holds the recursive tree of Nodes and their next nodes, etc
 type Pipeline struct {
-	receiveTxnChan       <-chan transaction.Transaction
-	receiveStreamTxnChan <-chan transaction.Streamable
-	Root                 node.Next
-	NodesList            []node.Node
-	Logger               zap.SugaredLogger
-	wg                   sync.WaitGroup
-	status               status
+	receiveTxnChan <-chan transaction.Transaction
+	Root           node.Next
+	NodesList      []node.Node
+	Logger         zap.SugaredLogger
+	wg             sync.WaitGroup
+	status         status
 }
 
 type status int32
@@ -53,12 +52,6 @@ func (p *Pipeline) Start() error {
 		}
 	}()
 
-	go func() {
-		for value := range p.receiveStreamTxnChan {
-			go p.jobStream(value)
-		}
-	}()
-
 	return nil
 }
 
@@ -84,28 +77,10 @@ func (p *Pipeline) SetTransactionChan(tc <-chan transaction.Transaction) {
 	p.receiveTxnChan = tc
 }
 
-//SetTransactionChan Set the transaction chan pipeline will use to receive input
-func (p *Pipeline) SetStreamTransactionChan(tc <-chan transaction.Streamable) {
-	p.receiveStreamTxnChan = tc
-}
-
 func (p *Pipeline) job(txn transaction.Transaction) {
 	p.wg.Add(1)
 	responseChan := make(chan response.Response)
 	p.Root.TransactionChan <- transaction.Transaction{
-		Payload:      txn.Payload,
-		Data:         txn.Data,
-		ResponseChan: responseChan,
-		Context:      txn.Context,
-	}
-	txn.ResponseChan <- <-responseChan
-	p.wg.Done()
-}
-
-func (p *Pipeline) jobStream(txn transaction.Streamable) {
-	p.wg.Add(1)
-	responseChan := make(chan response.Response)
-	p.Root.StreamTransactionChan <- transaction.Streamable{
 		Payload:      txn.Payload,
 		Data:         txn.Data,
 		ResponseChan: responseChan,
@@ -141,7 +116,6 @@ func NewPipeline(pc config.Pipeline, registry registery.Registry, logger zap.Sug
 
 		// gives the next's node its TransactionChan, now owner of the 'next' owns closing the chan.
 		Node.SetTransactionChan(next.TransactionChan)
-		Node.SetStreamTransactionChan(next.StreamTransactionChan)
 
 		// append to nexts
 		nexts = append(nexts, next)
@@ -154,7 +128,6 @@ func NewPipeline(pc config.Pipeline, registry registery.Registry, logger zap.Sug
 
 	// give node its receive chan
 	beginNode.SetTransactionChan(Next.TransactionChan)
-	beginNode.SetStreamTransactionChan(Next.StreamTransactionChan)
 
 	pip := Pipeline{
 		receiveTxnChan: make(chan transaction.Transaction),
@@ -193,7 +166,6 @@ func buildTree(name string, n config.Node, registry registery.Registry, NodesLis
 
 			// gives the next's node its TransactionChan, now owner of the 'next' owns closing the chan.
 			Node.SetTransactionChan(next.TransactionChan)
-			Node.SetStreamTransactionChan(next.StreamTransactionChan)
 
 			// append to nexts
 			nexts = append(nexts, next)
