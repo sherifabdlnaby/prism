@@ -3,6 +3,7 @@ module github.com/sherifabdlnaby/prism
 require (
 	github.com/aws/aws-sdk-go v1.19.0
 	github.com/google/uuid v1.1.1
+	github.com/imdario/mergo v0.3.7
 	github.com/mitchellh/mapstructure v1.1.2
 	github.com/pkg/errors v0.8.1 // indirect
 	github.com/sherifabdlnaby/gpool v1.0.0

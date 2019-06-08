@@ -14,7 +14,7 @@ func (a *App) loadPlugins(c config.Config) error {
 
 	// Load Input Plugins
 	for name, plugin := range c.Inputs.Inputs {
-		err := a.registry.LoadInput(name, plugin, a.logger.inputLogger)
+		err := a.registry.LoadInput(name, *plugin, a.logger.inputLogger)
 		if err != nil {
 			return err
 		}
@@ -22,7 +22,7 @@ func (a *App) loadPlugins(c config.Config) error {
 
 	// Load Processor Plugins
 	for name, plugin := range c.Processors.Processors {
-		err := a.registry.LoadProcessor(name, plugin, a.logger.processingLogger)
+		err := a.registry.LoadProcessor(name, *plugin, a.logger.processingLogger)
 		if err != nil {
 			return err
 		}
@@ -30,7 +30,7 @@ func (a *App) loadPlugins(c config.Config) error {
 
 	// Load Output Plugins
 	for name, plugin := range c.Outputs.Outputs {
-		err := a.registry.LoadOutput(name, plugin, a.logger.outputLogger)
+		err := a.registry.LoadOutput(name, *plugin, a.logger.outputLogger)
 		if err != nil {
 			return err
 		}
@@ -128,7 +128,7 @@ func (a *App) initPipelines(c config.Config) error {
 			return fmt.Errorf("pipeline with name [%s] already declared", key)
 		}
 
-		pip, err := pipeline.NewPipeline(value, a.registry, *a.logger.processingLogger.Named(key))
+		pip, err := pipeline.NewPipeline(*value, a.registry, *a.logger.processingLogger.Named(key))
 
 		if err != nil {
 			return fmt.Errorf("error occured when constructing pipeline [%s]: %s", key, err.Error())

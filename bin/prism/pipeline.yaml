@@ -1,15 +1,12 @@
 pipelines:
     profile_pic_pipeline:
-        concurrency: 120
         pipeline:
             dummy_processor1:
-                async: false
                 next:
                     dummy_processor1:
                         async: false
                         next:
                             dummy_processor2:
-                                async: false
                                 next:
                                     disk1:
                                         async: true

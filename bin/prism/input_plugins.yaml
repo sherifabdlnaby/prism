@@ -1,7 +1,6 @@
 inputs:
     http_server:
         plugin: dummy_input
-        concurrency: 10
         config:
             filename: "test.jpg"
             pipeline: "profile_pic_pipeline"

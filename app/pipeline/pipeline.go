@@ -104,7 +104,7 @@ func NewPipeline(pc config.Pipeline, registry registery.Registry, logger zap.Sug
 
 	nexts := make([]node.Next, 0)
 	for key, value := range pc.Pipeline {
-		Node, err := buildTree(key, value, registry, &NodesList, false)
+		Node, err := buildTree(key, *value, registry, &NodesList, false)
 		if err != nil {
 			return nil, err
 		}
@@ -156,7 +156,7 @@ func buildTree(name string, n config.Node, registry registery.Registry, NodesLis
 	if n.Next != nil {
 		for key, value := range n.Next {
 
-			Node, err := buildTree(key, value, registry, NodesList, n.Async)
+			Node, err := buildTree(key, *value, registry, NodesList, n.Async)
 			if err != nil {
 				return nil, err
 			}

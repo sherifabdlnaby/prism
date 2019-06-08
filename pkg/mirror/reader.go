@@ -2,6 +2,7 @@ package mirror
 
 import (
 	"io"
+	"sync"
 )
 
 /////////////////////////////////////////////////////////////////////////////
@@ -13,6 +14,7 @@ type Reader struct {
 	error     error
 	baseTotal int64
 	stepSize  int
+	mx        sync.Mutex
 	curr      int
 }
 
