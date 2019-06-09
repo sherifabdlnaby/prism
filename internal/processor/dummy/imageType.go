@@ -1,4 +1,4 @@
-package validator
+package dummy
 
 type imageType int
 
