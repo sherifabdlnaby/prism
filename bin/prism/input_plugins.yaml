@@ -4,8 +4,8 @@ inputs:
         config:
             filename: "test.jpg"
             pipeline: "profile_pic_pipeline"
-            timeout: 1000000
-            tick: 1000
+            timeout: 1000
+            tick: 500
 #    http_server:
 #        plugin: dummy_input
 #        concurrency: 10

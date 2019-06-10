@@ -19,10 +19,10 @@ type base struct {
 	wg             sync.WaitGroup
 	nexts          []Next
 	resource       resource.Resource
-	nodeType       nodeType
+	nodeType       component
 }
 
-func newBase(nodeType nodeType, resource resource.Resource) *base {
+func newBase(nodeType component, resource resource.Resource) *base {
 	return &base{
 		asyncResponses: make(chan response.Response),
 		async:          false,
@@ -33,7 +33,7 @@ func newBase(nodeType nodeType, resource resource.Resource) *base {
 	}
 }
 
-// Start starts this nodeType and all its next nodes to start receiving transactions
+// Start starts this Node and all its next nodes to start receiving transactions
 // By starting all next nodes, start async request handler, and start receiving transactions
 func (n *base) Start() error {
 	// Start next nodes
@@ -62,10 +62,10 @@ func (n *base) Stop() error {
 	n.wg.Wait()
 
 	for _, value := range n.nexts {
-		// close this next-nodeType chan
+		// close this next-node chan
 		close(value.TransactionChan)
 
-		// tell this next-nodeType to stop which in turn will close all its next(s) too.
+		// tell this next-node to stop which in turn will close all its next(s) too.
 		err := value.Stop()
 		if err != nil {
 			return err
@@ -75,23 +75,23 @@ func (n *base) Stop() error {
 	return nil
 }
 
-//SetTransactionChan Set the transaction chan nodeType will use to receive input
+//SetTransactionChan Set the transaction chan Node will use to receive input
 func (n *base) SetTransactionChan(tc <-chan transaction.Transaction) {
 	n.receiveTxnChan = tc
 }
 
-//SetNexts Set this nodeType's next nodes.
+//SetNexts Set this Node's next nodes.
 func (n *base) SetNexts(nexts []Next) {
 	n.nexts = nexts
 }
 
-//SetAsync Set if this nodeType is sync/async
+//SetAsync Set if this Node is sync/async
 func (n *base) SetAsync(async bool) {
 	n.async = async
 }
 
 func (n *base) handleTransaction(t transaction.Transaction) {
-	// if nodeType is set async, send ack response now,
+	// if Node is set async, send ack response now,
 	// and navigate actual response to asyncResponses which should handle async responses
 	if n.async {
 		// since it will be async, sync transaction context is irrelevant.
@@ -129,31 +129,10 @@ func (n *base) asyncHandler() {
 	}
 }
 
-func (n *base) waitResponses(ctx context.Context, responseChan chan response.Response) response.Response {
-	////////////////////////////////////////////
-	// receive from next nodes
-	count, total := 0, len(n.nexts)
-	Response := response.Response{}
-
-loop:
-	for ; count < total; count++ {
-		select {
-		case Response = <-responseChan:
-			if !Response.Ack {
-				break loop
-			}
-		case <-ctx.Done():
-			Response = response.NoAck(ctx.Err())
-			break loop
-		}
-	}
-
-	return Response
-}
-
 func (n *base) sendNextsStream(ctx context.Context, writerCloner mirror.Cloner, data payload.Data) chan response.Response {
 	responseChan := make(chan response.Response, len(n.nexts))
 	for _, next := range n.nexts {
+
 		next.TransactionChan <- transaction.Transaction{
 			Payload:      writerCloner.Clone(),
 			Data:         data,
@@ -175,4 +154,20 @@ func (n *base) sendNexts(ctx context.Context, output payload.Bytes, data payload
 		}
 	}
 	return responseChan
+}
+
+func (n *base) waitResponses(ctx context.Context, responseChan chan response.Response) response.Response {
+	////////////////////////////////////////////
+	// receive from next nodes
+	count, total := 0, len(n.nexts)
+	Response := response.Response{}
+
+	for ; count < total; count++ {
+		Response = <-responseChan
+		if !Response.Ack {
+			break
+		}
+	}
+
+	return Response
 }
