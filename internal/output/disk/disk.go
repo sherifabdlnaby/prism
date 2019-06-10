@@ -5,7 +5,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strconv"
 	"sync"
 
 	"github.com/sherifabdlnaby/prism/pkg/bufferspool"
@@ -19,14 +18,24 @@ import (
 
 //Disk struct
 type Disk struct {
-	FilePermission config.Value
-	FilePath       config.Value
-	Permission     os.FileMode
-	TypeCheck      bool
-	Transactions   <-chan transaction.Transaction
-	stopChan       chan struct{}
-	logger         zap.SugaredLogger
-	wg             sync.WaitGroup
+	config       Config
+	Permission   os.FileMode
+	Transactions <-chan transaction.Transaction
+	stopChan     chan struct{}
+	logger       zap.SugaredLogger
+	wg           sync.WaitGroup
+}
+
+type Config struct {
+	Permission os.FileMode `mapstructure:"permission"`
+	FilePath   string      `mapstructure:"filepath"`
+	filepath   config.Selector
+}
+
+func DefaultConfig() *Config {
+	return &Config{
+		Permission: 0777,
+	}
 }
 
 // NewComponent Return a new Component
@@ -43,23 +52,17 @@ func (d *Disk) SetTransactionChan(t <-chan transaction.Transaction) {
 func (d *Disk) Init(config config.Config, logger zap.SugaredLogger) error {
 	var err error
 
-	d.FilePath, err = config.Get("filepath", nil)
+	d.config = *DefaultConfig()
+	err = config.Populate(&d.config)
 	if err != nil {
 		return err
 	}
 
-	d.FilePermission, err = config.Get("permission", nil)
+	d.config.filepath, err = config.NewSelector(d.config.FilePath)
 	if err != nil {
 		return err
 	}
 
-	perm32, err := strconv.ParseUint(d.FilePermission.Get().String(), 0, 32)
-
-	if err != nil {
-		return err
-	}
-
-	d.Permission = os.FileMode(perm32)
 	d.stopChan = make(chan struct{})
 	d.logger = logger
 
@@ -71,13 +74,12 @@ func (d *Disk) Init(config config.Config, logger zap.SugaredLogger) error {
 func (d *Disk) writeOnDisk(txn transaction.Transaction) {
 	defer d.wg.Done()
 
-	filePathV, err := d.FilePath.Evaluate(txn.Data)
+	filePath, err := d.config.filepath.Evaluate(txn.Data)
 	if err != nil {
 		txn.ResponseChan <- response.Error(err)
 		return
 	}
 
-	filePath := filePathV.String()
 	dir := filepath.Dir(filePath)
 
 	if _, err = os.Stat(dir); os.IsNotExist(err) {

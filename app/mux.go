@@ -18,42 +18,26 @@ func (a *App) start() {
 }
 
 func (a *App) forwardInputToPipeline(input *wrapper.Input) {
-	for transaction := range input.TransactionChan() {
+	for in := range input.InputTransactionChan() {
 
 		//get pipeline tag
-		tag, err := a.getValidPipelineTag(transaction.Data)
-
-		if err != nil {
-			transaction.ResponseChan <- response.Error(err)
+		if in.PipelineTag == "" {
+			in.ResponseChan <- response.Error(fmt.Errorf("no pipeline is defined for in"))
 			continue
 		}
 
-		// Add defaults to transaction Image Data
-		applyDefaultFields(transaction.Data)
+		_, ok := a.pipelines[in.PipelineTag]
+		if !ok {
+			in.ResponseChan <- response.Error(fmt.Errorf("pipeline [%s] is not defined", in.PipelineTag))
+			continue
+		}
+
+		// Add defaults to in Image Data
+		applyDefaultFields(in.Data)
 
 		// Forward
-		a.pipelines[tag].TransactionChan <- transaction
+		a.pipelines[in.PipelineTag].TransactionChan <- in.Transaction
 	}
-}
-
-func (a *App) getValidPipelineTag(data payload.Data) (string, error) {
-	tag, ok := data["_pipeline"]
-	if !ok {
-		return "", fmt.Errorf("no pipeline is defined for transaction")
-	}
-
-	// validate tag is string
-	tagString, ok := tag.(string)
-	if !ok {
-		return "", fmt.Errorf("pipeline tag is not a string")
-	}
-
-	_, ok = a.pipelines[tagString]
-	if !ok {
-		return "", fmt.Errorf("pipeline [%s] is not defined", tagString)
-	}
-
-	return tagString, nil
 }
 
 func applyDefaultFields(d payload.Data) {

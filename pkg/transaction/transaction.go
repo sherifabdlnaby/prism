@@ -24,3 +24,12 @@ type Transaction struct {
 	// to the next destinations.
 	ResponseChan chan<- response.Response
 }
+
+// InputTransactionChan represent a transaction containing a streamable payload, Data, PipelineTag, and a response channel,
+// response indicate whether the payload was successfully processed and propagated to the next destinations.
+//
+// PipelineTag indicate to which pipeline should this transaction be forwarded to.
+type InputTransaction struct {
+	Transaction
+	PipelineTag string
+}

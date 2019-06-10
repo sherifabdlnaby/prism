@@ -5,49 +5,60 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/mitchellh/mapstructure"
 	"github.com/sherifabdlnaby/objx"
-	"github.com/sherifabdlnaby/prism/pkg/payload"
+	"gopkg.in/go-playground/validator.v9"
 )
 
 // TODO evaluate defaults. (add ability to add default value)
 var fieldsRegex = regexp.MustCompile(`@{([\w@.]+)}`)
 
-//Value Contains a value in the config, this value can be static or dynamic, dynamic values must be get using Evaluate()
-type Value struct {
-	isDynamic bool
-	value     objx.Value
-	parts     []part
-}
-
-type part struct {
-	string string
-	eval   bool
-}
-
-// Config used to ease getting values from config using dot notation (obj.Value.array[0].Value), and used to resolve
+// Config used to ease getting values from config using dot notation (obj.Selector.array[0].Selector), and used to resolve
 // dynamic values.
 type Config struct {
 	config objx.Map
-	cache  map[string]Value
 }
 
 // NewConfig construct new Config from map[string]interface{}
 func NewConfig(config map[string]interface{}) *Config {
-	return &Config{config: objx.Map(config), cache: make(map[string]Value)}
+	return &Config{config: objx.Map(config)}
 }
 
-// Get gets value from config based on key, key access config using dot-notation (obj.Value.array[0].Value).
-// Get will also evaluate dynamic fields in config ( @{dynamic.Value} ) using data, pass nill if you're sure that this
-// Value is constant. returns error if key or dynamic Value doesn't exist.
-func (cw *Config) Get(key string, data payload.Data) (Value, error) {
-	// Check cache
-	if val, ok := cw.cache[key]; ok {
-		return val, nil
+//NewValue creates a temporary value and it doesn't cache it
+func (cw *Config) Populate(def interface{}) error {
+
+	config := &mapstructure.DecoderConfig{
+		WeaklyTypedInput: true,
+		Result:           def,
 	}
 
-	val := cw.config.Get(key)
+	decoder, err := mapstructure.NewDecoder(config)
+
+	if err != nil {
+		return err
+	}
+
+	err = decoder.Decode(cw.config)
+
+	if err != nil {
+		return err
+	}
+
+	// Validate
+	err = validator.New().Struct(def)
+
+	return err
+}
+
+func (cw *Config) NewSelector(base interface{}) (Selector, error) {
+	return NewSelector(base)
+}
+
+func NewSelector(base interface{}) (Selector, error) {
+	val := objx.NewValue(base)
+
 	if val.IsNil() {
-		return Value{}, fmt.Errorf("value [%s] is not found", key)
+		return Selector{}, fmt.Errorf("value to selector is nil")
 	}
 
 	str := val.String()
@@ -58,26 +69,63 @@ func (cw *Config) Get(key string, data payload.Data) (Value, error) {
 		isDynamic = true
 	}
 
-	cacheField := Value{
+	return Selector{
 		value:     *val,
 		isDynamic: isDynamic,
 		parts:     parts,
-	}
-
-	cw.cache["key"] = cacheField
-
-	return cacheField, nil
+	}, nil
 }
 
-//NewValue creates a temporary value and it doesn't cache it
-func (cw *Config) NewValue(data interface{}) Value {
+//Evaluate Evaluate dynamic values of config such as `@{image.title}`, return error if it doesn't exist in supplied
+// Data. (Returned values still must be checked for its type)
+func (v *Selector) Evaluate(data map[string]interface{}) (string, error) {
 
-	val := objx.NewValue(data)
-
-	value := Value{
-		value: *val,
+	// No need to evaluate
+	if !v.isDynamic {
+		return v.value.String(), nil
 	}
-	return value
+
+	dataMap := objx.Map(data)
+
+	// Return it directly
+	if len(v.parts) == 1 {
+		val := dataMap.Get(v.parts[0].string)
+		if val.IsNil() {
+			return "", fmt.Errorf("value [%s] is not found in transaction", v.parts[0].string)
+		}
+		return val.String(), nil
+	}
+
+	var builder strings.Builder
+	var partValue *objx.Value
+	for _, part := range v.parts {
+		if !part.eval {
+			builder.WriteString(part.string)
+			continue
+		}
+
+		partValue = dataMap.Get(part.string)
+		if partValue.IsNil() {
+			return "", fmt.Errorf("value [%s] is not found in transaction", part.string)
+		}
+
+		builder.WriteString(partValue.String())
+	}
+
+	return builder.String(), nil
+
+}
+
+//Selector Contains a value in the config, this value can be static or dynamic, dynamic values must be get using Evaluate()
+type Selector struct {
+	isDynamic bool
+	value     objx.Value
+	parts     []part
+}
+
+type part struct {
+	string string
+	eval   bool
 }
 
 func splitToParts(str string) []part {
@@ -109,43 +157,44 @@ func splitToParts(str string) []part {
 	return parts
 }
 
-//Evaluate Evaluate dynamic values of config such as `@{image.title}`, return error if it doesn't exist in supplied
-// Data. (Returned values still must be checked for its type)
-func (v *Value) Evaluate(data payload.Data) (objx.Value, error) {
-
-	// No need to evaluate
-	if !v.isDynamic {
-		return v.value, nil
-	}
-
-	dataMap := objx.Map(data)
-
-	// Return it directly
-	if len(v.parts) == 1 {
-		return *objx.NewValue(dataMap.Get(v.parts[0].string)), nil
-	}
-
-	var builder strings.Builder
-	var partValue *objx.Value
-	for _, part := range v.parts {
-		if !part.eval {
-			builder.WriteString(part.string)
-			continue
+func CheckInValues(data interface{}, values ...interface{}) error {
+	for _, value := range values {
+		if data == value {
+			return nil
 		}
-
-		partValue = dataMap.Get(part.string)
-		if partValue.IsNil() {
-			return objx.Value{}, fmt.Errorf("value [%s] is not found in transaction", part.string)
-		}
-
-		builder.WriteString(partValue.String())
 	}
-
-	return *objx.NewValue(builder.String()), nil
-
+	return fmt.Errorf("value must be any of %v, found %v instead", values, data)
 }
 
-//Get Return Config Values (must be used for static config values only)
-func (v *Value) Get() *objx.Value {
-	return &v.value
-}
+//// Get gets value from config based on key, key access config using dot-notation (obj.Selector.array[0].Selector).
+//// Get will also evaluate dynamic fields in config ( @{dynamic.Selector} ) using data, pass nill if you're sure that this
+//// Selector is constant. returns error if key or dynamic Selector doesn't exist.
+//func (cw *Config) Get(key string) (Selector, error) {
+//	// Check cache
+//	if val, ok := cw.cache[key]; ok {
+//		return val, nil
+//	}
+//
+//	val := cw.config.Get(key)
+//	if val.IsNil() {
+//		return Selector{}, fmt.Errorf("value [%s] is not found", key)
+//	}
+//
+//	str := val.String()
+//	parts := splitToParts(str)
+//	isDynamic := false
+//
+//	if parts != nil {
+//		isDynamic = true
+//	}
+//
+//	cacheField := Selector{
+//		value:     *val,
+//		isDynamic: isDynamic,
+//		parts:     parts,
+//	}
+//
+//	cw.cache["key"] = cacheField
+//
+//	return cacheField, nil
+//}

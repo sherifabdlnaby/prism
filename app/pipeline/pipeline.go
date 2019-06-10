@@ -114,7 +114,7 @@ func NewPipeline(pc config.Pipeline, registry registery.Registry, logger zap.Sug
 		// create a next wrapper
 		next := *node.NewNext(Node)
 
-		// gives the next's node its TransactionChan, now owner of the 'next' owns closing the chan.
+		// gives the next's node its InputTransactionChan, now owner of the 'next' owns closing the chan.
 		Node.SetTransactionChan(next.TransactionChan)
 
 		// append to nexts
@@ -164,7 +164,7 @@ func buildTree(name string, n config.Node, registry registery.Registry, NodesLis
 			// create a next wrapper
 			next := *node.NewNext(Node)
 
-			// gives the next's node its TransactionChan, now owner of the 'next' owns closing the chan.
+			// gives the next's node its InputTransactionChan, now owner of the 'next' owns closing the chan.
 			Node.SetTransactionChan(next.TransactionChan)
 
 			// append to nexts

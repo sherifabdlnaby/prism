@@ -21,7 +21,7 @@ import (
 
 //S3 struct
 type S3 struct {
-	Settings     map[string]config.Value
+	Settings     map[string]config.Selector
 	Values       map[string]string
 	TypeCheck    bool
 	Transactions <-chan transaction.Transaction
@@ -35,7 +35,7 @@ func NewComponent() component.Component {
 	return &S3{}
 }
 
-//TransactionChan just return the channel of the transactions
+//InputTransactionChan just return the channel of the transactions
 func (s *S3) TransactionChan(t <-chan transaction.Transaction) {
 	s.Transactions = t
 }
@@ -43,7 +43,7 @@ func (s *S3) TransactionChan(t <-chan transaction.Transaction) {
 //Init func Initialize the S3 output plugin
 func (s *S3) Init(Config config.Config, logger zap.SugaredLogger) error {
 
-	s.Settings = make(map[string]config.Value)
+	s.Settings = make(map[string]config.Selector)
 	s.Values = make(map[string]string)
 
 	requiredConfig := []string{"filepath", "s3_region", "s3_bucket"}
