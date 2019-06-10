@@ -99,6 +99,8 @@ func (m *Mysql) Start() error {
 //Close func Send a close signal to stop chan
 // to stop taking transactions and Close everything safely
 func (m *Mysql) Close() error {
-	//d.wg.Wait()
+	m.stopChan <- struct{}{}
+	m.wg.Wait()
+	close(m.stopChan)
 	return nil
 }
