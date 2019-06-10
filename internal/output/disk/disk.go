@@ -19,7 +19,6 @@ import (
 //Disk struct
 type Disk struct {
 	config       Config
-	Permission   os.FileMode
 	Transactions <-chan transaction.Transaction
 	stopChan     chan struct{}
 	logger       zap.SugaredLogger
@@ -93,9 +92,9 @@ func (d *Disk) writeOnDisk(txn transaction.Transaction) {
 
 	switch Payload := txn.Payload.(type) {
 	case payload.Bytes:
-		err = ioutil.WriteFile(filePath, Payload, d.Permission)
+		err = ioutil.WriteFile(filePath, Payload, d.config.Permission)
 	case payload.Stream:
-		err = writeFileFromStream(filePath, Payload, d.Permission)
+		err = writeFileFromStream(filePath, Payload, d.config.Permission)
 	}
 
 	if err != nil {

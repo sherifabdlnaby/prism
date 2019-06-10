@@ -3,24 +3,24 @@ outputs:
         plugin: disk
         concurrency: 1000
         config:
-            filepath: disk_output-1-@{count}-x-@{_timestamp}-x-@{_id}.jpg
+            filepath: output/disk_output-1-@{count}-x-@{_timestamp}-x-@{_id}.jpg
             permission: 0777
     disk2:
         plugin: disk
         concurrency: 1000
         config:
-            filepath: disk_output-2-@{count}-x-@{_timestamp}-x-@{_id}.jpg
+            filepath: output/disk_output-2-@{count}-x-@{_timestamp}-x-@{_id}.jpg
             permission: 0777
     disk3:
         plugin: disk
         concurrency: 1000
         config:
-            filepath: disk_output-3-@{count}-x-@{_timestamp}-x-@{_id}.jpg
+            filepath: output/disk_output-3-@{count}-x-@{_timestamp}-x-@{_id}.jpg
             permission: 0777
-#    s3First:
-#        plugin: s3
-#        concurrency: 10
-#        config:
-#            filepath: s3_output-1-@{count}-x-@{_timestamp}-x-@{_id}.jpg
-#            s3_region: us-east-2
-#            s3_bucket: prism.test
+    s3First:
+        plugin: s3
+        concurrency: 10
+        config:
+            filepath: output/s3_output-1-@{count}-x-@{_timestamp}-x-@{_id}.jpg
+            s3_region: us-east-2
+            s3_bucket: prism.test
