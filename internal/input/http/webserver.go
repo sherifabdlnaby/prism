@@ -8,7 +8,6 @@ import (
 	response2 "github.com/sherifabdlnaby/prism/pkg/response"
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
 	"go.uber.org/zap"
-	"io"
 	"net/http"
 	"sync"
 )
@@ -24,7 +23,9 @@ type Webserver struct {
 	CertFile     string
 	KeyFile      string
 	Server       *http.Server
-	Requests     chan http.Request
+	Requests     chan imageRequest
+	Config       config.Config
+	Metrics      int
 }
 
 //Newcomponent returns a new component.
@@ -40,6 +41,7 @@ func (w *Webserver) TransactionChan() <-chan transaction.InputTransaction {
 //Init initializes webserver
 func (w *Webserver) Init(config config.Config, logger zap.SugaredLogger) error {
 	p, err := config.Get("port", nil)
+	w.Config = config
 	if err != nil {
 		return err
 	}
@@ -49,7 +51,7 @@ func (w *Webserver) Init(config config.Config, logger zap.SugaredLogger) error {
 
 	w.Transactions = make(chan transaction.InputTransaction, 1)
 	w.stopChan = make(chan struct{})
-	w.Requests = make(chan http.Request)
+	w.Requests = make(chan imageRequest)
 	w.logger = logger
 	return nil
 }
@@ -69,36 +71,43 @@ func (w *Webserver) Start() error {
 		for {
 			select {
 			case <-w.stopChan:
-				w.logger.Info("Closing...")
+				w.logger.Debugw("closing...")
 				return
 			case r := <-w.Requests:
-				go func() {
+				go func(i int) {
 					responseChan := make(chan response2.Response)
-					w.logger.Info("Received a photo ")
-					name := r.FormValue("name")
-					if name == "" {
-						name = "temporary"
-					}
-					w.logger.Info("RECEIVED AN IMAGED NAMED  " + name)
-
-					f, _, _ := r.FormFile("image")
+					w.logger.Debug("Received a photo ")
 					ctx := context.Background()
+					r.ImageData["count"] = i
 
+					//Checks if a pipe line was provided in the request.
+					if _, ok := r.ImageData["pipeline"]; !ok || len(r.ImageData["pipeline"].(string)) == 0 {
+						urls, _ := w.Config.Get("urls", nil)
+						u := urls.Get().Data()
+
+						//A lot of casting due to raw values, may be optimized later.
+						//Check if the url exists
+						if _, ok1 := u.(map[string]interface{})[r.ImageData["url"].(string)]; ok1 {
+							r.ImageData["pipeline"] = u.(map[string]interface{})[r.ImageData["url"].(string)].(map[string]interface{})["pipeline"]
+						}
+					}
 					w.Transactions <- transaction.InputTransaction{
 						Transaction: transaction.Transaction{
 							Payload: transaction.Payload{
-								Reader:     io.Reader(f),
-								ImageBytes: nil,
+								Reader:     r.Reader,
+								ImageBytes: r.ImageBytes,
 							},
-							ImageData:    nil,
+							ImageData:    r.ImageData,
 							ResponseChan: responseChan,
 							Context:      ctx,
 						},
-						PipelineTag: "dummy",
+						PipelineTag: r.ImageData["pipeline"].(string),
 					}
+
 					response := <-responseChan
-					w.logger.Info("RECEIVED RESPONSE.", zap.Any("response", response))
-				}()
+					w.logger.Debugw("RECEIVED RESPONSE.", "ID", i, "ack", response.Ack, "error", response.Error, "AckErr", response.AckErr)
+				}(w.Metrics)
+				w.Metrics++
 			}
 		}
 	}()
@@ -107,7 +116,7 @@ func (w *Webserver) Start() error {
 
 //Close : graceful shutdown.
 func (w *Webserver) Close() error {
-	w.logger.Info("Sending closing signal...")
+	w.logger.Debugw("received closing signal, closing...")
 	//Gracefully closing the server.
 	w.stopChan <- struct{}{}
 	w.wg.Wait()
@@ -116,6 +125,6 @@ func (w *Webserver) Close() error {
 		return err
 	}
 	close(w.Transactions)
-	w.logger.Info("Closed.")
+	w.logger.Debugw("closed.")
 	return nil
 }

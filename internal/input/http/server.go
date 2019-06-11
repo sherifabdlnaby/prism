@@ -2,8 +2,16 @@ package http
 
 import (
 	"fmt"
+	"github.com/sherifabdlnaby/prism/pkg/transaction"
+	"io"
 	"net/http"
 )
+
+type imageRequest struct {
+	Reader     io.Reader
+	ImageBytes transaction.ImageBytes
+	ImageData  transaction.ImageData
+}
 
 // Server SETS THE CONFIGURATION AND STARTS THE SERVER.
 func Server(w *Webserver) {
@@ -43,29 +51,52 @@ func ListenAndServe(s *http.Server, w *Webserver) error {
 }
 
 //Just an initial handler, receives a request, parses it to make sure its fine and sends a request to the plugin to be sent to processor.
-func (s Webserver) index(w http.ResponseWriter, r *http.Request) {
+func (w Webserver) index(rw http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
-		w.WriteHeader(http.StatusOK)
-		if err := r.ParseForm(); err != nil {
-			fmt.Fprintf(w, "ParseForm() err: %v", err)
+		if err := r.ParseMultipartForm(2 * 1024 * 1024); err != nil {
+			fmt.Printf("ParseMultipartform() err: %v", err)
 			return
 		}
-		_, _, err := r.FormFile("image")
+		r.ParseForm()
+		file, _, err := r.FormFile("image")
 		if err != nil {
-			fmt.Fprintf(w, "You should upload an image ")
+			fmt.Fprintf(rw, "You should upload an image ")
 			return
 		}
-		s.Requests <- *r
+		iData := make(transaction.ImageData)
+
+		//Setting all parameters
+		//some parameters might be in the form of an array which may cause security issues.
+		for k := range r.Form {
+			iData[k] = r.Form[k][0]
+		}
+		iData["url"] = r.URL.String()
+
+		w.Requests <- imageRequest{
+			Reader:     io.Reader(file),
+			ImageBytes: nil,
+			ImageData:  iData,
+		}
+		rw.WriteHeader(http.StatusOK)
+
 	} else {
-		w.WriteHeader(http.StatusMethodNotAllowed)
+		rw.WriteHeader(http.StatusMethodNotAllowed)
 	}
+
 }
 
 // ServerMux will have handlers.
 func ServerMux(w *Webserver) http.Handler {
 	mux := http.NewServeMux()
-	//This is just an intial phase of the middlewares.
+	//This is just an initial phase of the middleware.
+	//Accept images at all the provided urls.
 	next := http.Handler(http.HandlerFunc(w.index))
-	mux.Handle("/index", next)
+
+	handlers, _ := w.Config.Get("urls", nil)
+	h := handlers.Get().Data()
+	for k := range h.(map[string]interface{}) {
+		mux.Handle(k, next)
+	}
+
 	return mux
 }

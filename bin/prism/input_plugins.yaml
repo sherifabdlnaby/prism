@@ -4,6 +4,13 @@ inputs:
         concurrency: 10
         config:
             port: 8080
+            urls:
+                "/profile_picture":
+                    pipeline: profile_pic_pipeline
+                "/cover_picture":
+                    pipeline: cover_picture_pipeline
+                "/index":
+                    pipeline: profile_pic_pipeline
 #    http_server:
 #        plugin: dummy_input
 #        concurrency: 10
