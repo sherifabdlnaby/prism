@@ -3,21 +3,9 @@ pipelines:
         pipeline:
             dummy_processor1:
                 next:
-                    dummy_processor1:
+                    disk1:
                         async: false
-                        next:
-                            dummy_processor2:
-                                next:
-                                    disk1:
-                                        async: true
-                    dummy_processor2:
-                        async: true
-                        next:
-                            dummy_processor2:
-                                async: true
-                                next:
-                                    disk2:
-                                        async: true
+
 
 
 #pipelines:

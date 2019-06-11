@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/mitchellh/mapstructure"
@@ -113,6 +114,19 @@ func (v *Selector) Evaluate(data map[string]interface{}) (string, error) {
 	}
 
 	return builder.String(), nil
+
+}
+
+//Evaluate Evaluate dynamic values of config such as `@{image.title}`, return error if it doesn't exist in supplied
+// Data. (Returned values still must be checked for its type)
+func (v *Selector) EvaluateInt64(data map[string]interface{}) (int64, error) {
+	str, err := v.Evaluate(data)
+
+	if err != nil || str == "" {
+		return 0, err
+	}
+
+	return strconv.ParseInt(str, 10, 64)
 
 }
 

@@ -3,14 +3,10 @@ processors:
         concurrency: 100
         plugin: vips
         config:
-            filename: testing.jpg
-    dummy_processor2:
-        concurrency: 100
-        plugin: vips
-        config:
-            filename: testing.jpg
-    dummy_processor3:
-        plugin: vips
-        concurrency: 100
-        config:
-            filename: testing.jpg
+            operations:
+                resize:
+                    width: "@{width}"
+                    height: "@{height}"
+                    pad: background
+                flip:
+                    direction: horizontal
