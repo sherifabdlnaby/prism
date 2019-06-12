@@ -1,10 +1,11 @@
 pipelines:
     profile_pic_pipeline:
         pipeline:
-            dummy_processor1:
+            dummy_processor2:
                 next:
                     disk1:
                         async: false
+
 
 
 

@@ -3,13 +3,13 @@ outputs:
         plugin: disk
         concurrency: 1000
         config:
-            filepath: output/disk_output-1-@{count}.jpg
+            filepath: output/1/disk_output-1-@{count}.jpg
             permission: 0777
     disk2:
         plugin: disk
         concurrency: 1000
         config:
-            filepath: output/disk_output-2-@{count}.jpg
+            filepath: output/2/disk_output-2-@{count}.jpg
             permission: 0777
     disk3:
         plugin: disk

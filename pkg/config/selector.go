@@ -15,6 +15,7 @@ type Selector struct {
 	parts     []part
 }
 
+// TODO make string base not interface
 func NewSelector(base interface{}) (Selector, error) {
 	val := objx.NewValue(base)
 
@@ -92,6 +93,24 @@ func (v *Selector) EvaluateInt64(data map[string]interface{}) (int64, error) {
 
 //Evaluate Evaluate dynamic values of config such as `@{image.title}`, return error if it doesn't exist in supplied
 // Data. (Returned values still must be checked for its type)
+func (v *Selector) EvaluateUint8(data map[string]interface{}) (uint8, error) {
+	str, err := v.Evaluate(data)
+
+	if err != nil || str == "" {
+		return 0, err
+	}
+
+	int8x, err := strconv.ParseUint(str, 10, 8)
+	if err != nil {
+		return 0, nil
+	}
+
+	return uint8(int8x), nil
+
+}
+
+//Evaluate Evaluate dynamic values of config such as `@{image.title}`, return error if it doesn't exist in supplied
+// Data. (Returned values still must be checked for its type)
 func (v *Selector) EvaluateFloat64(data map[string]interface{}) (float64, error) {
 	str, err := v.Evaluate(data)
 
@@ -100,6 +119,19 @@ func (v *Selector) EvaluateFloat64(data map[string]interface{}) (float64, error)
 	}
 
 	return strconv.ParseFloat(str, 10)
+
+}
+
+//Evaluate Evaluate dynamic values of config such as `@{image.title}`, return error if it doesn't exist in supplied
+// Data. (Returned values still must be checked for its type)
+func (v *Selector) EvaluateBool(data map[string]interface{}) (bool, error) {
+	str, err := v.Evaluate(data)
+
+	if err != nil || str == "" {
+		return false, err
+	}
+
+	return strconv.ParseBool(str)
 
 }
 

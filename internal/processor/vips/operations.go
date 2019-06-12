@@ -12,7 +12,10 @@ type Operations struct {
 	Blur   blur
 	Rotate rotate
 	Scale  scale
-
+	//------------disabled-------------------
+	//Label  label
+	//Invert  invert	`mapstructure:",squash"`
+	//---------------------------------------
 	// for internal use
 	operations []operation
 }
@@ -69,6 +72,24 @@ func (o *Operations) Init() error {
 		}
 		o.operations = append(o.operations, &o.Scale)
 	}
+
+	//// Init every operation and add them if they're active.
+	//if o.Label.IsActive() {
+	//	err := o.Label.Init()
+	//	if err != nil {
+	//		return err
+	//	}
+	//	o.operations = append(o.operations, &o.Label)
+	//}
+
+	// Init every operation and add them if they're active.
+	//if o.Invert.IsActive() {
+	//	err := o.Invert.Init()
+	//	if err != nil {
+	//		return err
+	//	}
+	//	o.operations = append(o.operations, &o.Invert)
+	//}
 
 	return nil
 }
