@@ -1,14 +1,20 @@
 package vips
 
 import (
+	"fmt"
+
 	"github.com/sherifabdlnaby/govips/pkg/vips"
 	"github.com/sherifabdlnaby/prism/pkg/config"
 	"github.com/sherifabdlnaby/prism/pkg/payload"
 )
 
 type flip struct {
-	Direction string `validate:"oneof=horizontal vertical both none"`
+	Direction string
 	direction config.Selector
+}
+
+func (o *flip) IsActive() bool {
+	return o.direction.IsDynamic() || o.Direction != "none"
 }
 
 func (o *flip) Init() error {
@@ -42,7 +48,9 @@ func (o *flip) Apply(p *vips.TransformParams, data payload.Data) error {
 		p.Flip = vips.FlipBoth
 	case "none":
 		p.Flip = vips.FlipNone
+	default:
+		err = fmt.Errorf("invalid value for field [direction], got: %s", direction)
 	}
 
-	return nil
+	return err
 }

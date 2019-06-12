@@ -7,6 +7,6 @@ processors:
                 resize:
                     width: "@{width}"
                     height: "@{height}"
-                    pad: background
+                    pad: copy
                 flip:
-                    direction: horizontal
+                    direction: both

@@ -1,6 +1,8 @@
 package vips
 
 import (
+	"fmt"
+
 	"github.com/sherifabdlnaby/govips/pkg/vips"
 	"github.com/sherifabdlnaby/prism/pkg/config"
 	"github.com/sherifabdlnaby/prism/pkg/payload"
@@ -9,13 +11,17 @@ import (
 type resize struct {
 	Width    string
 	Height   string
-	Strategy string `validate:"oneof=auto embed crop stretch"`
-	Pad      string `validate:"oneof=black copy repeat mirror white background"`
+	Strategy string
+	Pad      string
 
 	width    config.Selector
 	height   config.Selector
 	strategy config.Selector
 	pad      config.Selector
+}
+
+func (o *resize) IsActive() bool {
+	return o.Width != "" || o.Height != ""
 }
 
 func (o *resize) Init() error {
@@ -85,6 +91,8 @@ func (o *resize) Apply(p *vips.TransformParams, data payload.Data) error {
 		p.ResizeStrategy = vips.ResizeStrategyCrop
 	case "stretch":
 		p.ResizeStrategy = vips.ResizeStrategyStretch
+	default:
+		err = fmt.Errorf("invalid value for field [strategy], got: %s", strategy)
 	}
 
 	switch pad {
@@ -98,10 +106,9 @@ func (o *resize) Apply(p *vips.TransformParams, data payload.Data) error {
 		p.PadStrategy = vips.ExtendMirror
 	case "white":
 		p.PadStrategy = vips.ExtendWhite
-	case "background":
-		p.PadStrategy = vips.ExtendBackground
-
+	default:
+		err = fmt.Errorf("invalid value for field [pad], got: %s", pad)
 	}
 
-	return nil
+	return err
 }

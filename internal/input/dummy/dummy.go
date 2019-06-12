@@ -101,9 +101,10 @@ func (d *Dummy) Start() error {
 
 					// payloadData (request params)
 					payloadData := payload.Data{
-						"count":  i,
-						"width":  150 * ((i % 4) + 1),
-						"height": 150 * ((i % 6) + 1),
+						"count":   i,
+						"fileNum": (i % 76) + 1,
+						"width":   250 * ((i % 4) + 1),
+						"height":  250 * ((i % 6) + 1),
 					}
 
 					// get selectors

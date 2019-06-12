@@ -28,24 +28,6 @@ type internalImage struct {
 	internal *vips.ImageRef
 }
 
-type Config struct {
-	Operations Operations
-}
-
-func DefaultConfig() *Config {
-	return &Config{
-		Operations{
-			Resize: resize{
-				Strategy: "auto",
-				Pad:      "black",
-			},
-			Flip: flip{
-				Direction: "none",
-			},
-		},
-	}
-}
-
 //Init Initialize Plugin based on parsed Operations
 func (d *Vips) Init(config config.Config, logger zap.SugaredLogger) error {
 	var err error
