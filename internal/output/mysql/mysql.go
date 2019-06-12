@@ -2,29 +2,31 @@ package mysql
 
 import (
 	"database/sql"
+	"fmt"
 	_ "github.com/go-sql-driver/mysql"
-	"sync"
-
-	//"github.com/sherifabdlnaby/prism/pkg/bufferspool"
 	"github.com/sherifabdlnaby/prism/pkg/component"
 	"github.com/sherifabdlnaby/prism/pkg/config"
-	//"github.com/sherifabdlnaby/prism/pkg/payload"
-	//"github.com/sherifabdlnaby/prism/pkg/response"
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
 	"go.uber.org/zap"
+	"sync"
 )
 
 //Mysql struct
 type Mysql struct {
-	Username     config.Value
-	Password     config.Value
-	DBName       config.Value
-	Query        config.Value
-	TypeCheck    bool
+	config       Config
 	Transactions <-chan transaction.Transaction
 	stopChan     chan struct{}
 	logger       zap.SugaredLogger
 	wg           sync.WaitGroup
+}
+
+//Config struct
+type Config struct {
+	Username string `mapstructure:"username" validate:"required"`
+	Password string `mapstructure:"password"`
+	DBName   string `mapstructure:"db_name" validate:"required"`
+	Query    string `mapstructure:"query" validate:"required"`
+	query    config.Selector
 }
 
 // NewComponent Return a new Component
@@ -39,21 +41,15 @@ func (m *Mysql) SetTransactionChan(t <-chan transaction.Transaction) {
 
 //Init func Initialize Mysql output plugin
 func (m *Mysql) Init(config config.Config, logger zap.SugaredLogger) error {
+
 	var err error
 
-	m.Username, err = config.Get("username", nil)
+	err = config.Populate(&m.config)
 	if err != nil {
 		return err
 	}
-	m.Password, err = config.Get("password", nil)
-	if err != nil {
-		return err
-	}
-	m.DBName, err = config.Get("dbname", nil)
-	if err != nil {
-		return err
-	}
-	m.Query, err = config.Get("query", nil)
+
+	m.config.query, err = config.NewSelector(m.config.Query)
 	if err != nil {
 		return err
 	}
@@ -73,7 +69,7 @@ func (m *Mysql) writeOnMysql(txn transaction.Transaction) {
 
 // Start the plugin and be ready for taking transactions
 func (m *Mysql) Start() error {
-	dataSourceName := m.Username.Get().String() + ":" + m.Password.Get().String() + "@/" + m.DBName.Get().String()
+	dataSourceName := m.config.Username + ":" + m.config.Password + "@/" + m.config.DBName
 	db, err := sql.Open("mysql", dataSourceName)
 	if err != nil {
 		return err
@@ -85,6 +81,7 @@ func (m *Mysql) Start() error {
 	if err != nil {
 		return err
 	}
+	fmt.Println("aloo")
 	m.wg.Add(1)
 	go func() {
 		defer m.wg.Done()

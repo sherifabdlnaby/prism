@@ -8,7 +8,7 @@ pipelines:
                         next:
                             dummy_processor2:
                                 next:
-                                    s3First:
+                                    mysql:
                                         async: true
                     dummy_processor2:
                         async: true

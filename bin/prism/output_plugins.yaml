@@ -24,3 +24,10 @@ outputs:
             filepath: output/s3_output-1-@{count}-x-@{_timestamp}-x-@{_id}.jpg
             s3_region: us-east-2
             s3_bucket: prism.test
+    mysql:
+        plugin: mysql
+        concurrency: 10
+        config:
+            username: root
+            db_name: ref
+            query: sd
