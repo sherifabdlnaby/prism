@@ -4,9 +4,5 @@ processors:
         plugin: vips
         config:
             operations:
-                resize:
-                    width: "@{width}"
-                    height: "@{height}"
-                    pad: copy
-                flip:
-                    direction: both
+                scale:
+                    both: 0.5

@@ -9,6 +9,9 @@ type Operations struct {
 	// Parsing
 	Resize resize
 	Flip   flip
+	Blur   blur
+	Rotate rotate
+	Scale  scale
 
 	// for internal use
 	operations []operation
@@ -38,6 +41,33 @@ func (o *Operations) Init() error {
 			return err
 		}
 		o.operations = append(o.operations, &o.Flip)
+	}
+
+	// Init every operation and add them if they're active.
+	if o.Blur.IsActive() {
+		err := o.Blur.Init()
+		if err != nil {
+			return err
+		}
+		o.operations = append(o.operations, &o.Blur)
+	}
+
+	// Init every operation and add them if they're active.
+	if o.Rotate.IsActive() {
+		err := o.Rotate.Init()
+		if err != nil {
+			return err
+		}
+		o.operations = append(o.operations, &o.Rotate)
+	}
+
+	// Init every operation and add them if they're active.
+	if o.Scale.IsActive() {
+		err := o.Scale.Init()
+		if err != nil {
+			return err
+		}
+		o.operations = append(o.operations, &o.Scale)
 	}
 
 	return nil

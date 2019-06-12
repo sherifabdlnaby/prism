@@ -10,7 +10,11 @@ func DefaultConfig() *Config {
 	return &Config{
 		Operations{
 			Resize: resize{
-				Strategy: "auto",
+				Strategy: "embed",
+				Pad:      "black",
+			},
+			Scale: scale{
+				Strategy: "embed",
 				Pad:      "black",
 			},
 			Flip: flip{
@@ -22,7 +26,7 @@ func DefaultConfig() *Config {
 
 func DefaultTransformParams() *vips.TransformParams {
 	return &vips.TransformParams{
-		ResizeStrategy:          vips.ResizeStrategyAuto,
+		ResizeStrategy:          vips.ResizeStrategyEmbed,
 		CropAnchor:              vips.AnchorAuto,
 		ReductionSampler:        vips.KernelLanczos3,
 		EnlargementInterpolator: vips.InterpolateBicubic,

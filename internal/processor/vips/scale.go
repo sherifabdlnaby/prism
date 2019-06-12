@@ -8,23 +8,25 @@ import (
 	"github.com/sherifabdlnaby/prism/pkg/payload"
 )
 
-type resize struct {
+type scale struct {
 	Width    string
 	Height   string
+	Both     string
 	Strategy string
 	Pad      string
 
 	width    config.Selector
 	height   config.Selector
+	both     config.Selector
 	strategy config.Selector
 	pad      config.Selector
 }
 
-func (o *resize) IsActive() bool {
-	return o.Width != "" || o.Height != ""
+func (o *scale) IsActive() bool {
+	return o.Width != "" || o.Height != "" || o.Both != ""
 }
 
-func (o *resize) Init() error {
+func (o *scale) Init() error {
 	var err error
 
 	o.width, err = config.NewSelector(o.Width)
@@ -33,6 +35,11 @@ func (o *resize) Init() error {
 	}
 
 	o.height, err = config.NewSelector(o.Height)
+	if err != nil {
+		return err
+	}
+
+	o.both, err = config.NewSelector(o.Both)
 	if err != nil {
 		return err
 	}
@@ -50,37 +57,39 @@ func (o *resize) Init() error {
 	return nil
 }
 
-func (o *resize) Apply(p *vips.TransformParams, data payload.Data) error {
+func (o *scale) Apply(p *vips.TransformParams, data payload.Data) error {
 
 	// --------------------------------------------------------------------
 
-	width, err := o.width.EvaluateInt64(data)
+	width, err := o.width.EvaluateFloat64(data)
 	if err != nil {
 		return err
 	}
 
-	height, err := o.height.EvaluateInt64(data)
+	height, err := o.height.EvaluateFloat64(data)
 	if err != nil {
 		return err
 	}
+
+	both, err := o.both.EvaluateFloat64(data)
+	if err != nil {
+		return err
+	}
+
+	p.Width.SetScale(width)
+	p.Height.SetScale(height)
+
+	if both != 0.0 {
+		p.Height.SetScale(both)
+		p.Width.SetScale(both)
+	}
+
+	// --------------------------------------------------------------------
 
 	strategy, err := o.strategy.Evaluate(data)
 	if err != nil {
 		return err
 	}
-
-	pad, err := o.pad.Evaluate(data)
-	if err != nil {
-		return err
-	}
-
-	// --------------------------------------------------------------------
-
-	p.Width.SetInt(int(width))
-
-	p.Height.SetInt(int(height))
-
-	// --------------------------------------------------------------------
 
 	switch strategy {
 	case "embed":
@@ -91,6 +100,13 @@ func (o *resize) Apply(p *vips.TransformParams, data payload.Data) error {
 		p.ResizeStrategy = vips.ResizeStrategyStretch
 	default:
 		err = fmt.Errorf("invalid value for field [strategy], got: %s", strategy)
+	}
+
+	// --------------------------------------------------------------------
+
+	pad, err := o.pad.Evaluate(data)
+	if err != nil {
+		return err
 	}
 
 	switch pad {

@@ -90,6 +90,19 @@ func (v *Selector) EvaluateInt64(data map[string]interface{}) (int64, error) {
 
 }
 
+//Evaluate Evaluate dynamic values of config such as `@{image.title}`, return error if it doesn't exist in supplied
+// Data. (Returned values still must be checked for its type)
+func (v *Selector) EvaluateFloat64(data map[string]interface{}) (float64, error) {
+	str, err := v.Evaluate(data)
+
+	if err != nil || str == "" {
+		return 0, err
+	}
+
+	return strconv.ParseFloat(str, 10)
+
+}
+
 type part struct {
 	string string
 	eval   bool

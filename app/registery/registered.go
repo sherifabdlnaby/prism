@@ -15,5 +15,5 @@ var registered = map[string]func() component.Component{
 	"dummy_input":     dummyinput.NewComponent,
 	"disk":            disk.NewComponent,
 	"s3":              s3.NewComponent,
-	"vips": vips.NewComponent,
+	"vips":            vips.NewComponent,
 }
