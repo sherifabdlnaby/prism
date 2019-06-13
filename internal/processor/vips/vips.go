@@ -44,6 +44,12 @@ func (d *Vips) Init(config config.Config, logger zap.SugaredLogger) error {
 		return err
 	}
 
+	// init export
+	d.config.export, err = NewExportParams(d.config.Export)
+	if err != nil {
+		return err
+	}
+
 	d.logger = logger
 	return nil
 }
@@ -113,9 +119,15 @@ func (d *Vips) DecodeStream(in payload.Stream, data payload.Data) (payload.Decod
 
 func (d *Vips) Process(in payload.DecodedImage, data payload.Data) (payload.DecodedImage, response.Response) {
 	origImg := in.(internalImage)
+
 	img := vips.NewImageFromRef(origImg.internal)
 
-	err := d.config.Operations.Do(img, data)
+	err := img.Autorot()
+	if err != nil {
+		return nil, response.Error(err)
+	}
+
+	err = d.config.Operations.Do(img, data)
 
 	if err != nil {
 		return nil, response.Error(err)
@@ -129,10 +141,7 @@ func (d *Vips) Process(in payload.DecodedImage, data payload.Data) (payload.Deco
 func (d *Vips) Encode(in payload.DecodedImage, data payload.Data) (payload.Bytes, response.Response) {
 	Img := in.(internalImage)
 
-	byteBuff, _, err := Img.internal.Export(vips.ExportParams{
-		Format:  vips.ImageTypeJPEG,
-		Quality: 95,
-	})
+	byteBuff, _, err := Img.internal.Export(d.config.export)
 
 	if err != nil {
 		return nil, response.Error(err)

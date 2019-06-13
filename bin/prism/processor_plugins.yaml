@@ -8,3 +8,7 @@ processors:
                     width:  300
                     height: 300
                     anchor: face
+            export:
+                format: jpeg
+                quality: 50
+                Interpretation: RGB
