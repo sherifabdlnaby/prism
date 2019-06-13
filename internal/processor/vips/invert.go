@@ -12,19 +12,17 @@ type invert struct {
 	invert config.Selector
 }
 
-func (o *invert) IsActive() bool {
-	return o.invert.IsDynamic() || o.Invert != ""
-}
-
-func (o *invert) Init() error {
+func (o *invert) Init() (bool, error) {
 	var err error
+
+	//TODO check defaults
 
 	o.invert, err = config.NewSelector(o.Invert)
 	if err != nil {
-		return err
+		return false, nil
 	}
 
-	return nil
+	return true, nil
 }
 
 func (o *invert) Apply(p *vips.TransformParams, data payload.Data) error {

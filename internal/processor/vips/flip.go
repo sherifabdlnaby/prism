@@ -9,23 +9,27 @@ import (
 )
 
 type flip struct {
-	Direction string
+	Raw       flipRawConfig `mapstructure:",squash"`
 	direction config.Selector
 }
 
-func (o *flip) IsActive() bool {
-	return o.direction.IsDynamic() || o.Direction != "none"
+type flipRawConfig struct {
+	Direction string
 }
 
-func (o *flip) Init() error {
+func (o *flip) Init() (bool, error) {
 	var err error
 
-	o.direction, err = config.NewSelector(o.Direction)
-	if err != nil {
-		return err
+	if o.Raw == *flipDefaults() {
+		return false, nil
 	}
 
-	return nil
+	o.direction, err = config.NewSelector(o.Raw.Direction)
+	if err != nil {
+		return false, err
+	}
+
+	return true, nil
 }
 
 func (o *flip) Apply(p *vips.TransformParams, data payload.Data) error {

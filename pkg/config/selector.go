@@ -18,9 +18,9 @@ type Selector struct {
 // TODO make string base not interface
 func NewSelector(base string) (Selector, error) {
 
-	//if base == "" {
-	//	return Selector{}, fmt.Errorf("base to selector is nil")
-	//}
+	if base == "" {
+		return Selector{}, fmt.Errorf("base to selector is nil")
+	}
 
 	parts := splitToParts(base)
 	isDynamic := false

@@ -9,12 +9,7 @@ import (
 )
 
 type scale struct {
-	Width    string
-	Height   string
-	Both     string
-	Strategy string
-	Pad      string
-
+	Raw      scaleRawConfig `mapstructure:",squash"`
 	width    config.Selector
 	height   config.Selector
 	both     config.Selector
@@ -22,39 +17,47 @@ type scale struct {
 	pad      config.Selector
 }
 
-func (o *scale) IsActive() bool {
-	return o.Width != "" || o.Height != "" || o.Both != ""
+type scaleRawConfig struct {
+	Width    string
+	Height   string
+	Both     string
+	Strategy string
+	Pad      string
 }
 
-func (o *scale) Init() error {
+func (o *scale) Init() (bool, error) {
 	var err error
 
-	o.width, err = config.NewSelector(o.Width)
-	if err != nil {
-		return err
+	if o.Raw == *scaleDefaults() {
+		return false, nil
 	}
 
-	o.height, err = config.NewSelector(o.Height)
+	o.width, err = config.NewSelector(o.Raw.Width)
 	if err != nil {
-		return err
+		return false, err
 	}
 
-	o.both, err = config.NewSelector(o.Both)
+	o.height, err = config.NewSelector(o.Raw.Height)
 	if err != nil {
-		return err
+		return false, err
 	}
 
-	o.strategy, err = config.NewSelector(o.Strategy)
+	o.both, err = config.NewSelector(o.Raw.Both)
 	if err != nil {
-		return err
+		return false, err
 	}
 
-	o.pad, err = config.NewSelector(o.Pad)
+	o.strategy, err = config.NewSelector(o.Raw.Strategy)
 	if err != nil {
-		return err
+		return false, err
 	}
 
-	return nil
+	o.pad, err = config.NewSelector(o.Raw.Pad)
+	if err != nil {
+		return false, err
+	}
+
+	return true, nil
 }
 
 func (o *scale) Apply(p *vips.TransformParams, data payload.Data) error {

@@ -1,15 +1,4 @@
 processors:
-    dummy_processor1:
-        concurrency: 100
-        plugin: vips
-        config:
-            operations:
-                resize:
-                    width: "@{width}"
-                    height: "@{height}"
-                    pad: copy
-#                blur:
-#                    sigma: 1.1
     dummy_processor2:
         concurrency: 100
         plugin: vips
@@ -18,11 +7,4 @@ processors:
                 crop:
                     width:  300
                     height: 300
-                    anchor: entropy
-    dummy_processor3:
-        concurrency: 100
-        plugin: vips
-        config:
-            operations:
-                flip:
-                    direction: vertical
+                    anchor: face

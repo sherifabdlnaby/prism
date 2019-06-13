@@ -9,23 +9,27 @@ import (
 )
 
 type rotate struct {
-	Angle string
+	Raw   rotateRawConfig `mapstructure:",squash"`
 	angle config.Selector
 }
 
-func (o *rotate) IsActive() bool {
-	return o.angle.IsDynamic() || o.Angle != ""
+type rotateRawConfig struct {
+	Angle string
 }
 
-func (o *rotate) Init() error {
+func (o *rotate) Init() (bool, error) {
 	var err error
 
-	o.angle, err = config.NewSelector(o.Angle)
-	if err != nil {
-		return err
+	if o.Raw == *rotateDefaults() {
+		return false, nil
 	}
 
-	return nil
+	o.angle, err = config.NewSelector(o.Raw.Angle)
+	if err != nil {
+		return false, err
+	}
+
+	return true, nil
 }
 
 func (o *rotate) Apply(p *vips.TransformParams, data payload.Data) error {

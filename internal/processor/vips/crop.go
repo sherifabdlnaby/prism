@@ -9,36 +9,41 @@ import (
 )
 
 type crop struct {
-	Width  string
-	Height string
-	Anchor string
-
+	Raw    cropRawConfig `mapstructure:",squash"`
 	width  config.Selector
 	height config.Selector
 	anchor config.Selector
 }
 
-func (o *crop) IsActive() bool {
-	return o.anchor.IsDynamic() || o.Anchor != ""
+type cropRawConfig struct {
+	Width  string
+	Height string
+	Anchor string
 }
 
-func (o *crop) Init() error {
+func (o *crop) Init() (bool, error) {
 	var err error
 
-	o.width, err = config.NewSelector(o.Width)
-	if err != nil {
-		return err
-	}
-	o.height, err = config.NewSelector(o.Height)
-	if err != nil {
-		return err
-	}
-	o.anchor, err = config.NewSelector(o.Anchor)
-	if err != nil {
-		return err
+	if o.Raw == *cropDefaults() {
+		return false, nil
 	}
 
-	return nil
+	o.width, err = config.NewSelector(o.Raw.Width)
+	if err != nil {
+		return false, err
+	}
+
+	o.height, err = config.NewSelector(o.Raw.Height)
+	if err != nil {
+		return false, err
+	}
+
+	o.anchor, err = config.NewSelector(o.Raw.Anchor)
+	if err != nil {
+		return false, err
+	}
+
+	return true, nil
 }
 
 func (o *crop) Apply(p *vips.TransformParams, data payload.Data) error {

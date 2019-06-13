@@ -9,45 +9,48 @@ import (
 )
 
 type resize struct {
-	Width    string
-	Height   string
-	Strategy string
-	Pad      string
-
+	Raw      resizeRawConfig `mapstructure:",squash"`
 	width    config.Selector
 	height   config.Selector
 	strategy config.Selector
 	pad      config.Selector
 }
 
-func (o *resize) IsActive() bool {
-	return o.Width != "" || o.Height != ""
+type resizeRawConfig struct {
+	Width    string
+	Height   string
+	Strategy string
+	Pad      string
 }
 
-func (o *resize) Init() error {
+func (o *resize) Init() (bool, error) {
 	var err error
 
-	o.width, err = config.NewSelector(o.Width)
-	if err != nil {
-		return err
+	if o.Raw == *resizeDefaults() {
+		return false, nil
 	}
 
-	o.height, err = config.NewSelector(o.Height)
+	o.width, err = config.NewSelector(o.Raw.Width)
 	if err != nil {
-		return err
+		return false, err
 	}
 
-	o.strategy, err = config.NewSelector(o.Strategy)
+	o.height, err = config.NewSelector(o.Raw.Height)
 	if err != nil {
-		return err
+		return false, err
 	}
 
-	o.pad, err = config.NewSelector(o.Pad)
+	o.strategy, err = config.NewSelector(o.Raw.Strategy)
 	if err != nil {
-		return err
+		return false, err
 	}
 
-	return nil
+	o.pad, err = config.NewSelector(o.Raw.Pad)
+	if err != nil {
+		return false, err
+	}
+
+	return true, nil
 }
 
 func (o *resize) Apply(p *vips.TransformParams, data payload.Data) error {

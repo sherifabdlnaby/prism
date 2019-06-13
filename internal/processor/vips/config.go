@@ -12,24 +12,73 @@ func DefaultConfig() *Config {
 	return &Config{
 		Operations{
 			Resize: resize{
-				Strategy: "embed",
-				Pad:      "black",
+				Raw: *resizeDefaults(),
 			},
 			Flip: flip{
-				Direction: "none",
+				Raw: *flipDefaults(),
+			},
+			Blur: blur{
+				Raw: *blurDefaults(),
+			},
+			Rotate: rotate{
+				Raw: *rotateDefaults(),
 			},
 			Scale: scale{
-				Strategy: "embed",
-				Pad:      "black",
+				Raw: *scaleDefaults(),
 			},
 			Crop: crop{
-				Anchor: "center",
+				Raw: *cropDefaults(),
 			},
 		},
 	}
 }
 
-func DefaultTransformParams() *vips.TransformParams {
+func resizeDefaults() *resizeRawConfig {
+	return &resizeRawConfig{
+		Width:    "",
+		Height:   "",
+		Strategy: "embed",
+		Pad:      "black",
+	}
+}
+
+func flipDefaults() *flipRawConfig {
+	return &flipRawConfig{
+		Direction: "",
+	}
+}
+
+func blurDefaults() *blurRawConfig {
+	return &blurRawConfig{
+		Sigma: "",
+	}
+}
+
+func rotateDefaults() *rotateRawConfig {
+	return &rotateRawConfig{
+		Angle: "",
+	}
+}
+
+func scaleDefaults() *scaleRawConfig {
+	return &scaleRawConfig{
+		Width:    "",
+		Height:   "",
+		Both:     "",
+		Strategy: "embed",
+		Pad:      "black",
+	}
+}
+
+func cropDefaults() *cropRawConfig {
+	return &cropRawConfig{
+		Width:  "",
+		Height: "",
+		Anchor: "center",
+	}
+}
+
+func defaultTransformParams() *vips.TransformParams {
 	return &vips.TransformParams{
 		ResizeStrategy:          vips.ResizeStrategyEmbed,
 		CropAnchor:              vips.AnchorAuto,

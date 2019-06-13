@@ -43,67 +43,63 @@ type rgb struct {
 	R, G, B string
 }
 
-func (o *label) IsActive() bool {
-	return o.text.IsDynamic() || o.Text != ""
-}
-
-func (o *label) Init() error {
+func (o *label) Init() (bool, error) {
 	var err error
 
 	o.text, err = config.NewSelector(o.Text)
 	if err != nil {
-		return err
+		return false, err
 	}
 	o.font, err = config.NewSelector(o.Font)
 	if err != nil {
-		return err
+		return false, err
 	}
 	o.width, err = config.NewSelector(o.Width)
 	if err != nil {
-		return err
+		return false, err
 	}
 	o.height, err = config.NewSelector(o.Height)
 	if err != nil {
-		return err
+		return false, err
 	}
 	o.relativeDim, err = config.NewSelector(o.RelativeDim)
 	if err != nil {
-		return err
+		return false, err
 	}
 	o.offsetX, err = config.NewSelector(o.OffsetX)
 	if err != nil {
-		return err
+		return false, err
 	}
 	o.offsetY, err = config.NewSelector(o.OffsetY)
 	if err != nil {
-		return err
+		return false, err
 	}
 	o.relativeOffset, err = config.NewSelector(o.RelativeOffset)
 	if err != nil {
-		return err
+		return false, err
 	}
 	o.opacity, err = config.NewSelector(o.Opacity)
 	if err != nil {
-		return err
+		return false, err
 	}
 	o.colorR, err = config.NewSelector(o.Color.R)
 	if err != nil {
-		return err
+		return false, err
 	}
 	o.colorG, err = config.NewSelector(o.Color.G)
 	if err != nil {
-		return err
+		return false, err
 	}
 	o.colorB, err = config.NewSelector(o.Color.B)
 	if err != nil {
-		return err
+		return false, err
 	}
 	o.alignment, err = config.NewSelector(o.Alignment)
 	if err != nil {
-		return err
+		return false, err
 	}
 
-	return nil
+	return true, nil
 }
 
 func (o *label) Apply(p *vips.TransformParams, data payload.Data) error {

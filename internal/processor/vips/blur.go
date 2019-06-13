@@ -7,23 +7,27 @@ import (
 )
 
 type blur struct {
-	Sigma string
+	Raw   blurRawConfig `mapstructure:",squash"`
 	sigma config.Selector
 }
 
-func (o *blur) IsActive() bool {
-	return o.sigma.IsDynamic() || o.Sigma != ""
+type blurRawConfig struct {
+	Sigma string
 }
 
-func (o *blur) Init() error {
+func (o *blur) Init() (bool, error) {
 	var err error
 
-	o.sigma, err = config.NewSelector(o.Sigma)
-	if err != nil {
-		return err
+	if o.Raw == *blurDefaults() {
+		return false, nil
 	}
 
-	return nil
+	o.sigma, err = config.NewSelector(o.Raw.Sigma)
+	if err != nil {
+		return false, err
+	}
+
+	return true, nil
 }
 
 func (o *blur) Apply(p *vips.TransformParams, data payload.Data) error {
