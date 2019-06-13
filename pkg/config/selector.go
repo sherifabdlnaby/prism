@@ -8,23 +8,21 @@ import (
 	"github.com/sherifabdlnaby/objx"
 )
 
-//Selector Contains a value in the config, this value can be static or dynamic, dynamic values must be get using Evaluate()
+//Selector Contains a base in the config, this base can be static or dynamic, dynamic values must be get using Evaluate()
 type Selector struct {
 	isDynamic bool
-	value     objx.Value
+	base      string
 	parts     []part
 }
 
 // TODO make string base not interface
-func NewSelector(base interface{}) (Selector, error) {
-	val := objx.NewValue(base)
+func NewSelector(base string) (Selector, error) {
 
-	if val.IsNil() {
-		return Selector{}, fmt.Errorf("value to selector is nil")
-	}
+	//if base == "" {
+	//	return Selector{}, fmt.Errorf("base to selector is nil")
+	//}
 
-	str := val.String()
-	parts := splitToParts(str)
+	parts := splitToParts(base)
 	isDynamic := false
 
 	if parts != nil {
@@ -32,7 +30,7 @@ func NewSelector(base interface{}) (Selector, error) {
 	}
 
 	return Selector{
-		value:     *val,
+		base:      base,
 		isDynamic: isDynamic,
 		parts:     parts,
 	}, nil
@@ -44,7 +42,7 @@ func (v *Selector) Evaluate(data map[string]interface{}) (string, error) {
 
 	// No need to evaluate
 	if !v.isDynamic {
-		return v.value.String(), nil
+		return v.base, nil
 	}
 
 	dataMap := objx.Map(data)
@@ -53,7 +51,7 @@ func (v *Selector) Evaluate(data map[string]interface{}) (string, error) {
 	if len(v.parts) == 1 {
 		val := dataMap.Get(v.parts[0].string)
 		if val.IsNil() {
-			return "", fmt.Errorf("value [%s] is not found in transaction", v.parts[0].string)
+			return "", fmt.Errorf("base [%s] is not found in transaction", v.parts[0].string)
 		}
 		return val.String(), nil
 	}
@@ -68,7 +66,7 @@ func (v *Selector) Evaluate(data map[string]interface{}) (string, error) {
 
 		partValue = dataMap.Get(part.string)
 		if partValue.IsNil() {
-			return "", fmt.Errorf("value [%s] is not found in transaction", part.string)
+			return "", fmt.Errorf("base [%s] is not found in transaction", part.string)
 		}
 
 		builder.WriteString(partValue.String())
@@ -179,10 +177,10 @@ func CheckInValues(data interface{}, values ...interface{}) error {
 			return nil
 		}
 	}
-	return fmt.Errorf("value must be any of %v, found %v instead", values, data)
+	return fmt.Errorf("base must be any of %v, found %v instead", values, data)
 }
 
-//// Get gets value from config based on key, key access config using dot-notation (obj.Selector.array[0].Selector).
+//// Get gets base from config based on key, key access config using dot-notation (obj.Selector.array[0].Selector).
 //// Get will also evaluate dynamic fields in config ( @{dynamic.Selector} ) using data, pass nill if you're sure that this
 //// Selector is constant. returns error if key or dynamic Selector doesn't exist.
 //func (cw *Config) Get(key string) (Selector, error) {
@@ -193,7 +191,7 @@ func CheckInValues(data interface{}, values ...interface{}) error {
 //
 //	val := cw.config.Get(key)
 //	if val.IsNil() {
-//		return Selector{}, fmt.Errorf("value [%s] is not found", key)
+//		return Selector{}, fmt.Errorf("base [%s] is not found", key)
 //	}
 //
 //	str := val.String()
@@ -205,7 +203,7 @@ func CheckInValues(data interface{}, values ...interface{}) error {
 //	}
 //
 //	cacheField := Selector{
-//		value:     *val,
+//		base:     *val,
 //		isDynamic: isDynamic,
 //		parts:     parts,
 //	}

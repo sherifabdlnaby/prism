@@ -15,13 +15,10 @@ processors:
         plugin: vips
         config:
             operations:
-                label:
-                    text: "https://twitter.com/Saamsaaa"
-                    color:
-                        R: 128
-                        G: 128
-                        B: 128
-                    alignment: low
+                crop:
+                    width:  300
+                    height: 300
+                    anchor: entropy
     dummy_processor3:
         concurrency: 100
         plugin: vips

@@ -30,8 +30,8 @@ github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZb
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
-github.com/sherifabdlnaby/govips v0.0.0-20190611190300-131550e41c06 h1:AY2CtwkM5yrZmScq6nvK4hqmbrqKLPCeiWeq9Pzwh5U=
-github.com/sherifabdlnaby/govips v0.0.0-20190611190300-131550e41c06/go.mod h1:2RtXv1PrDFbNFa5JqDzkT3tWU3NuJMk9aQaUFyPwDGk=
+github.com/sherifabdlnaby/govips v0.0.0-20190613151713-a25100a2f770 h1:jI6hcU/NgZDpQZmkZb7cmPOqa7ieLvZUBA8DATy+dno=
+github.com/sherifabdlnaby/govips v0.0.0-20190613151713-a25100a2f770/go.mod h1:2RtXv1PrDFbNFa5JqDzkT3tWU3NuJMk9aQaUFyPwDGk=
 github.com/sherifabdlnaby/objx v0.2.0 h1:rYBkWCVpj2GRATOJkpHtQuPZFZvkd0+HmV/B8xYZ/8o=
 github.com/sherifabdlnaby/objx v0.2.0/go.mod h1:YuG2mQQy+HouSi/ykH7r9jAGKJKzq5wUyw3CCyGCjH0=
 github.com/sherifabdlnaby/semaphore v1.1.0 h1:V2fgzQI68fXgV4+y6pAnI/OU5RB61UiQmJ3ys+F8354=
@@ -48,6 +48,8 @@ github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UV
 github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UVUgZn+9EI=
 go.uber.org/atomic v1.3.2 h1:2Oa65PReHzfn29GpvgsYwloV9AVFHPDk8tYxt2c2tr4=
 go.uber.org/atomic v1.3.2/go.mod h1:gD2HeocX3+yG+ygLZcrzQJaqmWj9AIm7n08wl/qW/PE=
+go.uber.org/atomic v1.4.0 h1:cxzIVoETapQEqDhQu3QfnvXAV4AlzcvUCxkVUFw3+EU=
+go.uber.org/atomic v1.4.0/go.mod h1:gD2HeocX3+yG+ygLZcrzQJaqmWj9AIm7n08wl/qW/PE=
 go.uber.org/multierr v1.1.0 h1:HoEmRHQPVSqub6w2z2d2EOVs2fjyFRGyofhKuyDq0QI=
 go.uber.org/multierr v1.1.0/go.mod h1:wR5kodmAFQ0UK8QlbwjlSNy0Z68gJhDJUG5sjR94q/0=
 go.uber.org/zap v1.9.1 h1:XCJQEf3W6eZaVwhRBof6ImoYGJSITeKWsyeh3HFu/5o=

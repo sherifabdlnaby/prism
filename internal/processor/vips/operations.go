@@ -12,6 +12,7 @@ type Operations struct {
 	Blur   blur
 	Rotate rotate
 	Scale  scale
+	Crop   crop
 	//------------disabled-------------------
 	//Label  label
 	//Invert  invert	`mapstructure:",squash"`
@@ -71,6 +72,15 @@ func (o *Operations) Init() error {
 			return err
 		}
 		o.operations = append(o.operations, &o.Scale)
+	}
+
+	// Init every operation and add them if they're active.
+	if o.Crop.IsActive() {
+		err := o.Crop.Init()
+		if err != nil {
+			return err
+		}
+		o.operations = append(o.operations, &o.Crop)
 	}
 
 	//// Init every operation and add them if they're active.

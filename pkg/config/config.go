@@ -8,7 +8,7 @@ import (
 	"gopkg.in/go-playground/validator.v9"
 )
 
-// TODO evaluate defaults. (add ability to add default value)
+// TODO evaluate defaults. (add ability to add default base)
 var fieldsRegex = regexp.MustCompile(`@{([\w@.]+)}`)
 
 // Config used to ease getting values from config using dot notation (obj.Selector.array[0].Selector), and used to resolve
@@ -22,7 +22,7 @@ func NewConfig(config map[string]interface{}) *Config {
 	return &Config{config: objx.Map(config)}
 }
 
-//NewValue creates a temporary value and it doesn't cache it
+//NewValue creates a temporary base and it doesn't cache it
 func (cw *Config) Populate(def interface{}) error {
 
 	config := &mapstructure.DecoderConfig{
@@ -48,6 +48,6 @@ func (cw *Config) Populate(def interface{}) error {
 	return err
 }
 
-func (cw *Config) NewSelector(base interface{}) (Selector, error) {
+func (cw *Config) NewSelector(base string) (Selector, error) {
 	return NewSelector(base)
 }

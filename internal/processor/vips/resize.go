@@ -87,6 +87,7 @@ func (o *resize) Apply(p *vips.TransformParams, data payload.Data) error {
 		p.ResizeStrategy = vips.ResizeStrategyEmbed
 	case "crop":
 		p.ResizeStrategy = vips.ResizeStrategyCrop
+		p.CropAnchor = vips.AnchorCenter
 	case "stretch":
 		p.ResizeStrategy = vips.ResizeStrategyStretch
 	default:

@@ -22,16 +22,9 @@ func DefaultConfig() *Config {
 				Strategy: "embed",
 				Pad:      "black",
 			},
-			//Label: label{
-			//	Font:      "sans 10",
-			//	Opacity:   "1",
-			//	Alignment: "center",
-			//	Color: rgb{
-			//		R: "255",
-			//		G: "255",
-			//		B: "255",
-			//	},
-			//},
+			Crop: crop{
+				Anchor: "center",
+			},
 		},
 	}
 }
