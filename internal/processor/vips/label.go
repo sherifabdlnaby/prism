@@ -1,42 +1,35 @@
 package vips
 
 import (
-	"fmt"
-
-	"github.com/sherifabdlnaby/govips/pkg/vips"
+	"github.com/h2non/bimg"
 	"github.com/sherifabdlnaby/prism/pkg/config"
 	"github.com/sherifabdlnaby/prism/pkg/payload"
 )
 
-// TODO : This is NOT Used because on PNG images it return an error
-// ifthenelse: not one band or 4 bands
-// This is a problem with govips, fix that to enable this op
+// TODO : ONLY PNG
 type label struct {
-	Text           string
-	Font           string
-	Width          string
-	Height         string
-	RelativeDim    string `mapstructure:"relative_dim"`
-	OffsetX        string
-	OffsetY        string
-	RelativeOffset string `mapstructure:"relative_offset"`
-	Opacity        string
-	Color          rgb
-	Alignment      string
+	Raw       labelRawConfig `mapstructure:",squash"`
+	width     config.Selector
+	dpi       config.Selector
+	margin    config.Selector
+	opacity   config.Selector
+	replicate config.Selector
+	text      config.Selector
+	font      config.Selector
+	colorR    config.Selector
+	colorG    config.Selector
+	colorB    config.Selector
+}
 
-	text           config.Selector
-	font           config.Selector
-	width          config.Selector
-	height         config.Selector
-	relativeDim    config.Selector
-	offsetX        config.Selector
-	offsetY        config.Selector
-	relativeOffset config.Selector
-	opacity        config.Selector
-	colorR         config.Selector
-	colorG         config.Selector
-	colorB         config.Selector
-	alignment      config.Selector
+type labelRawConfig struct {
+	Width     string
+	DPI       string
+	Margin    string
+	Opacity   string
+	Replicate string
+	Text      string
+	Font      string
+	Color     rgb
 }
 
 type rgb struct {
@@ -46,55 +39,48 @@ type rgb struct {
 func (o *label) Init() (bool, error) {
 	var err error
 
-	o.text, err = config.NewSelector(o.Text)
+	if o.Raw == *labelDefaults() {
+		return false, nil
+	}
+
+	o.text, err = config.NewSelector(o.Raw.Text)
 	if err != nil {
 		return false, err
 	}
-	o.font, err = config.NewSelector(o.Font)
+	o.font, err = config.NewSelector(o.Raw.Font)
 	if err != nil {
 		return false, err
 	}
-	o.width, err = config.NewSelector(o.Width)
+	o.width, err = config.NewSelector(o.Raw.Width)
 	if err != nil {
 		return false, err
 	}
-	o.height, err = config.NewSelector(o.Height)
+	o.dpi, err = config.NewSelector(o.Raw.DPI)
 	if err != nil {
 		return false, err
 	}
-	o.relativeDim, err = config.NewSelector(o.RelativeDim)
+	o.opacity, err = config.NewSelector(o.Raw.Opacity)
 	if err != nil {
 		return false, err
 	}
-	o.offsetX, err = config.NewSelector(o.OffsetX)
+	o.margin, err = config.NewSelector(o.Raw.Margin)
 	if err != nil {
 		return false, err
 	}
-	o.offsetY, err = config.NewSelector(o.OffsetY)
+	o.replicate, err = config.NewSelector(o.Raw.Replicate)
 	if err != nil {
 		return false, err
 	}
-	o.relativeOffset, err = config.NewSelector(o.RelativeOffset)
+
+	o.colorR, err = config.NewSelector(o.Raw.Color.R)
 	if err != nil {
 		return false, err
 	}
-	o.opacity, err = config.NewSelector(o.Opacity)
+	o.colorG, err = config.NewSelector(o.Raw.Color.G)
 	if err != nil {
 		return false, err
 	}
-	o.colorR, err = config.NewSelector(o.Color.R)
-	if err != nil {
-		return false, err
-	}
-	o.colorG, err = config.NewSelector(o.Color.G)
-	if err != nil {
-		return false, err
-	}
-	o.colorB, err = config.NewSelector(o.Color.B)
-	if err != nil {
-		return false, err
-	}
-	o.alignment, err = config.NewSelector(o.Alignment)
+	o.colorB, err = config.NewSelector(o.Raw.Color.B)
 	if err != nil {
 		return false, err
 	}
@@ -102,18 +88,17 @@ func (o *label) Init() (bool, error) {
 	return true, nil
 }
 
-func (o *label) Apply(p *vips.TransformParams, data payload.Data) error {
+func (o *label) Apply(p *bimg.Options, data payload.Data) error {
 	var err error
-	label := vips.LabelParams{
-		Text:      "",
-		Font:      "",
-		Width:     vips.Scalar{},
-		Height:    vips.Scalar{},
-		OffsetX:   vips.Scalar{},
-		OffsetY:   vips.Scalar{},
-		Opacity:   0,
-		Color:     vips.Color{},
-		Alignment: 0,
+	label := bimg.Watermark{
+		Width:       0,
+		DPI:         0,
+		Margin:      0,
+		Opacity:     0,
+		NoReplicate: false,
+		Text:        "",
+		Font:        "",
+		Background:  bimg.Color{},
 	}
 
 	//	//	//	//	//	//	//	//	//	//	//	//	//	//
@@ -134,114 +119,50 @@ func (o *label) Apply(p *vips.TransformParams, data payload.Data) error {
 	if err != nil {
 		return nil
 	}
+	label.Width = int(w)
 
-	h, err := o.height.EvaluateFloat64(data)
+	dpi, err := o.dpi.EvaluateInt64(data)
 	if err != nil {
 		return nil
 	}
+	label.DPI = int(dpi)
 
-	relative, err := o.relativeDim.EvaluateBool(data)
+	margin, err := o.margin.EvaluateInt64(data)
 	if err != nil {
 		return nil
 	}
+	label.Margin = int(margin)
 
-	label.Width = vips.Scalar{
-		Value:    w,
-		Relative: relative,
-	}
-	label.Height = vips.Scalar{
-		Value:    h,
-		Relative: relative,
-	}
-
-	//	//	//	//	//	//	//	//	//	//	//	//	//	//
-
-	x, err := o.offsetX.EvaluateFloat64(data)
+	op, err := o.opacity.EvaluateFloat64(data)
 	if err != nil {
 		return nil
 	}
+	label.Opacity = float32(op)
 
-	y, err := o.offsetY.EvaluateFloat64(data)
+	replicate, err := o.replicate.EvaluateBool(data)
 	if err != nil {
 		return nil
 	}
-
-	relativeO, err := o.relativeOffset.EvaluateBool(data)
-	if err != nil {
-		return nil
-	}
-
-	label.OffsetX = vips.Scalar{
-		Value:    x,
-		Relative: relativeO,
-	}
-	label.OffsetY = vips.Scalar{
-		Value:    y,
-		Relative: relativeO,
-	}
+	label.NoReplicate = !replicate
 
 	//	//	//	//	//	//	//	//	//	//	//	//	//	//	//
 
-	f64Opacity, err := o.opacity.EvaluateFloat64(data)
+	label.Background.R, err = o.colorR.EvaluateUint8(data)
 	if err != nil {
 		return nil
 	}
 
-	label.Opacity = float32(f64Opacity)
-
-	//	//	//	//	//	//	//	//	//	//	//	//	//	//	//
-
-	label.Color.R, err = o.colorR.EvaluateUint8(data)
+	label.Background.G, err = o.colorG.EvaluateUint8(data)
 	if err != nil {
 		return nil
 	}
 
-	label.Color.G, err = o.colorG.EvaluateUint8(data)
+	label.Background.B, err = o.colorB.EvaluateUint8(data)
 	if err != nil {
 		return nil
 	}
 
-	label.Color.B, err = o.colorB.EvaluateUint8(data)
-	if err != nil {
-		return nil
-	}
-
-	//	//	//	//	//	//	//	//	//	//	//	//	//	//	//
-
-	align, err := o.alignment.Evaluate(data)
-	if err != nil {
-		return nil
-	}
-
-	switch align {
-	case "low":
-		label.Alignment = vips.AlignLow
-	case "center":
-		label.Alignment = vips.AlignCenter
-	case "high":
-		label.Alignment = vips.AlignHigh
-	default:
-		return fmt.Errorf("invalid value for field [align], got: %s", align)
-	}
-
-	//	//	//	//	//	//	//	//	//	//	//	//	//	//	//
-
-	// Apply some defaults
-	if label.Width.IsZero() {
-		label.Width.SetScale(1)
-	}
-	if label.Height.IsZero() {
-		label.Height.SetScale(1)
-	}
-	if label.Font == "" {
-		label.Font = vips.DefaultFont
-	}
-	if label.Opacity == 0 {
-		label.Opacity = 1
-	}
-
-	// Set Transform params label to the label we just constructed
-	p.Label = &label
+	p.Watermark = label
 
 	return err
 }

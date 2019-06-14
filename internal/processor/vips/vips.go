@@ -1,17 +1,18 @@
 package vips
 
 import (
-	"fmt"
 	"io/ioutil"
-	"runtime"
 
-	"github.com/sherifabdlnaby/govips/pkg/vips"
+	"github.com/h2non/bimg"
 	"github.com/sherifabdlnaby/prism/pkg/component"
 	"github.com/sherifabdlnaby/prism/pkg/config"
 	"github.com/sherifabdlnaby/prism/pkg/payload"
 	"github.com/sherifabdlnaby/prism/pkg/response"
 	"go.uber.org/zap"
 )
+
+// TODO: Memory leak occurs when data from transactions are bytes not stream from INPUT, AND there are tons of requests (10ms between each request)
+// TODO: EXTEND BIMG TO DO FACE AND ENTROPY smart crop
 
 //Dummy Dummy Processor that does absolutely nothing to the image
 type Vips struct {
@@ -24,8 +25,9 @@ func NewComponent() component.Component {
 	return &Vips{}
 }
 
-type internalImage struct {
-	internal *vips.ImageRef
+type image struct {
+	bytes   []byte
+	options bimg.Options
 }
 
 //Init Initialize Plugin based on parsed Operations
@@ -62,31 +64,13 @@ func (d *Vips) Start() error {
 
 //Close Close plugin gracefully
 func (d *Vips) Close() error {
+	bimg.VipsCacheDropAll()
 	return nil
 }
 
 func (d *Vips) Decode(in payload.Bytes, data payload.Data) (payload.DecodedImage, response.Response) {
-	defer runtime.KeepAlive(in)
-
-	img, err := vips.NewImageFromBuffer(in)
-
-	if err != nil {
-		return nil, response.Error(err)
-	}
-
-	if img.Format() == vips.ImageTypeUnknown {
-		return nil, response.Error(fmt.Errorf("unknown image type"))
-	}
-
-	// create internal object (varies with each plugin)`
-	out := internalImage{
-		internal: img,
-	}
-
-	//TODO decode according to type
-
 	// Return it as it is (dummy).
-	return out, response.ACK
+	return []byte(in), response.ACK
 }
 
 func (d *Vips) DecodeStream(in payload.Stream, data payload.Data) (payload.DecodedImage, response.Response) {
@@ -96,62 +80,32 @@ func (d *Vips) DecodeStream(in payload.Stream, data payload.Data) (payload.Decod
 		return nil, response.Error(err)
 	}
 
-	defer runtime.KeepAlive(buff)
-
-	img, err := vips.NewImageFromBuffer(buff)
-
-	if err != nil {
-		return nil, response.Error(err)
-	}
-
-	if img.Format() == vips.ImageTypeUnknown {
-		return nil, response.Error(fmt.Errorf("unknown image type"))
-	}
-
-	// create internal object (varies with each plugin)`
-	out := internalImage{
-		internal: img,
-	}
-
 	// Return it as it is (dummy).
-	return out, response.ACK
+	return buff, response.ACK
 }
 
 func (d *Vips) Process(in payload.DecodedImage, data payload.Data) (payload.DecodedImage, response.Response) {
-	origImg := in.(internalImage)
+	params := defaultOptions()
 
-	img := vips.NewImageFromRef(origImg.internal)
-
-	err := img.Autorot()
-	if err != nil {
-		return nil, response.Error(err)
-	}
-
-	err = d.config.Operations.Do(img, data)
+	err := d.config.Operations.Do(params, data)
 
 	if err != nil {
 		return nil, response.Error(err)
 	}
 
-	return internalImage{
-		internal: img,
+	return &image{
+		bytes:   in.([]byte),
+		options: *params,
 	}, response.ACK
 }
 
 func (d *Vips) Encode(in payload.DecodedImage, data payload.Data) (payload.Bytes, response.Response) {
-	Img := in.(internalImage)
-
-	byteBuff, _, err := Img.internal.Export(d.config.export)
+	img := in.(*image)
+	bytes, err := bimg.Resize(img.bytes, img.options)
 
 	if err != nil {
 		return nil, response.Error(err)
 	}
 
-	return byteBuff, response.ACK
-}
-
-func init() {
-	vips.Startup(&vips.Config{
-		ConcurrencyLevel: 4,
-	})
+	return bytes, response.ACK
 }

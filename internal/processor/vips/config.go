@@ -1,16 +1,12 @@
 package vips
 
 import (
-	"fmt"
-
-	"github.com/sherifabdlnaby/govips/pkg/vips"
+	"github.com/h2non/bimg"
 )
 
 type Config struct {
 	Operations Operations
 	Export     Export
-
-	export vips.ExportParams
 }
 
 type Export struct {
@@ -26,42 +22,6 @@ type Export struct {
 
 type RGB struct {
 	R, G, B uint8
-}
-
-func NewExportParams(e Export) (vips.ExportParams, error) {
-	var ok bool
-	var err error
-
-	p := vips.ExportParams{}
-
-	p.Format, ok = ImageTypeMap[e.Format]
-	if !ok {
-		return vips.ExportParams{}, fmt.Errorf("unsupported exporting file format")
-	}
-
-	p.Quality = e.Quality
-	p.Compression = e.Compression
-	p.Interlaced = e.Interlaced
-	p.Lossless = e.Lossless
-	p.StripProfile = e.StripProfile
-	p.StripMetadata = e.StripMetadata
-	p.BackgroundColor = &vips.Color{
-		R: e.BackgroundColor.R,
-		G: e.BackgroundColor.G,
-		B: e.BackgroundColor.B,
-	}
-
-	p.Interpretation = vips.InterpretationSRGB
-
-	return p, err
-}
-
-var ImageTypeMap = map[string]vips.ImageType{
-	"jpeg": vips.ImageTypeJPEG,
-	"jpg":  vips.ImageTypeJPEG,
-	"png":  vips.ImageTypePNG,
-	"tiff": vips.ImageTypeTIFF,
-	"webp": vips.ImageTypeWEBP,
 }
 
 func DefaultConfig() *Config {
@@ -84,6 +44,9 @@ func DefaultConfig() *Config {
 			},
 			Crop: crop{
 				Raw: *cropDefaults(),
+			},
+			Label: label{
+				Raw: *labelDefaults(),
 			},
 		},
 		Export: *DefaultExport(),
@@ -109,7 +72,6 @@ func resizeDefaults() *resizeRawConfig {
 		Width:    "",
 		Height:   "",
 		Strategy: "embed",
-		Pad:      "black",
 	}
 }
 
@@ -141,6 +103,23 @@ func scaleDefaults() *scaleRawConfig {
 	}
 }
 
+func labelDefaults() *labelRawConfig {
+	return &labelRawConfig{
+		Width:     "",
+		DPI:       "10",
+		Margin:    "0",
+		Opacity:   "5",
+		Replicate: "false",
+		Text:      "",
+		Font:      "sans 10",
+		Color: rgb{
+			R: "255",
+			G: "255",
+			B: "255",
+		},
+	}
+}
+
 func cropDefaults() *cropRawConfig {
 	return &cropRawConfig{
 		Width:  "",
@@ -149,11 +128,6 @@ func cropDefaults() *cropRawConfig {
 	}
 }
 
-func defaultTransformParams() *vips.TransformParams {
-	return &vips.TransformParams{
-		ResizeStrategy:          vips.ResizeStrategyEmbed,
-		CropAnchor:              vips.AnchorAuto,
-		ReductionSampler:        vips.KernelLanczos3,
-		EnlargementInterpolator: vips.InterpolateBicubic,
-	}
+func defaultOptions() *bimg.Options {
+	return &bimg.Options{}
 }

@@ -1,9 +1,18 @@
 pipelines:
     profile_pic_pipeline:
+        concurrency: 10
         pipeline:
             dummy_processor2:
                 next:
-                    disk1:
+                    dummy_processor1:
+                        next:
+                            disk1:
+                                async: false
+                    disk2:
+                        async: false
+            dummy_processor3:
+                next:
+                    disk4:
                         async: false
 
 

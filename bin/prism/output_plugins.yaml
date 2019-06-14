@@ -15,7 +15,13 @@ outputs:
         plugin: disk
         concurrency: 1000
         config:
-            filepath: output/disk_output-3-@{count}.jpg
+            filepath: output/3/disk_output-3-@{count}.jpg
+            permission: 0777
+    disk4:
+        plugin: disk
+        concurrency: 1000
+        config:
+            filepath: output/4/disk_output-3-@{count}.jpg
             permission: 0777
 #    s3First:
 #        plugin: s3

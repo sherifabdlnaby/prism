@@ -4,5 +4,6 @@ inputs:
         config:
             filename: "input/test@{fileNum}.png"
             pipeline: "profile_pic_pipeline"
-            timeout: 5000
+            timeout: 5000000
             tick: 100
+            count: 100

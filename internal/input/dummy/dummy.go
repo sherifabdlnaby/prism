@@ -30,6 +30,7 @@ type Config struct {
 	Pipeline string
 	Tick     int
 	Timeout  int
+	Count    int
 
 	pipeline config.Selector
 	filename config.Selector
@@ -72,7 +73,7 @@ func (d *Dummy) Init(config config.Config, logger zap.SugaredLogger) error {
 	}
 
 	d.Transactions = make(chan transaction.InputTransaction)
-	d.stopChan = make(chan struct{})
+	d.stopChan = make(chan struct{}, 1)
 	d.logger = logger
 	return nil
 }
@@ -85,7 +86,9 @@ func (d *Dummy) Start() error {
 	go func() {
 		defer d.wg.Done()
 		flag := false
-		for {
+
+		for i := 0; i < d.config.Count; i++ {
+
 			select {
 			case <-d.stopChan:
 				d.logger.Debugw("closing...")
@@ -102,7 +105,7 @@ func (d *Dummy) Start() error {
 					// payloadData (request params)
 					payloadData := payload.Data{
 						"count":   i,
-						"fileNum": (i % 76) + 1,
+						"fileNum": (i % 30) + 1,
 						"width":   250 * ((i % 4) + 1),
 						"height":  250 * ((i % 6) + 1),
 					}
@@ -156,15 +159,14 @@ func (d *Dummy) Start() error {
 					}
 
 					// alternate between stream/data
-					flag = !flag
+					//flag = !flag
 
 					// Wait Transaction
 					response := <-responseChan
 
 					d.logger.Debugw("RECEIVED RESPONSE.", "ID", i, "ack", response.Ack, "error", response.Error, "AckErr", response.AckErr)
-				}(d.metric)
+				}(i)
 
-				d.metric++
 				time.Sleep(time.Millisecond * time.Duration(d.config.Tick))
 			}
 		}

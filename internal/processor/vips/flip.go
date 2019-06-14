@@ -3,7 +3,7 @@ package vips
 import (
 	"fmt"
 
-	"github.com/sherifabdlnaby/govips/pkg/vips"
+	"github.com/h2non/bimg"
 	"github.com/sherifabdlnaby/prism/pkg/config"
 	"github.com/sherifabdlnaby/prism/pkg/payload"
 )
@@ -32,7 +32,7 @@ func (o *flip) Init() (bool, error) {
 	return true, nil
 }
 
-func (o *flip) Apply(p *vips.TransformParams, data payload.Data) error {
+func (o *flip) Apply(p *bimg.Options, data payload.Data) error {
 
 	// --------------------------------------------------------------------
 
@@ -45,13 +45,13 @@ func (o *flip) Apply(p *vips.TransformParams, data payload.Data) error {
 
 	switch direction {
 	case "horizontal":
-		p.Flip = vips.FlipHorizontal
+		p.Flip = true
 	case "vertical":
-		p.Flip = vips.FlipVertical
+		p.Flop = true
 	case "both":
-		p.Flip = vips.FlipBoth
+		p.Flip = true
+		p.Flop = true
 	case "none":
-		p.Flip = vips.FlipNone
 	default:
 		err = fmt.Errorf("invalid value for field [direction], got: %s", direction)
 	}

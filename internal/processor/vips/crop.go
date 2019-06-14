@@ -3,7 +3,7 @@ package vips
 import (
 	"fmt"
 
-	"github.com/sherifabdlnaby/govips/pkg/vips"
+	"github.com/h2non/bimg"
 	"github.com/sherifabdlnaby/prism/pkg/config"
 	"github.com/sherifabdlnaby/prism/pkg/payload"
 )
@@ -46,11 +46,8 @@ func (o *crop) Init() (bool, error) {
 	return true, nil
 }
 
-func (o *crop) Apply(p *vips.TransformParams, data payload.Data) error {
+func (o *crop) Apply(p *bimg.Options, data payload.Data) error {
 	var err error
-
-	//enable croping
-	p.ResizeStrategy = vips.ResizeStrategyCrop
 
 	// // // // // // //
 
@@ -58,15 +55,18 @@ func (o *crop) Apply(p *vips.TransformParams, data payload.Data) error {
 	if err != nil {
 		return nil
 	}
-	p.Width.SetInt(int(width))
 
 	height, err := o.height.EvaluateInt64(data)
 	if err != nil {
 		return nil
 	}
-	p.Height.SetInt(int(height))
 
 	// // // // // // //
+
+	p.Width = int(width)
+	p.Height = int(height)
+	p.Crop = true
+	p.Force = true
 
 	anchor, err := o.anchor.Evaluate(data)
 	if err != nil {
@@ -75,27 +75,17 @@ func (o *crop) Apply(p *vips.TransformParams, data payload.Data) error {
 
 	switch anchor {
 	case "center":
-		p.CropAnchor = vips.AnchorCenter
-	case "entropy":
-		p.CropAnchor = vips.AnchorEntropy
-	case "face":
-		p.CropAnchor = vips.AnchorFace
-	case "bottom":
-		p.CropAnchor = vips.AnchorBottom
-	case "bottom_left":
-		p.CropAnchor = vips.AnchorBottomLeft
-	case "bottom_right":
-		p.CropAnchor = vips.AnchorBottomRight
-	case "left":
-		p.CropAnchor = vips.AnchorLeft
-	case "right":
-		p.CropAnchor = vips.AnchorRight
-	case "top":
-		p.CropAnchor = vips.AnchorTop
-	case "top_left":
-		p.CropAnchor = vips.AnchorTopLeft
-	case "top_right":
-		p.CropAnchor = vips.AnchorTopRight
+		p.Gravity = bimg.GravityCentre
+	case "north":
+		p.Gravity = bimg.GravityNorth
+	case "east":
+		p.Gravity = bimg.GravityEast
+	case "south":
+		p.Gravity = bimg.GravitySouth
+	case "west":
+		p.Gravity = bimg.GravityWest
+	case "smart":
+		p.Gravity = bimg.GravitySmart
 	default:
 		return fmt.Errorf("invalid value for field [anchor], got: %s", anchor)
 	}

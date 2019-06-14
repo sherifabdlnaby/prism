@@ -1,18 +1,20 @@
 package vips
 
 import (
-	"github.com/sherifabdlnaby/govips/pkg/vips"
+	"github.com/h2non/bimg"
 	"github.com/sherifabdlnaby/prism/pkg/config"
 	"github.com/sherifabdlnaby/prism/pkg/payload"
 )
 
 type blur struct {
-	Raw   blurRawConfig `mapstructure:",squash"`
-	sigma config.Selector
+	Raw    blurRawConfig `mapstructure:",squash"`
+	sigma  config.Selector
+	minAmp config.Selector
 }
 
 type blurRawConfig struct {
-	Sigma string
+	Sigma   string
+	MinAmpl string `mapstructure:"min_ampl"`
 }
 
 func (o *blur) Init() (bool, error) {
@@ -27,10 +29,15 @@ func (o *blur) Init() (bool, error) {
 		return false, err
 	}
 
+	o.minAmp, err = config.NewSelector(o.Raw.MinAmpl)
+	if err != nil {
+		return false, err
+	}
+
 	return true, nil
 }
 
-func (o *blur) Apply(p *vips.TransformParams, data payload.Data) error {
+func (o *blur) Apply(p *bimg.Options, data payload.Data) error {
 
 	sigma, err := o.sigma.EvaluateFloat64(data)
 
@@ -38,7 +45,16 @@ func (o *blur) Apply(p *vips.TransformParams, data payload.Data) error {
 		return err
 	}
 
-	p.BlurSigma = sigma
+	minAmp, err := o.minAmp.EvaluateFloat64(data)
+
+	if err != nil {
+		return err
+	}
+
+	p.GaussianBlur = bimg.GaussianBlur{
+		Sigma:   sigma,
+		MinAmpl: minAmp,
+	}
 
 	return err
 }

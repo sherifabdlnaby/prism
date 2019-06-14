@@ -3,7 +3,7 @@ package vips
 import (
 	"fmt"
 
-	"github.com/sherifabdlnaby/govips/pkg/vips"
+	"github.com/h2non/bimg"
 	"github.com/sherifabdlnaby/prism/pkg/config"
 	"github.com/sherifabdlnaby/prism/pkg/payload"
 )
@@ -32,7 +32,7 @@ func (o *rotate) Init() (bool, error) {
 	return true, nil
 }
 
-func (o *rotate) Apply(p *vips.TransformParams, data payload.Data) error {
+func (o *rotate) Apply(p *bimg.Options, data payload.Data) error {
 
 	angle, err := o.angle.Evaluate(data)
 
@@ -42,13 +42,13 @@ func (o *rotate) Apply(p *vips.TransformParams, data payload.Data) error {
 
 	switch angle {
 	case "0":
-		p.Rotate = vips.Angle0
+		p.Rotate = bimg.D0
 	case "90":
-		p.Rotate = vips.Angle90
+		p.Rotate = bimg.D90
 	case "180":
-		p.Rotate = vips.Angle180
+		p.Rotate = bimg.D180
 	case "270":
-		p.Rotate = vips.Angle270
+		p.Rotate = bimg.D270
 	default:
 		err = fmt.Errorf("invalid value for field [angle], got: %s", angle)
 	}
