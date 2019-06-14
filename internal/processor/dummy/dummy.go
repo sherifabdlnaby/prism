@@ -1,7 +1,6 @@
 package dummy
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"github.com/sherifabdlnaby/prism/pkg/component"
@@ -14,7 +13,6 @@ import (
 	"image/jpeg"
 	"image/png"
 	"io"
-	"io/ioutil"
 )
 
 //Dummy Dummy ProcessReadWrite that does absolutely nothing to the image
@@ -23,9 +21,9 @@ type Dummy struct {
 }
 
 type internalImage struct {
-	Internal []byte
-	Name     string
-	Image    *customReader
+	Internal  []byte
+	Name      string
+	Image     *customReader
 	ImageData payload.Data
 }
 
@@ -59,17 +57,17 @@ func (d *Dummy) DecodeStream(in payload.Stream, data payload.Data) (payload.Deco
 
 //Process Simulate Processing the Image
 func (d *Dummy) Process(in payload.DecodedImage, data payload.Data) (payload.DecodedImage, response.Response) {
-	d.logger.Info("Processing Payload... ", zap.String("name", in.Name))
+	//d.logger.Info("Processing Payload... ", zap.String("name", in.Name))
 
-	in, ok := in.(internalImage)
+	inImage, ok := in.(internalImage)
 	if !ok {
-		return in, response.Error(errors.New("unable to cast to internalImage"))
+		return inImage, response.Error(errors.New("unable to cast to internalImage"))
 	}
 
 	// We will read from the tee reader
 	// and save everything thing we read in buf
-	var buf bytes.Buffer
-	tee := io.TeeReader(in.Image, &buf)
+	//var buf bytes.Buffer
+	//tee := io.TeeReader(inImage.Image, &buf)
 
 	// Here we add the validation function for each type
 	fn := []func(io.Reader) (image.Config, error){
@@ -79,37 +77,37 @@ func (d *Dummy) Process(in payload.DecodedImage, data payload.Data) (payload.Dec
 	}
 
 	for i, f := range fn {
-		conf, err := f(in.Image)
+		conf, err := f(inImage.Image)
 		// Success
 		if err == nil {
 			// ReadAll to move all the file to buf
-			_, _ = ioutil.ReadAll(tee)
+			//_, _ = ioutil.ReadAll(tee)
 
 			d.logger.Debug("Image type found")
 			d.logger.Debug(fmt.Sprintf("Image Info: %s %v*%v",
 				imageType(i).String(), conf.Height, conf.Width))
 
-			in.Image.Reset()
-			in.ImageData = map[string]interface{}{
+			inImage.Image.Reset()
+			inImage.ImageData = map[string]interface{}{
 				"type":   imageType(i).String(),
 				"height": conf.Height,
 				"width":  conf.Width,
 			}
-			return in, response.ACK
+			return inImage, response.ACK
 		}
-		in.Image.Reset()
+		inImage.Image.Reset()
 	}
 
-	_, _ = ioutil.ReadAll(tee)
+	//_, _ = ioutil.ReadAll(tee)
 	d.logger.Error("Couldn't define image type")
 	//return dp, errors.New("unidentified type")
-	return in, response.ACK
+	return inImage, response.ACK
 }
 
 // Encode Simulate Encoding the Image
 func (d *Dummy) Encode(in payload.DecodedImage, data payload.Data) (payload.Bytes, response.Response) {
 	// Since in this dummy case we have processed output as a whole, we can just pass it to next node.
-	Payload := in.(internalImage).internal
+	Payload := in.(internalImage).Internal
 
 	return Payload, response.ACK
 }
