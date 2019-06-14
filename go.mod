@@ -14,8 +14,8 @@ require (
 	go.uber.org/atomic v1.3.2 // indirect
 	go.uber.org/multierr v1.1.0 // indirect
 	go.uber.org/zap v1.9.1
+	golang.org/x/image v0.0.0-20190321063152-3fc05d484e9f
 	golang.org/x/net v0.0.0-20190320064053-1272bf9dcd53 // indirect
 	golang.org/x/sync v0.0.0-20190227155943-e225da77a7e6 // indirect
 	gopkg.in/yaml.v2 v2.2.2
-	golang.org/x/image v0.0.0-20190321063152-3fc05d484e9f
 )
