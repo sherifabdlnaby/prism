@@ -29,5 +29,5 @@ outputs:
         concurrency: 10
         config:
             username: root
-            db_name: ref
-            query: sd
+            db_name: mydatabase
+            query: INSERT INTO photos (ID, photoID, length, width, location) VALUES (@{count},'@{_id}','45','85','Cairo');

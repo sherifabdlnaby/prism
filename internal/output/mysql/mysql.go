@@ -2,13 +2,15 @@ package mysql
 
 import (
 	"database/sql"
-	"fmt"
+	"github.com/go-sql-driver/mysql"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/sherifabdlnaby/prism/pkg/component"
 	"github.com/sherifabdlnaby/prism/pkg/config"
+	"github.com/sherifabdlnaby/prism/pkg/response"
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
 	"go.uber.org/zap"
 	"sync"
+	"time"
 )
 
 //Mysql struct
@@ -60,11 +62,66 @@ func (m *Mysql) Init(config config.Config, logger zap.SugaredLogger) error {
 	return nil
 }
 
+type DatabaseConfig struct {
+	DBName               string `toml:"dbname"`
+	Host                 string `toml:"host"`
+	Port                 int    `toml:"port"`
+	User                 string `toml:"user"`
+	Password             string `toml:"password"`
+	Sslmode              string `toml:"sslmode"`
+	ShowLog              bool
+	DataSaveDir          string
+	DataFileSaveLoopSize int
+	MaxIdleConns         int `toml:"max_idle_conns"`
+	MaxOpenConns         int `toml:"max_open_conns"`
+	MaxLifeTime          int `toml:"max_life_time"`
+	Timeout              int `toml:"timeout"`
+	RTimeout             int `toml:"rtimeout"`
+	WTimeout             int `toml:"wtimeout"`
+}
+
+func (c DatabaseConfig) MySQLSource() string {
+	params := make(map[string]string, 0)
+	params["charset"] = "utf8mb4"
+	cfg := mysql.Config{}
+	cfg.User = c.User
+	cfg.Passwd = c.Password
+	cfg.DBName = c.DBName
+	cfg.ParseTime = true
+	cfg.Collation = "utf8mb4_unicode_ci"
+	cfg.Params = params
+	cfg.Loc, _ = time.LoadLocation("Asia/Chongqing")
+	cfg.Timeout = time.Duration(c.Timeout) * time.Second
+	cfg.MultiStatements = true
+	cfg.ReadTimeout = time.Duration(c.RTimeout) * time.Second
+	cfg.WriteTimeout = time.Duration(c.WTimeout) * time.Second
+	return cfg.FormatDSN()
+}
+
 //WriteOnMysql func takes the transaction
 //that to be written on Mysql db
-func (m *Mysql) writeOnMysql(txn transaction.Transaction) {
+func (m *Mysql) writeOnMysql(db *sql.DB, txn transaction.Transaction) {
 	defer m.wg.Done()
 
+	query, err := m.config.query.Evaluate(txn.Data)
+	if err != nil {
+		txn.ResponseChan <- response.Error(err)
+		return
+	}
+	stmtQuery, err := db.Prepare(query)
+	if err != nil {
+		txn.ResponseChan <- response.Error(err)
+		return
+	}
+	defer stmtQuery.Close()
+
+	_, err = stmtQuery.Exec()
+	if err != nil {
+		txn.ResponseChan <- response.Error(err)
+		return
+	}
+
+	txn.ResponseChan <- response.Ack()
 }
 
 // Start the plugin and be ready for taking transactions
@@ -74,20 +131,19 @@ func (m *Mysql) Start() error {
 	if err != nil {
 		return err
 	}
-	defer db.Close()
 
 	// Open doesn't open a connection. Validate DSN data:
 	err = db.Ping()
 	if err != nil {
 		return err
 	}
-	fmt.Println("aloo")
+
 	m.wg.Add(1)
 	go func() {
 		defer m.wg.Done()
 		for txn := range m.Transactions {
 			m.wg.Add(1)
-			go m.writeOnMysql(txn)
+			go m.writeOnMysql(db, txn)
 		}
 	}()
 	return nil
