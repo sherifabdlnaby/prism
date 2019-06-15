@@ -2,9 +2,13 @@ package main
 
 import (
 	"fmt"
+	"log"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/sherifabdlnaby/prism/app"
 	"github.com/sherifabdlnaby/prism/app/config"
@@ -13,6 +17,10 @@ import (
 )
 
 func main() {
+
+	go func() {
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
 
 	// Parse configuration from yaml files
 	config, err := bootstrap()
@@ -32,6 +40,7 @@ func main() {
 	// Defer Closing the app.
 	defer func() {
 		err = app.Stop(config)
+		time.Sleep(100 * time.Second)
 		if err != nil {
 			panic(err)
 		}

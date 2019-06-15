@@ -11,7 +11,6 @@ type Operations struct {
 	Flip   flip
 	Blur   blur
 	Rotate rotate
-	Scale  scale
 	Crop   crop
 	Label  label
 	//------------disabled-------------------

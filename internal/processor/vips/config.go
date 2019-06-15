@@ -6,18 +6,7 @@ import (
 
 type Config struct {
 	Operations Operations
-	Export     Export
-}
-
-type Export struct {
-	Format          string
-	Quality         int
-	Compression     int
-	Interlaced      bool
-	Lossless        bool
-	StripProfile    bool
-	StripMetadata   bool
-	BackgroundColor RGB
+	Export     export
 }
 
 type RGB struct {
@@ -39,9 +28,6 @@ func DefaultConfig() *Config {
 			Rotate: rotate{
 				Raw: *rotateDefaults(),
 			},
-			Scale: scale{
-				Raw: *scaleDefaults(),
-			},
 			Crop: crop{
 				Raw: *cropDefaults(),
 			},
@@ -49,20 +35,14 @@ func DefaultConfig() *Config {
 				Raw: *labelDefaults(),
 			},
 		},
-		Export: *DefaultExport(),
-	}
-}
-
-func DefaultExport() *Export {
-	return &Export{
-		Format:        "jpeg",
-		Quality:       90,
-		Compression:   0,
-		StripMetadata: true,
-		BackgroundColor: RGB{
-			R: 255,
-			G: 255,
-			B: 255,
+		Export: export{
+			Raw: exportRawConfig{
+				Format:        "jpeg",
+				Extend:        "black",
+				Quality:       85,
+				Compression:   6,
+				StripMetadata: true,
+			},
 		},
 	}
 }
@@ -93,16 +73,6 @@ func rotateDefaults() *rotateRawConfig {
 	}
 }
 
-func scaleDefaults() *scaleRawConfig {
-	return &scaleRawConfig{
-		Width:    "",
-		Height:   "",
-		Both:     "",
-		Strategy: "embed",
-		Pad:      "black",
-	}
-}
-
 func labelDefaults() *labelRawConfig {
 	return &labelRawConfig{
 		Width:     "",
@@ -128,6 +98,23 @@ func cropDefaults() *cropRawConfig {
 	}
 }
 
+// No need to use this, defaultOptions have it already embedded
+func defaultExportOptions() *exportRawConfig {
+	return &exportRawConfig{
+		Format:        "jpeg",
+		Quality:       85,
+		Compression:   80,
+		StripMetadata: false,
+	}
+}
+
 func defaultOptions() *bimg.Options {
-	return &bimg.Options{}
+	return &bimg.Options{
+		Quality:        85,
+		Compression:    6,
+		StripMetadata:  true,
+		Type:           bimg.JPEG,
+		Interpretation: bimg.InterpretationSRGB,
+		Interlace:      true,
+	}
 }

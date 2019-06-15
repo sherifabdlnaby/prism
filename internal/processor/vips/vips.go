@@ -11,7 +11,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// TODO: Memory leak occurs when data from transactions are bytes not stream from INPUT, AND there are tons of requests (10ms between each request)
 // TODO: EXTEND BIMG TO DO FACE AND ENTROPY smart crop
 
 //Dummy Dummy Processor that does absolutely nothing to the image
@@ -47,7 +46,7 @@ func (d *Vips) Init(config config.Config, logger zap.SugaredLogger) error {
 	}
 
 	// init export
-	d.config.export, err = NewExportParams(d.config.Export)
+	_, err = d.config.Export.Init()
 	if err != nil {
 		return err
 	}
@@ -101,8 +100,14 @@ func (d *Vips) Process(in payload.DecodedImage, data payload.Data) (payload.Deco
 
 func (d *Vips) Encode(in payload.DecodedImage, data payload.Data) (payload.Bytes, response.Response) {
 	img := in.(*image)
-	bytes, err := bimg.Resize(img.bytes, img.options)
 
+	// apply export
+	err := d.config.Export.Apply(&img.options, data)
+	if err != nil {
+		return nil, response.Error(err)
+	}
+
+	bytes, err := bimg.Resize(img.bytes, img.options)
 	if err != nil {
 		return nil, response.Error(err)
 	}

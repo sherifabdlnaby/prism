@@ -159,7 +159,7 @@ func (d *Dummy) Start() error {
 					}
 
 					// alternate between stream/data
-					//flag = !flag
+					flag = !flag
 
 					// Wait Transaction
 					response := <-responseChan

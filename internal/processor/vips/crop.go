@@ -66,7 +66,6 @@ func (o *crop) Apply(p *bimg.Options, data payload.Data) error {
 	p.Width = int(width)
 	p.Height = int(height)
 	p.Crop = true
-	p.Force = true
 
 	anchor, err := o.anchor.Evaluate(data)
 	if err != nil {

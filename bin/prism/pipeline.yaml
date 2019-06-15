@@ -1,6 +1,6 @@
 pipelines:
     profile_pic_pipeline:
-        concurrency: 10
+        concurrency: 50
         pipeline:
             dummy_processor2:
                 next:
