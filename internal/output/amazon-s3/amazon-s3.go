@@ -66,14 +66,13 @@ func (s *S3) SetTransactionChan(t <-chan transaction.Transaction) {
 //Init func Initialize the S3 output plugin
 func (s *S3) Init(config config.Config, logger zap.SugaredLogger) error {
 
-	var err error
-
 	s.config = *DefaultConfig()
 	Error := config.Populate(&s.config)
 	if Error != nil {
 		return Error
 	}
 
+	var err error
 	s.config.filepath, err = config.NewSelector(s.config.FilePath)
 	if err != nil {
 		return err

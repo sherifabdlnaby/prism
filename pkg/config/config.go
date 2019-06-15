@@ -25,6 +25,7 @@ func NewConfig(config map[string]interface{}) *Config {
 }
 
 //NewValue creates a temporary value and it doesn't cache it
+
 //Populate func Populates the config
 func (cw *Config) Populate(def interface{}) error {
 

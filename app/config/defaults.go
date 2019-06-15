@@ -13,7 +13,7 @@ var DefaultComponent = Component{
 	Concurrency: runtime.NumCPU(),
 }
 
-//DefaultInputs used in defaults
+//DefaultInput used in defaults
 var DefaultInput = Input{
 	Component: DefaultComponent,
 }
