@@ -32,10 +32,10 @@ type Config struct {
 	FilePath                      string `mapstructure:"filepath" validate:"required"`
 	S3Region                      string `mapstructure:"s3_region" validate:"required"`
 	S3Bucket                      string `mapstructure:"s3_bucket" validate:"required"`
-	AccessKeyId                   string `mapstructure:"access_key_id"`
+	AccessKeyID                   string `mapstructure:"access_key_id"`
 	SecretAccessKey               string `mapstructure:"secret_access_key"`
 	SessionToken                  string `mapstructure:"session_token"`
-	CannedAcl                     string `mapstructure:"canned_acl" validate:"oneof=private public-read public-read-write authenticated-read aws-exec-read bucket-owner-read bucket-owner-full-control log-delivery-write"`
+	CannedACL                     string `mapstructure:"canned_acl" validate:"oneof=private public-read public-read-write authenticated-read aws-exec-read bucket-owner-read bucket-owner-full-control log-delivery-write"`
 	Encoding                      string `mapstructure:"encoding" validate:"oneof=none gzip"`
 	ServerSideEncryptionAlgorithm string `mapstructure:"server_side_encryption_algorithm" validate:"oneof=AES256 aws:kms"`
 	StorageClass                  string `mapstructure:"storage_class" validate:"oneof=STANDARD REDUCED_REDUNDANCY STANDARD_IA"`
@@ -46,7 +46,7 @@ type Config struct {
 //DefaultConfig func return the default configurations
 func DefaultConfig() *Config {
 	return &Config{
-		CannedAcl:                     "private",
+		CannedACL:                     "private",
 		Encoding:                      "none",
 		ServerSideEncryptionAlgorithm: "AES256",
 		StorageClass:                  "STANDARD",
@@ -69,9 +69,9 @@ func (s *S3) Init(config config.Config, logger zap.SugaredLogger) error {
 	var err error
 
 	s.config = *DefaultConfig()
-	err = config.Populate(&s.config)
-	if err != nil {
-		return err
+	Error := config.Populate(&s.config)
+	if Error != nil {
+		return Error
 	}
 
 	s.config.filepath, err = config.NewSelector(s.config.FilePath)
@@ -115,7 +115,7 @@ func (s *S3) writeOnS3(svc *s3.S3, txn transaction.Transaction) {
 	_, err = svc.PutObject(&s3.PutObjectInput{
 		Bucket:               aws.String(s.config.S3Bucket),
 		Key:                  aws.String(filePath),
-		ACL:                  aws.String(s.config.CannedAcl),
+		ACL:                  aws.String(s.config.CannedACL),
 		Body:                 bytes.NewReader(buffer),
 		ContentLength:        aws.Int64(size),
 		ContentType:          aws.String(http.DetectContentType(buffer)),
@@ -137,7 +137,7 @@ func (s *S3) writeOnS3(svc *s3.S3, txn transaction.Transaction) {
 // Start the plugin and be ready for taking transactions
 func (s *S3) Start() error {
 
-	staticCreds := credentials.NewStaticCredentials(s.config.AccessKeyId, s.config.SecretAccessKey, s.config.SessionToken)
+	staticCreds := credentials.NewStaticCredentials(s.config.AccessKeyID, s.config.SecretAccessKey, s.config.SessionToken)
 	val, _ := staticCreds.Get()
 	creds := credentials.NewChainCredentials(
 		[]credentials.Provider{

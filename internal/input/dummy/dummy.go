@@ -25,6 +25,7 @@ type Dummy struct {
 	metric       int
 }
 
+//Config struct
 type Config struct {
 	FileName string
 	Pipeline string
@@ -35,6 +36,7 @@ type Config struct {
 	filename config.Selector
 }
 
+//DefaultConfig return the default configs
 func DefaultConfig() *Config {
 	return &Config{
 		Tick: 1000,
@@ -77,6 +79,73 @@ func (d *Dummy) Init(config config.Config, logger zap.SugaredLogger) error {
 	return nil
 }
 
+//validateAndSend func evaluate the input then send
+func validateAndSend(i int, d *Dummy, flag bool) {
+	defer d.wg.Done()
+
+	// create context
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(d.config.Timeout)*time.Millisecond)
+	defer cancel()
+
+	// payloadData (request params)
+	payloadData := payload.Data{
+		"count": i,
+	}
+
+	// get selectors
+	pipeline, err := d.config.pipeline.Evaluate(payloadData)
+	if err != nil {
+		d.logger.Debugw("Error in dummy: ", zap.Error(err))
+		return
+	}
+
+	filename, err := d.config.filename.Evaluate(payloadData)
+	if err != nil {
+		d.logger.Debugw("Error in dummy: ", zap.Error(err))
+		return
+	}
+
+	// Get Image Data
+	reader, err := os.Open(filename)
+	if err != nil {
+		d.logger.Debugw("Error in dummy: ", zap.Error(err))
+		return
+	}
+
+	// Send
+	responseChan := make(chan response.Response)
+	if flag {
+		bytes, _ := ioutil.ReadAll(reader)
+		// Send Transaction
+		d.logger.Debugw("SENDING A TRANSACTION (bytes)....", "ID", i)
+		d.Transactions <- transaction.InputTransaction{
+			Transaction: transaction.Transaction{
+				Payload:      payload.Bytes(bytes),
+				Data:         payloadData,
+				ResponseChan: responseChan,
+				Context:      ctx,
+			},
+			PipelineTag: pipeline,
+		}
+	} else {
+		d.logger.Debugw("SENDING A TRANSACTION (stream)...", "ID", i)
+		d.Transactions <- transaction.InputTransaction{
+			Transaction: transaction.Transaction{
+				Payload:      reader,
+				Data:         payloadData,
+				ResponseChan: responseChan,
+				Context:      ctx,
+			},
+			PipelineTag: pipeline,
+		}
+	}
+
+	// Wait Transaction
+	response := <-responseChan
+
+	d.logger.Debugw("RECEIVED RESPONSE.", "ID", i, "ack", response.Ack, "error", response.Error, "AckErr", response.AckErr)
+}
+
 // Start Starts Plugin
 func (d *Dummy) Start() error {
 	d.logger.Debugw("Started Input, Hooray!")
@@ -92,74 +161,10 @@ func (d *Dummy) Start() error {
 				return
 			default:
 				d.wg.Add(1)
-				go func(i int) {
-					defer d.wg.Done()
+				go validateAndSend(d.metric, d, flag)
 
-					// create context
-					ctx, cancel := context.WithTimeout(context.Background(), time.Duration(d.config.Timeout)*time.Millisecond)
-					defer cancel()
-
-					// payloadData (request params)
-					payloadData := payload.Data{
-						"count": i,
-					}
-
-					// get selectors
-					pipeline, err := d.config.pipeline.Evaluate(payloadData)
-					if err != nil {
-						d.logger.Debugw("Error in dummy: ", zap.Error(err))
-						return
-					}
-
-					filename, err := d.config.filename.Evaluate(payloadData)
-					if err != nil {
-						d.logger.Debugw("Error in dummy: ", zap.Error(err))
-						return
-					}
-
-					// Get Image Data
-					reader, err := os.Open(filename)
-					if err != nil {
-						d.logger.Debugw("Error in dummy: ", zap.Error(err))
-						return
-					}
-
-					// Send
-					responseChan := make(chan response.Response)
-					if flag {
-						bytes, _ := ioutil.ReadAll(reader)
-						// Send Transaction
-						d.logger.Debugw("SENDING A TRANSACTION (bytes)....", "ID", i)
-						d.Transactions <- transaction.InputTransaction{
-							Transaction: transaction.Transaction{
-								Payload:      payload.Bytes(bytes),
-								Data:         payloadData,
-								ResponseChan: responseChan,
-								Context:      ctx,
-							},
-							PipelineTag: pipeline,
-						}
-					} else {
-						d.logger.Debugw("SENDING A TRANSACTION (stream)...", "ID", i)
-						d.Transactions <- transaction.InputTransaction{
-							Transaction: transaction.Transaction{
-								Payload:      reader,
-								Data:         payloadData,
-								ResponseChan: responseChan,
-								Context:      ctx,
-							},
-							PipelineTag: pipeline,
-						}
-					}
-
-					// alternate between stream/data
-					flag = !flag
-
-					// Wait Transaction
-					response := <-responseChan
-
-					d.logger.Debugw("RECEIVED RESPONSE.", "ID", i, "ack", response.Ack, "error", response.Error, "AckErr", response.AckErr)
-				}(d.metric)
+				// alternate between stream/data
+				flag = !flag
 
 				d.metric++
 				time.Sleep(time.Millisecond * time.Duration(d.config.Tick))

@@ -25,12 +25,14 @@ type Disk struct {
 	wg           sync.WaitGroup
 }
 
+//Config struct
 type Config struct {
 	Permission os.FileMode `mapstructure:"permission"`
 	FilePath   string      `mapstructure:"filepath"`
 	filepath   config.Selector
 }
 
+//DefaultConfig returns the default configs
 func DefaultConfig() *Config {
 	return &Config{
 		Permission: 0777,

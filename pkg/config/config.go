@@ -25,6 +25,7 @@ func NewConfig(config map[string]interface{}) *Config {
 }
 
 //NewValue creates a temporary value and it doesn't cache it
+//Populate func Populates the config
 func (cw *Config) Populate(def interface{}) error {
 
 	config := &mapstructure.DecoderConfig{
@@ -50,10 +51,12 @@ func (cw *Config) Populate(def interface{}) error {
 	return err
 }
 
+//NewSelector func for dynamic configs
 func (cw *Config) NewSelector(base interface{}) (Selector, error) {
 	return NewSelector(base)
 }
 
+//NewSelector func
 func NewSelector(base interface{}) (Selector, error) {
 	val := objx.NewValue(base)
 
@@ -87,32 +90,35 @@ func (v *Selector) Evaluate(data map[string]interface{}) (string, error) {
 
 	dataMap := objx.Map(data)
 
+	var retValue string
+
 	// Return it directly
 	if len(v.parts) == 1 {
 		val := dataMap.Get(v.parts[0].string)
 		if val.IsNil() {
 			return "", fmt.Errorf("value [%s] is not found in transaction", v.parts[0].string)
 		}
-		return val.String(), nil
-	}
+		retValue = val.String()
 
-	var builder strings.Builder
-	var partValue *objx.Value
-	for _, part := range v.parts {
-		if !part.eval {
-			builder.WriteString(part.string)
-			continue
+	} else {
+		var builder strings.Builder
+		var partValue *objx.Value
+		for _, part := range v.parts {
+			if !part.eval {
+				builder.WriteString(part.string)
+				continue
+			}
+
+			partValue = dataMap.Get(part.string)
+			if partValue.IsNil() {
+				return "", fmt.Errorf("value [%s] is not found in transaction", part.string)
+			}
+
+			builder.WriteString(partValue.String())
 		}
-
-		partValue = dataMap.Get(part.string)
-		if partValue.IsNil() {
-			return "", fmt.Errorf("value [%s] is not found in transaction", part.string)
-		}
-
-		builder.WriteString(partValue.String())
+		retValue = builder.String()
 	}
-
-	return builder.String(), nil
+	return retValue, nil
 
 }
 
@@ -157,6 +163,7 @@ func splitToParts(str string) []part {
 	return parts
 }
 
+//CheckInValues func
 func CheckInValues(data interface{}, values ...interface{}) error {
 	for _, value := range values {
 		if data == value {
