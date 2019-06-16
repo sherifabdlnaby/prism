@@ -34,6 +34,24 @@ processors:
         concurrency: 100
         plugin: vips
         config:
+            operations:
+                resize:
+                    width: 1000
+                    height: 0
+            export:
+                format: jpeg
+                quality: 90
+    dummy_processor4:
+        concurrency: 100
+        plugin: vips
+        config:
+            operations:
+                label:
+                    text: "@TestWatermark"
+                    dpi: 100
+                    width: 100
+                    font: sans 15 bold
+                    opacity: 0.75
             export:
                 format: jpeg
                 quality: 90

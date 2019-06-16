@@ -1,7 +1,7 @@
 package vips
 
 import (
-	"github.com/h2non/bimg"
+	"github.com/sherifabdlnaby/bimg"
 	"github.com/sherifabdlnaby/prism/pkg/config"
 	"github.com/sherifabdlnaby/prism/pkg/payload"
 )

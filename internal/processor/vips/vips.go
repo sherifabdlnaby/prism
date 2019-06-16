@@ -2,8 +2,9 @@ package vips
 
 import (
 	"io/ioutil"
+	"runtime"
 
-	"github.com/h2non/bimg"
+	"github.com/sherifabdlnaby/bimg"
 	"github.com/sherifabdlnaby/prism/pkg/component"
 	"github.com/sherifabdlnaby/prism/pkg/config"
 	"github.com/sherifabdlnaby/prism/pkg/payload"
@@ -12,6 +13,11 @@ import (
 )
 
 // TODO: EXTEND BIMG TO DO FACE AND ENTROPY smart crop
+
+func init() {
+	//bimg.VipsCacheSetMaxMem(0)
+	//bimg.VipsCacheSetMax(0)
+}
 
 //Dummy Dummy Processor that does absolutely nothing to the image
 type Vips struct {
@@ -25,7 +31,7 @@ func NewComponent() component.Component {
 }
 
 type image struct {
-	bytes   []byte
+	image   *bimg.VipsImage
 	options bimg.Options
 }
 
@@ -63,42 +69,69 @@ func (d *Vips) Start() error {
 
 //Close Close plugin gracefully
 func (d *Vips) Close() error {
-	bimg.VipsCacheDropAll()
 	return nil
 }
 
 func (d *Vips) Decode(in payload.Bytes, data payload.Data) (payload.DecodedImage, response.Response) {
-	// Return it as it is (dummy).
-	return []byte(in), response.ACK
+
+	vimage, err := bimg.NewVipsImage(in)
+
+	if err != nil {
+		return nil, response.Error(err)
+	}
+
+	return image{
+		image:   vimage,
+		options: bimg.Options{},
+	}, response.ACK
 }
 
 func (d *Vips) DecodeStream(in payload.Stream, data payload.Data) (payload.DecodedImage, response.Response) {
 	buff, err := ioutil.ReadAll(in)
 
+	vimage, err := bimg.NewVipsImage(buff)
+
 	if err != nil {
 		return nil, response.Error(err)
 	}
 
-	// Return it as it is (dummy).
-	return buff, response.ACK
+	return image{
+		image:   vimage,
+		options: bimg.Options{},
+	}, response.ACK
 }
 
 func (d *Vips) Process(in payload.DecodedImage, data payload.Data) (payload.DecodedImage, response.Response) {
+	// TODO fix bimg fork to not need this
+	//  (this happen probably because shrink on load requires src buffer to still be alive )
+	defer runtime.KeepAlive(in)
+
+	vimage := in.(image)
 	params := defaultOptions()
 
-	err := d.config.Operations.Do(params, data)
+	img := vimage.image.Clone()
 
+	// apply configs
+	err := d.config.Operations.Do(params, data)
+	if err != nil {
+		return nil, response.Error(err)
+	}
+
+	// process
+	err = img.Process(*params)
 	if err != nil {
 		return nil, response.Error(err)
 	}
 
 	return &image{
-		bytes:   in.([]byte),
+		image:   img,
 		options: *params,
 	}, response.ACK
 }
 
 func (d *Vips) Encode(in payload.DecodedImage, data payload.Data) (payload.Bytes, response.Response) {
+	defer runtime.KeepAlive(in)
+
 	img := in.(*image)
 
 	// apply export
@@ -107,7 +140,7 @@ func (d *Vips) Encode(in payload.DecodedImage, data payload.Data) (payload.Bytes
 		return nil, response.Error(err)
 	}
 
-	bytes, err := bimg.Resize(img.bytes, img.options)
+	bytes, err := img.image.Save(img.options)
 	if err != nil {
 		return nil, response.Error(err)
 	}

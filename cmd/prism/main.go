@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"github.com/sherifabdlnaby/prism/app"
 	"github.com/sherifabdlnaby/prism/app/config"
@@ -40,7 +39,6 @@ func main() {
 	// Defer Closing the app.
 	defer func() {
 		err = app.Stop(config)
-		time.Sleep(100 * time.Second)
 		if err != nil {
 			panic(err)
 		}

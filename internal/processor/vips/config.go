@@ -1,7 +1,7 @@
 package vips
 
 import (
-	"github.com/h2non/bimg"
+	"github.com/sherifabdlnaby/bimg"
 )
 
 type Config struct {
