@@ -1,6 +1,8 @@
 package node
 
 import (
+	"reflect"
+
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
 )
 
@@ -20,24 +22,43 @@ type Node interface {
 
 	//SetNexts Set this Node's next nodes.
 	SetNexts([]Next)
+
+	//SetNexts Set this Node's next nodes.
+	GetInternalType() interface{}
 }
 
 //TODO rename
 type component interface {
 	job(t transaction.Transaction)
 	jobStream(t transaction.Transaction)
+	getInternalType() interface{}
 }
 
 //Next Wraps the next Node plus the channel used to communicate with this Node to send input transactions.
 type Next struct {
 	Node
 	TransactionChan chan transaction.Transaction
+	Same            bool
 }
 
 //NewNext Create a new Next Node with the supplied Node.
-func NewNext(Node Node) *Next {
+func NewNext(next, parent Node) *Next {
+
+	var same bool
+
+	if parent != nil {
+		typ1 := parent.GetInternalType()
+		typ2 := next.GetInternalType()
+		if typ1 != nil && typ2 != nil {
+			name1 := reflect.TypeOf(typ1).Elem().String()
+			name2 := reflect.TypeOf(typ2).Elem().String()
+			same = name1 == name2
+		}
+	}
+
 	return &Next{
-		Node:            Node,
+		Node:            next,
 		TransactionChan: make(chan transaction.Transaction),
+		Same:            same,
 	}
 }

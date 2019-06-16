@@ -22,6 +22,10 @@ type base struct {
 	nodeType       component
 }
 
+func (n *base) GetInternalType() interface{} {
+	return n.nodeType.getInternalType()
+}
+
 func newBase(nodeType component, resource resource.Resource) *base {
 	return &base{
 		asyncResponses: make(chan response.Response),
@@ -116,8 +120,13 @@ func (n *base) handleTransaction(t transaction.Transaction) {
 	case payload.Stream:
 		go n.nodeType.jobStream(t)
 	default:
-		// This theoretically shouldn't happen
-		t.ResponseChan <- response.Error(fmt.Errorf("invalid transaction payload type, must be payload.Bytes or payload.Stream"))
+		if t.SameType {
+			go n.nodeType.job(t)
+		} else {
+			// This theoretically shouldn't happen
+			t.ResponseChan <- response.Error(fmt.Errorf("invalid transaction payload type, must be payload.Bytes or payload.Stream"))
+		}
+
 	}
 
 }
@@ -129,29 +138,39 @@ func (n *base) asyncHandler() {
 	}
 }
 
-func (n *base) sendNextsStream(ctx context.Context, writerCloner mirror.Cloner, data payload.Data) chan response.Response {
+// TODO refactor sendNext/SendNextStream to same core function.
+func (n *base) sendNextsStream(ctx context.Context, writerCloner mirror.Cloner, data payload.Data, unencoded interface{}) chan response.Response {
 	responseChan := make(chan response.Response, len(n.nexts))
 	for _, next := range n.nexts {
-
-		next.TransactionChan <- transaction.Transaction{
+		txn := transaction.Transaction{
 			Payload:      writerCloner.Clone(),
 			Data:         data,
 			Context:      ctx,
 			ResponseChan: responseChan,
+			SameType:     next.Same,
 		}
+		if next.Same {
+			txn.Payload = unencoded
+		}
+		next.TransactionChan <- txn
 	}
 	return responseChan
 }
 
-func (n *base) sendNexts(ctx context.Context, output payload.Bytes, data payload.Data) chan response.Response {
+func (n *base) sendNexts(ctx context.Context, output payload.Bytes, data payload.Data, unencoded interface{}) chan response.Response {
 	responseChan := make(chan response.Response, len(n.nexts))
 	for _, next := range n.nexts {
-		next.TransactionChan <- transaction.Transaction{
+		txn := transaction.Transaction{
 			Payload:      output,
 			Data:         data,
 			Context:      ctx,
 			ResponseChan: responseChan,
+			SameType:     next.Same,
 		}
+		if next.Same {
+			txn.Payload = unencoded
+		}
+		next.TransactionChan <- txn
 	}
 	return responseChan
 }

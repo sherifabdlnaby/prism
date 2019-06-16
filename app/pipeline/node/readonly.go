@@ -18,6 +18,10 @@ type readOnly struct {
 	*base
 }
 
+func (n *readOnly) getInternalType() interface{} {
+	return n.processor
+}
+
 //NewReadOnly Construct a new ReadOnly node
 func NewReadOnly(ProcessorReadOnly processor.ReadOnly, resource resource.Resource) Node {
 	Node := &readOnly{processor: ProcessorReadOnly}
@@ -41,11 +45,18 @@ func (n *readOnly) job(t transaction.Transaction) {
 	// PROCESS ( DECODE -> PROCESS )
 
 	/// DECODE
-	decoded, Response := n.processor.Decode(t.Payload.(payload.Bytes), t.Data)
-	if !Response.Ack {
-		t.ResponseChan <- Response
-		n.resource.Release()
-		return
+	var decoded payload.DecodedImage
+	var Response response.Response
+
+	if !t.SameType {
+		decoded, Response = n.processor.Decode(t.Payload.(payload.Bytes), t.Data)
+		if !Response.Ack {
+			t.ResponseChan <- Response
+			n.resource.Release()
+			return
+		}
+	} else {
+		decoded = t.Payload
 	}
 
 	/// PROCESS
@@ -62,7 +73,7 @@ func (n *readOnly) job(t transaction.Transaction) {
 	defer cancel()
 
 	// send to next channels
-	responseChan := n.sendNexts(ctx, t.Payload.(payload.Bytes), t.Data)
+	responseChan := n.sendNexts(ctx, t.Payload.(payload.Bytes), t.Data, decoded)
 
 	// Await Responses
 	Response = n.waitResponses(ctx, responseChan)
@@ -94,11 +105,18 @@ func (n *readOnly) jobStream(t transaction.Transaction) {
 	// PROCESS ( DECODE -> PROCESS )
 
 	/// DECODE
-	decoded, Response := n.processor.DecodeStream(mirrorPayload, t.Data)
-	if !Response.Ack {
-		t.ResponseChan <- Response
-		n.resource.Release()
-		return
+	var decoded payload.DecodedImage
+	var Response response.Response
+
+	if !t.SameType {
+		decoded, Response = n.processor.DecodeStream(mirrorPayload, t.Data)
+		if !Response.Ack {
+			t.ResponseChan <- Response
+			n.resource.Release()
+			return
+		}
+	} else {
+		decoded = t.Payload
 	}
 
 	/// PROCESS
@@ -115,7 +133,7 @@ func (n *readOnly) jobStream(t transaction.Transaction) {
 	defer cancel()
 
 	// send to next channels
-	responseChan := n.sendNextsStream(ctx, readerCloner, t.Data)
+	responseChan := n.sendNextsStream(ctx, readerCloner, t.Data, decoded)
 
 	// Await Responses
 	Response = n.waitResponses(ctx, responseChan)

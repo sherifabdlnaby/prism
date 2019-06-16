@@ -30,6 +30,8 @@ github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZN
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/sherifabdlnaby/bimg v1.1.1 h1:Knt1zvVZNlwY7lGJHX+KmY65bKpjidrN02UtyFlgFro=
 github.com/sherifabdlnaby/bimg v1.1.1/go.mod h1:u+KXT5rRHhgK6O0kEeNlUO4klerFwoRpzx2KMSAD4dE=
+github.com/sherifabdlnaby/bimg v1.1.1 h1:Knt1zvVZNlwY7lGJHX+KmY65bKpjidrN02UtyFlgFro=
+github.com/sherifabdlnaby/bimg v1.1.1/go.mod h1:u+KXT5rRHhgK6O0kEeNlUO4klerFwoRpzx2KMSAD4dE=
 github.com/sherifabdlnaby/objx v0.2.0 h1:rYBkWCVpj2GRATOJkpHtQuPZFZvkd0+HmV/B8xYZ/8o=
 github.com/sherifabdlnaby/objx v0.2.0/go.mod h1:YuG2mQQy+HouSi/ykH7r9jAGKJKzq5wUyw3CCyGCjH0=
 github.com/sherifabdlnaby/semaphore v1.1.0 h1:V2fgzQI68fXgV4+y6pAnI/OU5RB61UiQmJ3ys+F8354=

@@ -112,7 +112,7 @@ func NewPipeline(pc config.Pipeline, registry registery.Registry, logger zap.Sug
 		Node.SetAsync(value.Async)
 
 		// create a next wrapper
-		next := *node.NewNext(Node)
+		next := *node.NewNext(Node, beginNode)
 
 		// gives the next's node its InputTransactionChan, now owner of the 'next' owns closing the chan.
 		Node.SetTransactionChan(next.TransactionChan)
@@ -124,7 +124,7 @@ func NewPipeline(pc config.Pipeline, registry registery.Registry, logger zap.Sug
 	beginNode.SetNexts(nexts)
 
 	// give dummy node its receive chan
-	Next := node.NewNext(beginNode)
+	Next := node.NewNext(beginNode, nil)
 
 	// give node its receive chan
 	beginNode.SetTransactionChan(Next.TransactionChan)
@@ -162,7 +162,7 @@ func buildTree(name string, n config.Node, registry registery.Registry, NodesLis
 			}
 
 			// create a next wrapper
-			next := *node.NewNext(Node)
+			next := *node.NewNext(Node, currNode)
 
 			// gives the next's node its InputTransactionChan, now owner of the 'next' owns closing the chan.
 			Node.SetTransactionChan(next.TransactionChan)

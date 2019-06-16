@@ -12,10 +12,6 @@ pipelines:
                         async: false
             dummy_processor3:
                 next:
-                    dummy_processor4:
-                        next:
-                            disk4:
-                                async: false
                     disk3:
                         async: false
 

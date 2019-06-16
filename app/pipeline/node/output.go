@@ -12,6 +12,10 @@ type output struct {
 	*base
 }
 
+func (n *output) getInternalType() interface{} {
+	return n.output.Output
+}
+
 //NewOutput Construct a new Output Node
 func NewOutput(out *wrapper.Output) Node {
 	Node := &output{output: out}

@@ -23,6 +23,8 @@ type Transaction struct {
 	// The response itself indicates whether the payload was successfully processed and propagated
 	// to the next destinations.
 	ResponseChan chan<- response.Response
+
+	SameType bool
 }
 
 // InputTransactionChan represent a transaction containing a streamable payload, Data, PipelineTag, and a response channel,

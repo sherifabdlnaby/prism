@@ -24,6 +24,10 @@ func NewDummy(r resource.Resource) Node {
 	return Node
 }
 
+func (n *dummy) getInternalType() interface{} {
+	return nil
+}
+
 //job Just forwards the input.
 func (n *dummy) job(t transaction.Transaction) {
 
@@ -44,7 +48,7 @@ func (n *dummy) job(t transaction.Transaction) {
 	ctx, cancel := context.WithCancel(t.Context)
 	defer cancel()
 
-	responseChan := n.sendNexts(ctx, t.Payload.(payload.Bytes), t.Data)
+	responseChan := n.sendNexts(ctx, t.Payload.(payload.Bytes), t.Data, nil)
 
 	// Await Responses
 	Response := n.waitResponses(ctx, responseChan)
@@ -92,7 +96,7 @@ func (n *dummy) jobStream(t transaction.Transaction) {
 		stream := t.Payload.(payload.Stream)
 		readerCloner := mirror.NewReader(stream, buffer)
 
-		responseChan = n.sendNextsStream(t.Context, readerCloner, t.Data)
+		responseChan = n.sendNextsStream(t.Context, readerCloner, t.Data, nil)
 	}
 
 	// Await Responses

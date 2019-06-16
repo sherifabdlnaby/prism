@@ -24,6 +24,10 @@ func NewReadWrite(processorReadWrite processor.ReadWrite, r resource.Resource) N
 	return Node
 }
 
+func (n *readWrite) getInternalType() interface{} {
+	return n.processor
+}
+
 //job Process transaction by calling Decode-> Process-> Encode->
 func (n *readWrite) job(t transaction.Transaction) {
 
@@ -39,11 +43,18 @@ func (n *readWrite) job(t transaction.Transaction) {
 	// PROCESS ( DECODE -> PROCESS -> ENCODE )
 
 	/// DECODE
-	decoded, Response := n.processor.Decode(t.Payload.(payload.Bytes), t.Data)
-	if !Response.Ack {
-		t.ResponseChan <- Response
-		n.resource.Release()
-		return
+	var decoded payload.DecodedImage
+	var Response response.Response
+
+	if !t.SameType {
+		decoded, Response = n.processor.Decode(t.Payload.(payload.Bytes), t.Data)
+		if !Response.Ack {
+			t.ResponseChan <- Response
+			n.resource.Release()
+			return
+		}
+	} else {
+		decoded = t.Payload
 	}
 
 	/// PROCESS
@@ -66,7 +77,7 @@ func (n *readWrite) job(t transaction.Transaction) {
 	defer cancel()
 
 	// send to next channels
-	responseChan := n.sendNexts(ctx, output, t.Data)
+	responseChan := n.sendNexts(ctx, output, t.Data, decodedPayload)
 
 	// Await Responses
 	Response = n.waitResponses(ctx, responseChan)
@@ -89,12 +100,18 @@ func (n *readWrite) jobStream(t transaction.Transaction) {
 	// PROCESS ( DECODE -> PROCESS -> ENCODE )
 
 	/// DECODE
-	stream := t.Payload.(payload.Stream)
-	decoded, Response := n.processor.DecodeStream(stream, t.Data)
-	if !Response.Ack {
-		t.ResponseChan <- Response
-		n.resource.Release()
-		return
+	var decoded payload.DecodedImage
+	var Response response.Response
+
+	if !t.SameType {
+		decoded, Response = n.processor.DecodeStream(t.Payload.(payload.Stream), t.Data)
+		if !Response.Ack {
+			t.ResponseChan <- Response
+			n.resource.Release()
+			return
+		}
+	} else {
+		decoded = t.Payload
 	}
 
 	/// PROCESS
@@ -117,7 +134,7 @@ func (n *readWrite) jobStream(t transaction.Transaction) {
 	defer cancel()
 
 	// send to next channels
-	responseChan := n.sendNexts(ctx, output, t.Data)
+	responseChan := n.sendNexts(ctx, output, t.Data, decodedPayload)
 
 	// Await Responses
 	Response = n.waitResponses(ctx, responseChan)
