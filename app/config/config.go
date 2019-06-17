@@ -15,6 +15,8 @@ import (
 )
 
 //TODO Rename
+
+// WithDefaults interface is the interface for default values
 type WithDefaults interface {
 	ApplyDefault() error
 }

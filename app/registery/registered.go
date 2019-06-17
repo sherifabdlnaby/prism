@@ -4,6 +4,7 @@ import (
 	dummyinput "github.com/sherifabdlnaby/prism/internal/input/dummy"
 	s3 "github.com/sherifabdlnaby/prism/internal/output/amazon-s3"
 	"github.com/sherifabdlnaby/prism/internal/output/disk"
+	"github.com/sherifabdlnaby/prism/internal/output/mysql"
 	dummyprocessor "github.com/sherifabdlnaby/prism/internal/processor/dummy"
 	"github.com/sherifabdlnaby/prism/internal/processor/vips"
 	"github.com/sherifabdlnaby/prism/pkg/component"
@@ -15,5 +16,6 @@ var registered = map[string]func() component.Component{
 	"dummy_input":     dummyinput.NewComponent,
 	"disk":            disk.NewComponent,
 	"s3":              s3.NewComponent,
+	"mysql":           mysql.NewComponent,
 	"vips":            vips.NewComponent,
 }

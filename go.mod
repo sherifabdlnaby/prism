@@ -4,6 +4,7 @@ require (
 	github.com/aws/aws-sdk-go v1.19.0
 	github.com/go-playground/locales v0.12.1 // indirect
 	github.com/go-playground/universal-translator v0.16.0 // indirect
+	github.com/go-sql-driver/mysql v1.4.1
 	github.com/google/uuid v1.1.1
 	github.com/imdario/mergo v0.3.7
 	github.com/leodido/go-urn v1.1.0 // indirect
@@ -19,6 +20,9 @@ require (
 	go.uber.org/zap v1.9.1
 	golang.org/x/net v0.0.0-20190613194153-d28f0bde5980 // indirect
 	golang.org/x/sync v0.0.0-20190423024810-112230192c58 // indirect
+	gopkg.in/go-playground/assert.v1 v1.2.1 // indirect
+	golang.org/x/image v0.0.0-20190321063152-3fc05d484e9f
+	google.golang.org/appengine v1.6.1 // indirect
 	gopkg.in/go-playground/assert.v1 v1.2.1 // indirect
 	gopkg.in/go-playground/validator.v9 v9.29.0
 	gopkg.in/yaml.v2 v2.2.2
