@@ -13,8 +13,8 @@ type Reader struct {
 	buf       []byte
 	error     error
 	baseTotal int64
-	mx        sync.Mutex
 	stepSize  int
+	mx        sync.Mutex
 	curr      int
 }
 
@@ -46,7 +46,6 @@ func (r *Reader) readMore() {
 
 	r.stepSize *= 2
 
-	return
 }
 
 type readerCloner struct {

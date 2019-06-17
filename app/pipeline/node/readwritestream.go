@@ -12,22 +12,22 @@ import (
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
 )
 
-//readOnly Wraps a readOnly component
-type readOnly struct {
-	processor processor.ReadOnly
+//readWrite Wraps a readwrite component
+type readWriteStream struct {
+	processor processor.ReadWriteStream
 	*base
 }
 
-//NewReadOnly Construct a new ReadOnly node
-func NewReadOnly(ProcessorReadOnly processor.ReadOnly, resource resource.Resource) Node {
-	Node := &readOnly{processor: ProcessorReadOnly}
-	base := newBase(Node, resource)
+//NewReadWriteStream Construct a new ReadWriteStream Node
+func NewReadWriteStream(processorReadWrite processor.ReadWriteStream, r resource.Resource) Node {
+	Node := &readWriteStream{processor: processorReadWrite}
+	base := newBase(Node, r)
 	Node.base = base
 	return Node
 }
 
 //job Process transaction by calling Decode-> Process-> Encode->
-func (n *readOnly) job(t transaction.Transaction) {
+func (n *readWriteStream) job(t transaction.Transaction) {
 
 	////////////////////////////////////////////
 	// Acquire resource (limit concurrency)
@@ -38,7 +38,7 @@ func (n *readOnly) job(t transaction.Transaction) {
 	}
 
 	////////////////////////////////////////////
-	// PROCESS ( DECODE -> PROCESS )
+	// PROCESS ( DECODE -> PROCESS -> ENCODE )
 
 	/// DECODE
 	decoded, Response := n.processor.Decode(t.Payload.(payload.Bytes), t.Data)
@@ -49,20 +49,31 @@ func (n *readOnly) job(t transaction.Transaction) {
 	}
 
 	/// PROCESS
-	Response = n.processor.Process(decoded, t.Data)
+	decodedPayload, Response := n.processor.Process(decoded, t.Data)
 	if !Response.Ack {
 		t.ResponseChan <- Response
 		n.resource.Release()
 		return
 	}
 
+	// base output writerCloner
+	buffer := bufferspool.Get()
+	defer bufferspool.Put(buffer)
+	writerCloner := mirror.NewWriter(buffer)
+
+	/// ENCODE
+	Response = n.processor.EncodeStream(decodedPayload, t.Data, writerCloner)
 	n.resource.Release()
+	if !Response.Ack {
+		t.ResponseChan <- Response
+		return
+	}
 
 	ctx, cancel := context.WithCancel(t.Context)
 	defer cancel()
 
-	// send to next channels
-	responseChan := n.sendNexts(ctx, t.Payload.(payload.Bytes), t.Data)
+	// Send to nexts
+	responseChan := n.sendNextsStream(ctx, writerCloner, t.Data)
 
 	// Await Responses
 	Response = n.waitResponses(ctx, responseChan)
@@ -71,7 +82,7 @@ func (n *readOnly) job(t transaction.Transaction) {
 	t.ResponseChan <- Response
 }
 
-func (n *readOnly) jobStream(t transaction.Transaction) {
+func (n *readWriteStream) jobStream(t transaction.Transaction) {
 
 	////////////////////////////////////////////
 	// Acquire resource (limit concurrency)
@@ -81,20 +92,12 @@ func (n *readOnly) jobStream(t transaction.Transaction) {
 		return
 	}
 
-	// Get Buffer from pool
-	buffer := bufferspool.Get()
-	defer bufferspool.Put(buffer)
-
-	// Create a reader cloner from incoming stream (to clone the reader stream as it comes in)
-	stream := t.Payload.(payload.Stream)
-	readerCloner := mirror.NewReader(stream, buffer)
-	var mirrorPayload payload.Stream = readerCloner.Clone()
-
 	////////////////////////////////////////////
-	// PROCESS ( DECODE -> PROCESS )
+	// PROCESS ( DECODE -> PROCESS -> ENCODE )
 
 	/// DECODE
-	decoded, Response := n.processor.DecodeStream(mirrorPayload, t.Data)
+	stream := t.Payload.(payload.Stream)
+	decoded, Response := n.processor.DecodeStream(stream, t.Data)
 	if !Response.Ack {
 		t.ResponseChan <- Response
 		n.resource.Release()
@@ -102,20 +105,31 @@ func (n *readOnly) jobStream(t transaction.Transaction) {
 	}
 
 	/// PROCESS
-	Response = n.processor.Process(decoded, t.Data)
+	decodedPayload, Response := n.processor.Process(decoded, t.Data)
 	if !Response.Ack {
 		t.ResponseChan <- Response
 		n.resource.Release()
 		return
 	}
 
+	// base output writerCloner
+	buffer := bufferspool.Get()
+	defer bufferspool.Put(buffer)
+	writerCloner := mirror.NewWriter(buffer)
+
+	/// ENCODE
+	Response = n.processor.EncodeStream(decodedPayload, t.Data, writerCloner)
 	n.resource.Release()
+	if !Response.Ack {
+		t.ResponseChan <- Response
+		return
+	}
 
 	ctx, cancel := context.WithCancel(t.Context)
 	defer cancel()
 
-	// send to next channels
-	responseChan := n.sendNextsStream(ctx, readerCloner, t.Data)
+	// Send to nexts
+	responseChan := n.sendNextsStream(ctx, writerCloner, t.Data)
 
 	// Await Responses
 	Response = n.waitResponses(ctx, responseChan)

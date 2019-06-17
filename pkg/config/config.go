@@ -1,150 +1,59 @@
 package config
 
 import (
-	"fmt"
-	"github.com/sherifabdlnaby/objx"
-	"github.com/sherifabdlnaby/prism/pkg/transaction"
 	"regexp"
-	"strings"
+
+	"github.com/mitchellh/mapstructure"
+	"github.com/sherifabdlnaby/objx"
+	"gopkg.in/go-playground/validator.v9"
 )
 
-// TODO evaluate defaults. (add ability to add default value)
+// TODO evaluate defaults. (add ability to add default base)
 var fieldsRegex = regexp.MustCompile(`@{([\w@.]+)}`)
 
-//Value Contains a value in the config, this value can be static or dynamic, dynamic values must be get using Evaluate()
-type Value struct {
-	isDynamic bool
-	value     objx.Value
-	parts     []part
-}
-
-type part struct {
-	string string
-	eval   bool
-}
-
-// Config used to ease getting values from config using dot notation (obj.Value.array[0].Value), and used to resolve
+// Config used to ease getting values from config using dot notation (obj.Selector.array[0].Selector), and used to resolve
 // dynamic values.
 type Config struct {
 	config objx.Map
-	cache  map[string]Value
 }
 
 // NewConfig construct new Config from map[string]interface{}
 func NewConfig(config map[string]interface{}) *Config {
-	return &Config{config: objx.Map(config), cache: make(map[string]Value)}
+	return &Config{config: objx.Map(config)}
 }
 
-// Get gets value from config based on key, key access config using dot-notation (obj.Value.array[0].Value).
-// Get will also evaluate dynamic fields in config ( @{dynamic.Value} ) using data, pass nill if you're sure that this
-// Value is constant. returns error if key or dynamic Value doesn't exist.
-func (cw *Config) Get(key string, data transaction.ImageData) (Value, error) {
-	// Check cache
-	if val, ok := cw.cache[key]; ok {
-		return val, nil
+// Populate will populate 'dst' struct with the config field in the YAML configuration,
+// structs can use two tags, `mapstructure` to map the config to
+// the struct look up (github.com/mitchellh/mapstructure) docsfor more about its tags,
+// and `validate` tag for quick validation lookup (gopkg.in/go-playground/validator.v9) validate tags
+// for more about its tags.
+func (cw *Config) Populate(dst interface{}) error {
+
+	config := &mapstructure.DecoderConfig{
+		WeaklyTypedInput: true,
+		Result:           dst,
 	}
 
-	val := cw.config.Get(key)
-	if val.IsNil() {
-		return Value{}, fmt.Errorf("value [%s] is not found", key)
+	decoder, err := mapstructure.NewDecoder(config)
+
+	if err != nil {
+		return err
 	}
 
-	str := val.String()
-	parts := splitToParts(str)
-	isDynamic := false
+	err = decoder.Decode(cw.config)
 
-	if parts != nil {
-		isDynamic = true
+	if err != nil {
+		return err
 	}
 
-	cacheField := Value{
-		value:     *val,
-		isDynamic: isDynamic,
-		parts:     parts,
-	}
+	// Validate
+	err = validator.New().Struct(dst)
 
-	cw.cache["key"] = cacheField
-
-	return cacheField, nil
+	return err
 }
 
-//NewValue creates a temporary value and it doesn't cache it
-func (cw *Config) NewValue(data interface{}) Value {
-
-	val := objx.NewValue(data)
-
-	value := Value{
-		value: *val,
-	}
-	return value
-}
-
-func splitToParts(str string) []part {
-	parts := make([]part, 0)
-	matches := fieldsRegex.FindAllStringSubmatch(str, -1)
-	if len(matches) == 0 {
-		return nil
-	}
-	for i, submatches := range matches {
-
-		idx := strings.Index(str, submatches[0])
-
-		subStr := str[:idx]
-
-		if len(subStr) > 0 {
-			parts = append(parts, part{subStr, false})
-		}
-
-		parts = append(parts, part{submatches[1], true})
-
-		str = str[idx+len(submatches[0]):]
-
-		// Append the rest of the string
-		if i == len(matches)-1 && len(str) > 0 {
-			parts = append(parts, part{str, false})
-
-		}
-	}
-	return parts
-}
-
-//Evaluate Evaluate dynamic values of config such as `@{image.title}`, return error if it doesn't exist in supplied
-// ImageData. (Returned values still must be checked for its type)
-func (v *Value) Evaluate(data transaction.ImageData) (objx.Value, error) {
-
-	// No need to evaluate
-	if !v.isDynamic {
-		return v.value, nil
-	}
-
-	dataMap := objx.Map(data)
-
-	// Return it directly
-	if len(v.parts) == 1 {
-		return *objx.NewValue(dataMap.Get(v.parts[0].string)), nil
-	}
-
-	var builder strings.Builder
-	var partValue *objx.Value
-	for _, part := range v.parts {
-		if !part.eval {
-			builder.WriteString(part.string)
-			continue
-		}
-
-		partValue = dataMap.Get(part.string)
-		if partValue.IsNil() {
-			return objx.Value{}, fmt.Errorf("value [%s] is not found in transaction", part.string)
-		}
-
-		builder.WriteString(partValue.String())
-	}
-
-	return *objx.NewValue(builder.String()), nil
-
-}
-
-//Get Return Config Values (must be used for static config values only)
-func (v *Value) Get() *objx.Value {
-	return &v.value
+//NewSelector Returns a new Selector used to evaluate dynamic fields in a config
+// (this receiver was made for easing refactoring)
+func (cw *Config) NewSelector(base string) (Selector, error) {
+	return NewSelector(base)
 }

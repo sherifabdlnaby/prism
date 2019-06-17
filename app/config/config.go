@@ -14,6 +14,23 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+//TODO Rename
+
+// WithDefaults interface is the interface for default values
+type WithDefaults interface {
+	ApplyDefault() error
+}
+
+// Config is the collection of config needed for the engine to start.
+type Config struct {
+	App        AppConfig
+	Inputs     InputsConfig
+	Processors ProcessorsConfig
+	Outputs    OutputsConfig
+	Pipeline   PipelinesConfig
+	Logger     zap.SugaredLogger
+}
+
 // Component used for YAML decoding
 type Component struct {
 	Plugin      string                 `yaml:"plugin"`
@@ -38,7 +55,7 @@ type Output struct {
 
 // InputsConfig used for YAML decoding
 type InputsConfig struct {
-	Inputs map[string]Input `yaml:"inputs"`
+	Inputs map[string]*Input `yaml:"inputs"`
 }
 
 // AppConfig used for YAML decoding
@@ -48,46 +65,36 @@ type AppConfig struct {
 
 // ProcessorsConfig used for YAML decoding
 type ProcessorsConfig struct {
-	Processors map[string]Processor `yaml:"processors"`
+	Processors map[string]*Processor `yaml:"processors"`
 }
 
 // OutputsConfig used for YAML decoding
 type OutputsConfig struct {
-	Outputs map[string]Output `yaml:"outputs"`
-}
-
-// Config is the collection of config needed for the engine to start.
-type Config struct {
-	App        AppConfig
-	Inputs     InputsConfig
-	Processors ProcessorsConfig
-	Outputs    OutputsConfig
-	Pipeline   PipelinesConfig
-	Logger     zap.SugaredLogger
+	Outputs map[string]*Output `yaml:"outputs"`
 }
 
 // Node is a single node in a pipeline
 type Node struct {
-	Async bool            `yaml:"async"`
-	Next  map[string]Node `yaml:",inline"`
+	Async bool             `yaml:"async"`
+	Next  map[string]*Node `yaml:",inline"`
 }
 
 // PipelinesConfig used for YAML decoding
 type PipelinesConfig struct {
-	Pipelines map[string]Pipeline `yaml:"pipelines"`
+	Pipelines map[string]*Pipeline `yaml:"pipelines"`
 }
 
 // Pipeline used for YAML decoding
 type Pipeline struct {
-	Concurrency int             `yaml:"concurrency"`
-	Pipeline    map[string]Node `yaml:"pipeline"`
+	Concurrency int              `yaml:"concurrency"`
+	Pipeline    map[string]*Node `yaml:"pipeline"`
 }
 
 // TODO support default values
 var envRegex = regexp.MustCompile(`\${([\w@.]+)}`)
 
 // Load loads a .yaml file into out. resolveEnv will replace ${ENV_VAR} with value of env variable "ENV_VAR"
-func Load(filePath string, out interface{}, resolveEnv bool) error {
+func Load(filePath string, out WithDefaults, resolveEnv bool) error {
 
 	fileBytes, err := ioutil.ReadFile(filePath)
 
@@ -102,13 +109,22 @@ func Load(filePath string, out interface{}, resolveEnv bool) error {
 		}
 	}
 
-	return unmarshal(fileBytes, out)
+	err = unmarshal(fileBytes, out)
+	if err != nil {
+		return err
+	}
+
+	return out.ApplyDefault()
 }
 
 func unmarshal(bytes []byte, out interface{}) error {
 	mapRaw := make(map[interface{}]interface{})
 
 	err := yaml.Unmarshal(bytes, &mapRaw)
+
+	if err != nil {
+		return err
+	}
 
 	mapString := recursivelyTurnYAMLMaps(mapRaw)
 

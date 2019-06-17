@@ -3,6 +3,7 @@ package transaction
 import (
 	"context"
 
+	"github.com/sherifabdlnaby/prism/pkg/payload"
 	"github.com/sherifabdlnaby/prism/pkg/response"
 )
 
@@ -10,10 +11,10 @@ import (
 // which is used to indicate whether the payload was successfully processed and propagated to the next destinations.
 type Transaction struct {
 	// Payload is the message payload of this transaction.
-	Payload
+	Payload payload.Payload
 
-	// ImageData is the message data of this transaction.
-	ImageData
+	// Data is the message data of this transaction.
+	Data payload.Data
 
 	// Context of the transaction
 	Context context.Context
@@ -24,9 +25,8 @@ type Transaction struct {
 	ResponseChan chan<- response.Response
 }
 
-// InputTransaction represent a transaction containing a streamable payload, ImageData, PipelineTag, and a response channel,
+// InputTransaction represent a transaction containing a streamable payload, Data, PipelineTag, and a response channel,
 // response indicate whether the payload was successfully processed and propagated to the next destinations.
-//
 // PipelineTag indicate to which pipeline should this transaction be forwarded to.
 type InputTransaction struct {
 	Transaction

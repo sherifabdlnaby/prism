@@ -1,22 +1,21 @@
 package node
 
 import (
-	"github.com/sherifabdlnaby/prism/app/resource"
-	"github.com/sherifabdlnaby/prism/pkg/component"
+	"github.com/sherifabdlnaby/prism/app/registery/wrapper"
 	"github.com/sherifabdlnaby/prism/pkg/response"
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
 )
 
 //output Wraps an output component
 type output struct {
-	output component.Output
+	output *wrapper.Output
 	*base
 }
 
 //NewOutput Construct a new Output Node
-func NewOutput(out component.Output, r resource.Resource) Node {
+func NewOutput(out *wrapper.Output) Node {
 	Node := &output{output: out}
-	base := newBase(Node, r)
+	base := newBase(Node, out.Resource)
 	Node.base = base
 	return Node
 }
@@ -29,21 +28,11 @@ func (n *output) job(t transaction.Transaction) {
 		return
 	}
 
-	// if nodeType is set async, send response now, and navigate actual response to asyncResponses which should handle async responses
-	if n.async {
-		t.ResponseChan <- response.Ack()
-
-		// used so that stop() wait for async responses to finish. (may be improved later)
-		n.wg.Add(1)
-
-		t.ResponseChan = n.asyncResponses
-	}
-
 	responseChan := make(chan response.Response)
 
-	n.output.TransactionChan() <- transaction.Transaction{
+	n.output.TransactionChan <- transaction.Transaction{
 		Payload:      t.Payload,
-		ImageData:    t.ImageData,
+		Data:         t.Data,
 		ResponseChan: responseChan,
 		Context:      t.Context,
 	}
@@ -51,4 +40,8 @@ func (n *output) job(t transaction.Transaction) {
 	t.ResponseChan <- <-responseChan
 
 	n.resource.Release()
+}
+
+func (n *output) jobStream(t transaction.Transaction) {
+	n.job(t)
 }

@@ -6,47 +6,51 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/sherifabdlnaby/prism/app/registery/wrapper"
+	"github.com/sherifabdlnaby/prism/pkg/payload"
 	"github.com/sherifabdlnaby/prism/pkg/response"
-	"github.com/sherifabdlnaby/prism/pkg/transaction"
 )
 
 //start starts the mux that forwards the transactions from input to pipelines based on PipelineTag in transaction.
 func (a *App) start() {
-	for _, value := range a.registry.InputPlugins {
-		go a.forwardPerInput(value)
+	for _, value := range a.registry.Inputs {
+		go a.forwardInputToPipeline(value)
 	}
 }
 
-func (a *App) forwardPerInput(input *wrapper.Input) {
-	for Tchan := range input.TransactionChan() {
+func (a *App) forwardInputToPipeline(input *wrapper.Input) {
+	for in := range input.InputTransactionChan() {
 
-		_, ok := a.pipelines[Tchan.PipelineTag]
-		if !ok {
-			Tchan.ResponseChan <- response.Error(
-				fmt.Errorf("pipeline [%s] is not defined", Tchan.PipelineTag),
-			)
+		//get pipeline tag
+		if in.PipelineTag == "" {
+			in.ResponseChan <- response.Error(fmt.Errorf("no pipeline is defined for in"))
 			continue
 		}
 
-		// Add defaults to transaction Image Data
-		applyDefaultFields(Tchan.ImageData)
+		_, ok := a.pipelines[in.PipelineTag]
+		if !ok {
+			in.ResponseChan <- response.Error(fmt.Errorf("pipeline [%s] is not defined", in.PipelineTag))
+			continue
+		}
 
-		a.pipelines[Tchan.PipelineTag].TransactionChan <- Tchan.Transaction
+		// Add defaults to in Image Data
+		applyDefaultFields(in.Data)
+
+		// Forward
+		a.pipelines[in.PipelineTag].TransactionChan <- in.Transaction
 	}
 }
 
-func applyDefaultFields(d transaction.ImageData) {
+func applyDefaultFields(d payload.Data) {
 	id := uuid.New()
 	epoch := time.Now().Unix()
 	addDefaultValueToMap(d, "_id", id.String())
 	addDefaultValueToMap(d, "_timestamp", epoch)
 }
 
-func addDefaultValueToMap(data transaction.ImageData, key string, val interface{}) {
+func addDefaultValueToMap(data payload.Data, key string, val interface{}) {
 	_, ok := data[key]
 	if ok {
 		return
 	}
 	data[key] = val
-	return
 }

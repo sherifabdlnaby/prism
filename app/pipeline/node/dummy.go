@@ -6,6 +6,7 @@ import (
 	"github.com/sherifabdlnaby/prism/app/resource"
 	"github.com/sherifabdlnaby/prism/pkg/bufferspool"
 	"github.com/sherifabdlnaby/prism/pkg/mirror"
+	"github.com/sherifabdlnaby/prism/pkg/payload"
 	"github.com/sherifabdlnaby/prism/pkg/response"
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
 )
@@ -27,7 +28,7 @@ func NewDummy(r resource.Resource) Node {
 func (n *dummy) job(t transaction.Transaction) {
 
 	////////////////////////////////////////////
-	// Acquire resource (limit concurrency)
+	// Acquire resource (limit concurrency of entire pipeline)
 	err := n.resource.Acquire(t.Context)
 	if err != nil {
 		t.ResponseChan <- response.NoAck(err)
@@ -39,56 +40,63 @@ func (n *dummy) job(t transaction.Transaction) {
 
 	////////////////////////////////////////////
 	// Send to next nodes
-	responseChan := make(chan response.Response, len(n.nexts))
+
 	ctx, cancel := context.WithCancel(t.Context)
 	defer cancel()
 
-	if len(n.nexts) == 1 {
-		n.nexts[0].TransactionChan <- transaction.Transaction{
-			Payload: transaction.Payload{
-				Reader:     t.Reader,
-				ImageBytes: t.ImageBytes,
-			},
-			ImageData:    t.ImageData,
-			Context:      ctx,
-			ResponseChan: responseChan,
-		}
-	} else {
-		// Create a reader cloner
-		buffer := bufferspool.Get()
-		defer bufferspool.Put(buffer)
-		readerCloner := mirror.NewReader(t.Reader, buffer)
+	responseChan := n.sendNexts(ctx, t.Payload.(payload.Bytes), t.Data)
 
-		for _, next := range n.nexts {
-			next.TransactionChan <- transaction.Transaction{
-				Payload: transaction.Payload{
-					Reader:     readerCloner.Clone(),
-					ImageBytes: t.ImageBytes,
-				},
-				ImageData:    t.ImageData,
-				Context:      ctx,
-				ResponseChan: responseChan,
-			}
-		}
+	// Await Responses
+	Response := n.waitResponses(ctx, responseChan)
+
+	// Send Response back.
+	t.ResponseChan <- Response
+
+	// dummy Node release after receive response as it is used to limit the entire pipeline concurrency.
+	n.resource.Release()
+}
+
+func (n *dummy) jobStream(t transaction.Transaction) {
+
+	////////////////////////////////////////////
+	// Acquire resource (limit concurrency of entire pipeline)
+	err := n.resource.Acquire(t.Context)
+	if err != nil {
+		t.ResponseChan <- response.NoAck(err)
+		return
 	}
 
 	////////////////////////////////////////////
-	// receive from next nodes
-	count, total := 0, len(n.nexts)
-	var Response response.Response
+	// DUMMY NODE WON'T DO WORK SO JUST FORWARD.
 
-loop:
-	for ; count < total; count++ {
-		select {
-		case Response = <-responseChan:
-			if !Response.Ack {
-				break loop
-			}
-		case <-t.Context.Done():
-			Response = response.NoAck(t.Context.Err())
-			break loop
+	////////////////////////////////////////////
+	// Send to next nodes
+	var responseChan chan response.Response
+
+	// Micro Optimization
+	if len(n.nexts) == 1 {
+		// micro optimization. no need to put buffer cloner in-front of a single node
+		responseChan = make(chan response.Response)
+		n.nexts[0].TransactionChan <- transaction.Transaction{
+			Payload:      t.Payload,
+			Data:         t.Data,
+			Context:      t.Context,
+			ResponseChan: responseChan,
 		}
+	} else {
+		// Get Buffer from pool
+		buffer := bufferspool.Get()
+		defer bufferspool.Put(buffer)
+
+		// Create a reader cloner from incoming stream (to clone the reader stream as it comes in)
+		stream := t.Payload.(payload.Stream)
+		readerCloner := mirror.NewReader(stream, buffer)
+
+		responseChan = n.sendNextsStream(t.Context, readerCloner, t.Data)
 	}
+
+	// Await Responses
+	Response := n.waitResponses(t.Context, responseChan)
 
 	// Send Response back.
 	t.ResponseChan <- Response

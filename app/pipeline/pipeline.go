@@ -9,7 +9,7 @@ import (
 	"github.com/sherifabdlnaby/prism/app/pipeline/node"
 	"github.com/sherifabdlnaby/prism/app/registery"
 	"github.com/sherifabdlnaby/prism/app/resource"
-	"github.com/sherifabdlnaby/prism/pkg/component"
+	processor2 "github.com/sherifabdlnaby/prism/pkg/component/processor"
 	"github.com/sherifabdlnaby/prism/pkg/response"
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
 	"go.uber.org/zap"
@@ -17,12 +17,12 @@ import (
 
 //Pipeline Holds the recursive tree of Nodes and their next nodes, etc
 type Pipeline struct {
-	receiveChan <-chan transaction.Transaction
-	Root        node.Next
-	NodesList   []node.Node
-	Logger      zap.SugaredLogger
-	wg          sync.WaitGroup
-	status      status
+	receiveTxnChan <-chan transaction.Transaction
+	Root           node.Next
+	NodesList      []node.Node
+	Logger         zap.SugaredLogger
+	wg             sync.WaitGroup
+	status         status
 }
 
 type status int32
@@ -47,7 +47,7 @@ func (p *Pipeline) Start() error {
 	atomic.SwapInt32((*int32)(&p.status), int32(started))
 
 	go func() {
-		for value := range p.receiveChan {
+		for value := range p.receiveTxnChan {
 			go p.job(value)
 		}
 	}()
@@ -74,15 +74,15 @@ func (p *Pipeline) Stop() error {
 
 //SetTransactionChan Set the transaction chan pipeline will use to receive input
 func (p *Pipeline) SetTransactionChan(tc <-chan transaction.Transaction) {
-	p.receiveChan = tc
+	p.receiveTxnChan = tc
 }
 
 func (p *Pipeline) job(txn transaction.Transaction) {
 	p.wg.Add(1)
-	responseChan := make(chan response.Response, 1)
+	responseChan := make(chan response.Response)
 	p.Root.TransactionChan <- transaction.Transaction{
 		Payload:      txn.Payload,
-		ImageData:    txn.ImageData,
+		Data:         txn.Data,
 		ResponseChan: responseChan,
 		Context:      txn.Context,
 	}
@@ -104,7 +104,7 @@ func NewPipeline(pc config.Pipeline, registry registery.Registry, logger zap.Sug
 
 	nexts := make([]node.Next, 0)
 	for key, value := range pc.Pipeline {
-		Node, err := buildTree(key, value, registry, &NodesList, false)
+		Node, err := buildTree(key, *value, registry, &NodesList, false)
 		if err != nil {
 			return nil, err
 		}
@@ -114,7 +114,7 @@ func NewPipeline(pc config.Pipeline, registry registery.Registry, logger zap.Sug
 		// create a next wrapper
 		next := *node.NewNext(Node)
 
-		// gives the next's node its TransactionChan, now owner of the 'next' owns closing the chan.
+		// gives the next's node its InputTransactionChan, now owner of the 'next' owns closing the chan.
 		Node.SetTransactionChan(next.TransactionChan)
 
 		// append to nexts
@@ -130,11 +130,11 @@ func NewPipeline(pc config.Pipeline, registry registery.Registry, logger zap.Sug
 	beginNode.SetTransactionChan(Next.TransactionChan)
 
 	pip := Pipeline{
-		receiveChan: make(chan transaction.Transaction),
-		Root:        *Next,
-		NodesList:   NodesList,
-		Logger:      logger,
-		status:      new,
+		receiveTxnChan: make(chan transaction.Transaction),
+		Root:           *Next,
+		NodesList:      NodesList,
+		Logger:         logger,
+		status:         new,
 	}
 
 	return &pip, nil
@@ -156,7 +156,7 @@ func buildTree(name string, n config.Node, registry registery.Registry, NodesLis
 	if n.Next != nil {
 		for key, value := range n.Next {
 
-			Node, err := buildTree(key, value, registry, NodesList, n.Async)
+			Node, err := buildTree(key, *value, registry, NodesList, n.Async)
 			if err != nil {
 				return nil, err
 			}
@@ -164,7 +164,7 @@ func buildTree(name string, n config.Node, registry registery.Registry, NodesLis
 			// create a next wrapper
 			next := *node.NewNext(Node)
 
-			// gives the next's node its TransactionChan, now owner of the 'next' owns closing the chan.
+			// gives the next's node its InputTransactionChan, now owner of the 'next' owns closing the chan.
 			Node.SetTransactionChan(next.TransactionChan)
 
 			// append to nexts
@@ -184,28 +184,30 @@ func buildTree(name string, n config.Node, registry registery.Registry, NodesLis
 func chooseComponent(name string, registry registery.Registry, nextsCount int) (node.Node, error) {
 	var Node node.Node
 
-	// check if Processor(and which types)
+	// check if ProcessReadWrite(and which types)
 	processor, ok := registry.GetProcessor(name)
 	if ok {
 		if nextsCount == 0 {
 			return nil, fmt.Errorf("plugin [%s] has no nexts(s) of type output, a pipeline path must end with an output plugin", name)
 		}
-		switch p := processor.ProcessorBase.(type) {
-		case component.ProcessorReadOnly:
+		switch p := processor.Base.(type) {
+		case processor2.ReadOnly:
 			Node = node.NewReadOnly(p, processor.Resource)
-		case component.ProcessorReadWrite:
+		case processor2.ReadWrite:
 			Node = node.NewReadWrite(p, processor.Resource)
+		case processor2.ReadWriteStream:
+			Node = node.NewReadWriteStream(p, processor.Resource)
 		default:
 			return nil, fmt.Errorf("plugin [%s] doesn't exists", name)
 		}
-		// Not Processor, check if output.
+		// Not ProcessReadWrite, check if output.
 	} else {
 		output, ok := registry.GetOutput(name)
 		if ok {
 			if nextsCount > 0 {
 				return nil, fmt.Errorf("plugin [%s] has nexts(s), output plugins must not have nexts(s)", name)
 			}
-			Node = node.NewOutput(output, output.Resource)
+			Node = node.NewOutput(output)
 		} else {
 			return nil, fmt.Errorf("plugin [%s] doesn't exists", name)
 		}

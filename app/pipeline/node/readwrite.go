@@ -4,21 +4,20 @@ import (
 	"context"
 
 	"github.com/sherifabdlnaby/prism/app/resource"
-	"github.com/sherifabdlnaby/prism/pkg/bufferspool"
-	"github.com/sherifabdlnaby/prism/pkg/component"
-	"github.com/sherifabdlnaby/prism/pkg/mirror"
+	"github.com/sherifabdlnaby/prism/pkg/component/processor"
+	"github.com/sherifabdlnaby/prism/pkg/payload"
 	"github.com/sherifabdlnaby/prism/pkg/response"
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
 )
 
 //readWrite Wraps a readwrite component
 type readWrite struct {
-	processor component.ProcessorReadWrite
+	processor processor.ReadWrite
 	*base
 }
 
 //NewReadWrite Construct a new ReadWrite Node
-func NewReadWrite(processorReadWrite component.ProcessorReadWrite, r resource.Resource) Node {
+func NewReadWrite(processorReadWrite processor.ReadWrite, r resource.Resource) Node {
 	Node := &readWrite{processor: processorReadWrite}
 	base := newBase(Node, r)
 	Node.base = base
@@ -40,7 +39,7 @@ func (n *readWrite) job(t transaction.Transaction) {
 	// PROCESS ( DECODE -> PROCESS -> ENCODE )
 
 	/// DECODE
-	decoded, Response := n.processor.Decode(t.Payload, t.ImageData)
+	decoded, Response := n.processor.Decode(t.Payload.(payload.Bytes), t.Data)
 	if !Response.Ack {
 		t.ResponseChan <- Response
 		n.resource.Release()
@@ -48,64 +47,80 @@ func (n *readWrite) job(t transaction.Transaction) {
 	}
 
 	/// PROCESS
-	decodedPayload, Response := n.processor.Process(decoded, t.ImageData)
+	decodedPayload, Response := n.processor.Process(decoded, t.Data)
 	if !Response.Ack {
 		t.ResponseChan <- Response
 		n.resource.Release()
 		return
 	}
 
-	var baseOutput = transaction.OutputPayload{}
-	responseChan := make(chan response.Response, len(n.nexts))
-	ctx, cancel := context.WithCancel(t.Context)
-	defer cancel()
-
-	// base output writerCloner
-	buffer := bufferspool.Get()
-	defer bufferspool.Put(buffer)
-	writerCloner := mirror.NewWriter(buffer)
-
-	baseOutput = transaction.OutputPayload{
-		WriteCloser: writerCloner,
-		ImageBytes:  nil,
-	}
-
 	/// ENCODE
-	Response = n.processor.Encode(decodedPayload, t.ImageData, &baseOutput)
+	output, Response := n.processor.Encode(decodedPayload, t.Data)
 	n.resource.Release()
 	if !Response.Ack {
 		t.ResponseChan <- Response
 		return
 	}
 
-	for _, next := range n.nexts {
-		next.TransactionChan <- transaction.Transaction{
-			Payload: transaction.Payload{
-				Reader:     writerCloner.Clone(),
-				ImageBytes: baseOutput.ImageBytes,
-			},
-			ImageData:    t.ImageData,
-			Context:      ctx,
-			ResponseChan: responseChan,
-		}
+	ctx, cancel := context.WithCancel(t.Context)
+	defer cancel()
+
+	// send to next channels
+	responseChan := n.sendNexts(ctx, output, t.Data)
+
+	// Await Responses
+	Response = n.waitResponses(ctx, responseChan)
+
+	// Send Response back.
+	t.ResponseChan <- Response
+}
+
+func (n *readWrite) jobStream(t transaction.Transaction) {
+
+	////////////////////////////////////////////
+	// Acquire resource (limit concurrency)
+	err := n.resource.Acquire(t.Context)
+	if err != nil {
+		t.ResponseChan <- response.NoAck(err)
+		return
 	}
 
 	////////////////////////////////////////////
-	// receive from next nodes
-	count, total := 0, len(n.nexts)
+	// PROCESS ( DECODE -> PROCESS -> ENCODE )
 
-loop:
-	for ; count < total; count++ {
-		select {
-		case Response = <-responseChan:
-			if !Response.Ack {
-				break loop
-			}
-		case <-t.Context.Done():
-			Response = response.NoAck(t.Context.Err())
-			break loop
-		}
+	/// DECODE
+	stream := t.Payload.(payload.Stream)
+	decoded, Response := n.processor.DecodeStream(stream, t.Data)
+	if !Response.Ack {
+		t.ResponseChan <- Response
+		n.resource.Release()
+		return
 	}
+
+	/// PROCESS
+	decodedPayload, Response := n.processor.Process(decoded, t.Data)
+	if !Response.Ack {
+		t.ResponseChan <- Response
+		n.resource.Release()
+		return
+	}
+
+	/// ENCODE
+	output, Response := n.processor.Encode(decodedPayload, t.Data)
+	n.resource.Release()
+	if !Response.Ack {
+		t.ResponseChan <- Response
+		return
+	}
+
+	ctx, cancel := context.WithCancel(t.Context)
+	defer cancel()
+
+	// send to next channels
+	responseChan := n.sendNexts(ctx, output, t.Data)
+
+	// Await Responses
+	Response = n.waitResponses(ctx, responseChan)
 
 	// Send Response back.
 	t.ResponseChan <- Response
