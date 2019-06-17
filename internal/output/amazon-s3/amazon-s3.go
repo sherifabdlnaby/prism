@@ -11,7 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/sherifabdlnaby/prism/pkg/component"
-	"github.com/sherifabdlnaby/prism/pkg/config"
+	cfg "github.com/sherifabdlnaby/prism/pkg/config"
 	"github.com/sherifabdlnaby/prism/pkg/payload"
 	"github.com/sherifabdlnaby/prism/pkg/response"
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
@@ -20,37 +20,11 @@ import (
 
 //S3 struct
 type S3 struct {
-	config       Config
+	config       config
 	Transactions <-chan transaction.Transaction
 	stopChan     chan struct{}
 	logger       zap.SugaredLogger
 	wg           sync.WaitGroup
-}
-
-//Config struct
-type Config struct {
-	FilePath                      string `mapstructure:"filepath" validate:"required"`
-	S3Region                      string `mapstructure:"s3_region" validate:"required"`
-	S3Bucket                      string `mapstructure:"s3_bucket" validate:"required"`
-	AccessKeyID                   string `mapstructure:"access_key_id"`
-	SecretAccessKey               string `mapstructure:"secret_access_key"`
-	SessionToken                  string `mapstructure:"session_token"`
-	CannedACL                     string `mapstructure:"canned_acl" validate:"oneof=private public-read public-read-write authenticated-read aws-exec-read bucket-owner-read bucket-owner-full-control log-delivery-write"`
-	Encoding                      string `mapstructure:"encoding" validate:"oneof=none gzip"`
-	ServerSideEncryptionAlgorithm string `mapstructure:"server_side_encryption_algorithm" validate:"oneof=AES256 aws:kms"`
-	StorageClass                  string `mapstructure:"storage_class" validate:"oneof=STANDARD REDUCED_REDUNDANCY STANDARD_IA"`
-
-	filepath config.Selector
-}
-
-//DefaultConfig func return the default configurations
-func DefaultConfig() *Config {
-	return &Config{
-		CannedACL:                     "private",
-		Encoding:                      "none",
-		ServerSideEncryptionAlgorithm: "AES256",
-		StorageClass:                  "STANDARD",
-	}
 }
 
 // NewComponent Return a new Component
@@ -64,9 +38,9 @@ func (s *S3) SetTransactionChan(t <-chan transaction.Transaction) {
 }
 
 //Init func Initialize the S3 output plugin
-func (s *S3) Init(config config.Config, logger zap.SugaredLogger) error {
+func (s *S3) Init(config cfg.Config, logger zap.SugaredLogger) error {
 
-	s.config = *DefaultConfig()
+	s.config = *defaultConfig()
 	Error := config.Populate(&s.config)
 	if Error != nil {
 		return Error
@@ -83,54 +57,6 @@ func (s *S3) Init(config config.Config, logger zap.SugaredLogger) error {
 
 	return nil
 
-}
-
-//writeOnS3 func takes the transaction and session
-//that to be written on the amazon S3
-func (s *S3) writeOnS3(svc *s3.S3, txn transaction.Transaction) {
-	defer s.wg.Done()
-
-	var buffer []byte
-	var err error
-
-	switch Payload := txn.Payload.(type) {
-	case payload.Bytes:
-		buffer = Payload
-	case payload.Stream:
-		buffer, err = ioutil.ReadAll(Payload)
-		if err != nil {
-			txn.ResponseChan <- response.Error(err)
-			return
-		}
-	}
-
-	filePath, err := s.config.filepath.Evaluate(txn.Data)
-	if err != nil {
-		txn.ResponseChan <- response.Error(err)
-		return
-	}
-
-	size := int64(len(buffer))
-	_, err = svc.PutObject(&s3.PutObjectInput{
-		Bucket:               aws.String(s.config.S3Bucket),
-		Key:                  aws.String(filePath),
-		ACL:                  aws.String(s.config.CannedACL),
-		Body:                 bytes.NewReader(buffer),
-		ContentLength:        aws.Int64(size),
-		ContentType:          aws.String(http.DetectContentType(buffer)),
-		ContentDisposition:   aws.String("attachment"),
-		ContentEncoding:      aws.String(s.config.Encoding),
-		ServerSideEncryption: aws.String(s.config.ServerSideEncryptionAlgorithm),
-		StorageClass:         aws.String(s.config.StorageClass),
-	})
-
-	if err != nil {
-		txn.ResponseChan <- response.Error(err)
-		return
-	}
-
-	// send response
-	txn.ResponseChan <- response.Ack()
 }
 
 // Start the plugin and be ready for taking transactions
@@ -182,6 +108,54 @@ func (s *S3) Start() error {
 	}()
 
 	return nil
+}
+
+//writeOnS3 func takes the transaction and session
+//that to be written on the amazon S3
+func (s *S3) writeOnS3(svc *s3.S3, txn transaction.Transaction) {
+	defer s.wg.Done()
+
+	var buffer []byte
+	var err error
+
+	switch Payload := txn.Payload.(type) {
+	case payload.Bytes:
+		buffer = Payload
+	case payload.Stream:
+		buffer, err = ioutil.ReadAll(Payload)
+		if err != nil {
+			txn.ResponseChan <- response.Error(err)
+			return
+		}
+	}
+
+	filePath, err := s.config.filepath.Evaluate(txn.Data)
+	if err != nil {
+		txn.ResponseChan <- response.Error(err)
+		return
+	}
+
+	size := int64(len(buffer))
+	_, err = svc.PutObject(&s3.PutObjectInput{
+		Bucket:               aws.String(s.config.S3Bucket),
+		Key:                  aws.String(filePath),
+		ACL:                  aws.String(s.config.CannedACL),
+		Body:                 bytes.NewReader(buffer),
+		ContentLength:        aws.Int64(size),
+		ContentType:          aws.String(http.DetectContentType(buffer)),
+		ContentDisposition:   aws.String("attachment"),
+		ContentEncoding:      aws.String(s.config.Encoding),
+		ServerSideEncryption: aws.String(s.config.ServerSideEncryptionAlgorithm),
+		StorageClass:         aws.String(s.config.StorageClass),
+	})
+
+	if err != nil {
+		txn.ResponseChan <- response.Error(err)
+		return
+	}
+
+	// send response
+	txn.ResponseChan <- response.Ack()
 }
 
 //Close func Send a close signal to stop chan

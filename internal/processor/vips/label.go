@@ -2,23 +2,23 @@ package vips
 
 import (
 	"github.com/sherifabdlnaby/bimg"
-	"github.com/sherifabdlnaby/prism/pkg/config"
+	cfg "github.com/sherifabdlnaby/prism/pkg/config"
 	"github.com/sherifabdlnaby/prism/pkg/payload"
 )
 
 // TODO : ONLY PNG
 type label struct {
 	Raw       labelRawConfig `mapstructure:",squash"`
-	width     config.Selector
-	dpi       config.Selector
-	margin    config.Selector
-	opacity   config.Selector
-	replicate config.Selector
-	text      config.Selector
-	font      config.Selector
-	colorR    config.Selector
-	colorG    config.Selector
-	colorB    config.Selector
+	width     cfg.Selector
+	dpi       cfg.Selector
+	margin    cfg.Selector
+	opacity   cfg.Selector
+	replicate cfg.Selector
+	text      cfg.Selector
+	font      cfg.Selector
+	colorR    cfg.Selector
+	colorG    cfg.Selector
+	colorB    cfg.Selector
 }
 
 type labelRawConfig struct {
@@ -43,44 +43,44 @@ func (o *label) Init() (bool, error) {
 		return false, nil
 	}
 
-	o.text, err = config.NewSelector(o.Raw.Text)
+	o.text, err = cfg.NewSelector(o.Raw.Text)
 	if err != nil {
 		return false, err
 	}
-	o.font, err = config.NewSelector(o.Raw.Font)
+	o.font, err = cfg.NewSelector(o.Raw.Font)
 	if err != nil {
 		return false, err
 	}
-	o.width, err = config.NewSelector(o.Raw.Width)
+	o.width, err = cfg.NewSelector(o.Raw.Width)
 	if err != nil {
 		return false, err
 	}
-	o.dpi, err = config.NewSelector(o.Raw.DPI)
+	o.dpi, err = cfg.NewSelector(o.Raw.DPI)
 	if err != nil {
 		return false, err
 	}
-	o.opacity, err = config.NewSelector(o.Raw.Opacity)
+	o.opacity, err = cfg.NewSelector(o.Raw.Opacity)
 	if err != nil {
 		return false, err
 	}
-	o.margin, err = config.NewSelector(o.Raw.Margin)
+	o.margin, err = cfg.NewSelector(o.Raw.Margin)
 	if err != nil {
 		return false, err
 	}
-	o.replicate, err = config.NewSelector(o.Raw.Replicate)
+	o.replicate, err = cfg.NewSelector(o.Raw.Replicate)
 	if err != nil {
 		return false, err
 	}
 
-	o.colorR, err = config.NewSelector(o.Raw.Color.R)
+	o.colorR, err = cfg.NewSelector(o.Raw.Color.R)
 	if err != nil {
 		return false, err
 	}
-	o.colorG, err = config.NewSelector(o.Raw.Color.G)
+	o.colorG, err = cfg.NewSelector(o.Raw.Color.G)
 	if err != nil {
 		return false, err
 	}
-	o.colorB, err = config.NewSelector(o.Raw.Color.B)
+	o.colorB, err = cfg.NewSelector(o.Raw.Color.B)
 	if err != nil {
 		return false, err
 	}

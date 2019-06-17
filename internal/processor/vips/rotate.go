@@ -4,13 +4,13 @@ import (
 	"fmt"
 
 	"github.com/sherifabdlnaby/bimg"
-	"github.com/sherifabdlnaby/prism/pkg/config"
+	cfg "github.com/sherifabdlnaby/prism/pkg/config"
 	"github.com/sherifabdlnaby/prism/pkg/payload"
 )
 
 type rotate struct {
 	Raw   rotateRawConfig `mapstructure:",squash"`
-	angle config.Selector
+	angle cfg.Selector
 }
 
 type rotateRawConfig struct {
@@ -24,7 +24,7 @@ func (o *rotate) Init() (bool, error) {
 		return false, nil
 	}
 
-	o.angle, err = config.NewSelector(o.Raw.Angle)
+	o.angle, err = cfg.NewSelector(o.Raw.Angle)
 	if err != nil {
 		return false, err
 	}

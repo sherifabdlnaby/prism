@@ -4,15 +4,15 @@ import (
 	"fmt"
 
 	"github.com/sherifabdlnaby/bimg"
-	"github.com/sherifabdlnaby/prism/pkg/config"
+	cfg "github.com/sherifabdlnaby/prism/pkg/config"
 	"github.com/sherifabdlnaby/prism/pkg/payload"
 )
 
 type crop struct {
 	Raw    cropRawConfig `mapstructure:",squash"`
-	width  config.Selector
-	height config.Selector
-	anchor config.Selector
+	width  cfg.Selector
+	height cfg.Selector
+	anchor cfg.Selector
 }
 
 type cropRawConfig struct {
@@ -28,17 +28,17 @@ func (o *crop) Init() (bool, error) {
 		return false, nil
 	}
 
-	o.width, err = config.NewSelector(o.Raw.Width)
+	o.width, err = cfg.NewSelector(o.Raw.Width)
 	if err != nil {
 		return false, err
 	}
 
-	o.height, err = config.NewSelector(o.Raw.Height)
+	o.height, err = cfg.NewSelector(o.Raw.Height)
 	if err != nil {
 		return false, err
 	}
 
-	o.anchor, err = config.NewSelector(o.Raw.Anchor)
+	o.anchor, err = cfg.NewSelector(o.Raw.Anchor)
 	if err != nil {
 		return false, err
 	}

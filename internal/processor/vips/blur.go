@@ -2,14 +2,14 @@ package vips
 
 import (
 	"github.com/sherifabdlnaby/bimg"
-	"github.com/sherifabdlnaby/prism/pkg/config"
+	cfg "github.com/sherifabdlnaby/prism/pkg/config"
 	"github.com/sherifabdlnaby/prism/pkg/payload"
 )
 
 type blur struct {
 	Raw    blurRawConfig `mapstructure:",squash"`
-	sigma  config.Selector
-	minAmp config.Selector
+	sigma  cfg.Selector
+	minAmp cfg.Selector
 }
 
 type blurRawConfig struct {
@@ -24,12 +24,12 @@ func (o *blur) Init() (bool, error) {
 		return false, nil
 	}
 
-	o.sigma, err = config.NewSelector(o.Raw.Sigma)
+	o.sigma, err = cfg.NewSelector(o.Raw.Sigma)
 	if err != nil {
 		return false, err
 	}
 
-	o.minAmp, err = config.NewSelector(o.Raw.MinAmpl)
+	o.minAmp, err = cfg.NewSelector(o.Raw.MinAmpl)
 	if err != nil {
 		return false, err
 	}

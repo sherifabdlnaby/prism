@@ -15,7 +15,7 @@ type Selector struct {
 	parts     []part
 }
 
-// TODO make string base not interface
+//NewSelector Returns a new Selector used to evaluate dynamic fields in a config
 func NewSelector(base string) (Selector, error) {
 
 	if base == "" {
@@ -36,8 +36,8 @@ func NewSelector(base string) (Selector, error) {
 	}, nil
 }
 
-//Evaluate Evaluate dynamic values of config such as `@{image.title}`, return error if it doesn't exist in supplied
-// Data. (Returned values still must be checked for its type)
+// Evaluate Evaluate dynamic values of config such as `image-@{image.title}.jpg` as a string, return error if it doesn't exist in supplied
+// Data.
 func (v *Selector) Evaluate(data map[string]interface{}) (string, error) {
 
 	// No need to evaluate
@@ -76,8 +76,8 @@ func (v *Selector) Evaluate(data map[string]interface{}) (string, error) {
 
 }
 
-//Evaluate Evaluate dynamic values of config such as `@{image.title}`, return error if it doesn't exist in supplied
-// Data. (Returned values still must be checked for its type)
+// EvaluateInt64 Evaluate dynamic values of config such as `@{image.width}` as Int64, return error if it doesn't exist in supplied
+// Data. if base evaluated value is "" it returns zero value of Int64 = 0
 func (v *Selector) EvaluateInt64(data map[string]interface{}) (int64, error) {
 	str, err := v.Evaluate(data)
 
@@ -89,8 +89,8 @@ func (v *Selector) EvaluateInt64(data map[string]interface{}) (int64, error) {
 
 }
 
-//Evaluate Evaluate dynamic values of config such as `@{image.title}`, return error if it doesn't exist in supplied
-// Data. (Returned values still must be checked for its type)
+// EvaluateUint8 Evaluate dynamic values of config such as `@{image.width}` as uint8, return error if it doesn't exist in supplied
+// Data. if base evaluated value is "" it returns zero value of Uint8 = 0
 func (v *Selector) EvaluateUint8(data map[string]interface{}) (uint8, error) {
 	str, err := v.Evaluate(data)
 
@@ -107,8 +107,8 @@ func (v *Selector) EvaluateUint8(data map[string]interface{}) (uint8, error) {
 
 }
 
-//Evaluate Evaluate dynamic values of config such as `@{image.title}`, return error if it doesn't exist in supplied
-// Data. (Returned values still must be checked for its type)
+// EvaluateFloat64 Evaluate dynamic values of config such as `@{image.width}` as float64, return error if it doesn't exist in supplied
+// Data. if base evaluated value is "" it returns zero value of Float64 = 0.0
 func (v *Selector) EvaluateFloat64(data map[string]interface{}) (float64, error) {
 	str, err := v.Evaluate(data)
 
@@ -120,8 +120,9 @@ func (v *Selector) EvaluateFloat64(data map[string]interface{}) (float64, error)
 
 }
 
-//Evaluate Evaluate dynamic values of config such as `@{image.title}`, return error if it doesn't exist in supplied
-// Data. (Returned values still must be checked for its type)
+// EvaluateBool Evaluate dynamic values of config such as `@{image.doFlip}` as bool, return error if it doesn't exist in supplied
+// Data. values such as 0,1,T,F,True,False are all possible values,if base evaluated value is "" it returns zero value
+// of Float64 = 0.0
 func (v *Selector) EvaluateBool(data map[string]interface{}) (bool, error) {
 	str, err := v.Evaluate(data)
 
@@ -165,19 +166,6 @@ func splitToParts(str string) []part {
 		}
 	}
 	return parts
-}
-
-func (v *Selector) IsDynamic() bool {
-	return v.isDynamic
-}
-
-func CheckInValues(data interface{}, values ...interface{}) error {
-	for _, value := range values {
-		if data == value {
-			return nil
-		}
-	}
-	return fmt.Errorf("base must be any of %v, found %v instead", values, data)
 }
 
 //// Get gets base from config based on key, key access config using dot-notation (obj.Selector.array[0].Selector).

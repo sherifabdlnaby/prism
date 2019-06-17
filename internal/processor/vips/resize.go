@@ -4,15 +4,15 @@ import (
 	"fmt"
 
 	"github.com/sherifabdlnaby/bimg"
-	"github.com/sherifabdlnaby/prism/pkg/config"
+	cfg "github.com/sherifabdlnaby/prism/pkg/config"
 	"github.com/sherifabdlnaby/prism/pkg/payload"
 )
 
 type resize struct {
 	Raw      resizeRawConfig `mapstructure:",squash"`
-	width    config.Selector
-	height   config.Selector
-	strategy config.Selector
+	width    cfg.Selector
+	height   cfg.Selector
+	strategy cfg.Selector
 }
 
 type resizeRawConfig struct {
@@ -28,17 +28,17 @@ func (o *resize) Init() (bool, error) {
 		return false, nil
 	}
 
-	o.width, err = config.NewSelector(o.Raw.Width)
+	o.width, err = cfg.NewSelector(o.Raw.Width)
 	if err != nil {
 		return false, err
 	}
 
-	o.height, err = config.NewSelector(o.Raw.Height)
+	o.height, err = cfg.NewSelector(o.Raw.Height)
 	if err != nil {
 		return false, err
 	}
 
-	o.strategy, err = config.NewSelector(o.Raw.Strategy)
+	o.strategy, err = cfg.NewSelector(o.Raw.Strategy)
 	if err != nil {
 		return false, err
 	}

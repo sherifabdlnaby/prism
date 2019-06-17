@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/sherifabdlnaby/prism/pkg/component"
-	"github.com/sherifabdlnaby/prism/pkg/config"
+	cfg "github.com/sherifabdlnaby/prism/pkg/config"
 	"github.com/sherifabdlnaby/prism/pkg/payload"
 	"github.com/sherifabdlnaby/prism/pkg/response"
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
@@ -17,29 +17,11 @@ import (
 
 // Dummy Input that read a file from root just for testing.
 type Dummy struct {
-	config       Config
+	config       config
 	Transactions chan transaction.InputTransaction
 	stopChan     chan struct{}
 	logger       zap.SugaredLogger
 	wg           sync.WaitGroup
-	metric       int
-}
-
-type Config struct {
-	FileName string
-	Pipeline string
-	Tick     int
-	Timeout  int
-	Count    int
-
-	pipeline config.Selector
-	filename config.Selector
-}
-
-func DefaultConfig() *Config {
-	return &Config{
-		Tick: 1000,
-	}
 }
 
 // NewComponent Return a new Component
@@ -53,10 +35,10 @@ func (d *Dummy) InputTransactionChan() <-chan transaction.InputTransaction {
 }
 
 // Init Initializes Plugin
-func (d *Dummy) Init(config config.Config, logger zap.SugaredLogger) error {
+func (d *Dummy) Init(config cfg.Config, logger zap.SugaredLogger) error {
 	var err error
 
-	d.config = *DefaultConfig()
+	d.config = *defaultConfig()
 	err = config.Populate(&d.config)
 	if err != nil {
 		return err

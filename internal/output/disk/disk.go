@@ -7,9 +7,8 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/sherifabdlnaby/prism/pkg/bufferspool"
 	"github.com/sherifabdlnaby/prism/pkg/component"
-	"github.com/sherifabdlnaby/prism/pkg/config"
+	cfg "github.com/sherifabdlnaby/prism/pkg/config"
 	"github.com/sherifabdlnaby/prism/pkg/payload"
 	"github.com/sherifabdlnaby/prism/pkg/response"
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
@@ -18,25 +17,11 @@ import (
 
 //Disk struct
 type Disk struct {
-	config       Config
+	config       config
 	Transactions <-chan transaction.Transaction
 	stopChan     chan struct{}
 	logger       zap.SugaredLogger
 	wg           sync.WaitGroup
-}
-
-//Config struct
-type Config struct {
-	Permission os.FileMode `mapstructure:"permission"`
-	FilePath   string      `mapstructure:"filepath"`
-	filepath   config.Selector
-}
-
-//DefaultConfig returns the default configs
-func DefaultConfig() *Config {
-	return &Config{
-		Permission: 0777,
-	}
 }
 
 // NewComponent Return a new Component
@@ -50,10 +35,10 @@ func (d *Disk) SetTransactionChan(t <-chan transaction.Transaction) {
 }
 
 //Init func Initialize the disk output plugin
-func (d *Disk) Init(config config.Config, logger zap.SugaredLogger) error {
+func (d *Disk) Init(config cfg.Config, logger zap.SugaredLogger) error {
 	var err error
 
-	d.config = *DefaultConfig()
+	d.config = *defaultConfig()
 	err = config.Populate(&d.config)
 	if err != nil {
 		return err
@@ -67,6 +52,26 @@ func (d *Disk) Init(config config.Config, logger zap.SugaredLogger) error {
 	d.stopChan = make(chan struct{})
 	d.logger = logger
 
+	return nil
+}
+
+// Start the plugin and be ready for taking transactions
+func (d *Disk) Start() error {
+	d.wg.Add(1)
+	go func() {
+		defer d.wg.Done()
+		for txn := range d.Transactions {
+			d.wg.Add(1)
+			go d.writeOnDisk(txn)
+		}
+	}()
+	return nil
+}
+
+//Close func Send a close signal to stop chan
+// to stop taking transactions and Close everything safely
+func (d *Disk) Close() error {
+	d.wg.Wait()
 	return nil
 }
 
@@ -109,59 +114,19 @@ func (d *Disk) writeOnDisk(txn transaction.Transaction) {
 	txn.ResponseChan <- response.Ack()
 }
 
-// Start the plugin and be ready for taking transactions
-func (d *Disk) Start() error {
-	d.wg.Add(1)
-	go func() {
-		defer d.wg.Done()
-		for txn := range d.Transactions {
-			d.wg.Add(1)
-			go d.writeOnDisk(txn)
-		}
-	}()
-	return nil
-}
-
-//Close func Send a close signal to stop chan
-// to stop taking transactions and Close everything safely
-func (d *Disk) Close() error {
-	d.wg.Wait()
-	return nil
-}
-
 func writeFileFromStream(filename string, reader io.Reader, perm os.FileMode) error {
 
 	f, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, perm)
+	defer f.Close()
+
 	if err != nil {
 		return err
 	}
 
-	buffer := bufferspool.Get()
-	defer bufferspool.Put(buffer)
-
-	var errR, errW error = nil, nil
-	var nR, nW int
-
-	for errR == nil && errW == nil {
-		// Read in buffer
-		nR, errR = reader.Read(buffer)
-
-		nW, errW = f.Write(buffer[:nR])
-
-		if errW == nil && nW < nR {
-			errW = io.ErrShortWrite
-		}
+	_, err = io.Copy(f, reader)
+	if err != nil {
+		return err
 	}
 
-	if errW != nil {
-		return errW
-	}
-
-	if errR != io.EOF && errR != nil {
-		return errR
-	}
-
-	err = f.Close()
-
-	return err
+	return nil
 }

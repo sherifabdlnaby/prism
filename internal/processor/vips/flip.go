@@ -4,13 +4,13 @@ import (
 	"fmt"
 
 	"github.com/sherifabdlnaby/bimg"
-	"github.com/sherifabdlnaby/prism/pkg/config"
+	cfg "github.com/sherifabdlnaby/prism/pkg/config"
 	"github.com/sherifabdlnaby/prism/pkg/payload"
 )
 
 type flip struct {
 	Raw       flipRawConfig `mapstructure:",squash"`
-	direction config.Selector
+	direction cfg.Selector
 }
 
 type flipRawConfig struct {
@@ -24,7 +24,7 @@ func (o *flip) Init() (bool, error) {
 		return false, nil
 	}
 
-	o.direction, err = config.NewSelector(o.Raw.Direction)
+	o.direction, err = cfg.NewSelector(o.Raw.Direction)
 	if err != nil {
 		return false, err
 	}

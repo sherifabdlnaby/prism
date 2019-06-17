@@ -2,31 +2,23 @@ package mysql
 
 import (
 	"database/sql"
+	"sync"
+
 	_ "github.com/go-sql-driver/mysql" ///go-sql-driver for mysql
 	"github.com/sherifabdlnaby/prism/pkg/component"
-	"github.com/sherifabdlnaby/prism/pkg/config"
+	cfg "github.com/sherifabdlnaby/prism/pkg/config"
 	"github.com/sherifabdlnaby/prism/pkg/response"
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
 	"go.uber.org/zap"
-	"sync"
 )
 
 //Mysql struct
 type Mysql struct {
-	config       Config
+	config       config
 	Transactions <-chan transaction.Transaction
 	stopChan     chan struct{}
 	logger       zap.SugaredLogger
 	wg           sync.WaitGroup
-}
-
-//Config struct
-type Config struct {
-	Username string `mapstructure:"username" validate:"required"`
-	Password string `mapstructure:"password"`
-	DBName   string `mapstructure:"db_name" validate:"required"`
-	Query    string `mapstructure:"query" validate:"required"`
-	query    config.Selector
 }
 
 // NewComponent Return a new Component
@@ -40,11 +32,9 @@ func (m *Mysql) SetTransactionChan(t <-chan transaction.Transaction) {
 }
 
 //Init func Initialize Mysql output plugin
-func (m *Mysql) Init(config config.Config, logger zap.SugaredLogger) error {
+func (m *Mysql) Init(config cfg.Config, logger zap.SugaredLogger) error {
 
-	var err error
-
-	err = config.Populate(&m.config)
+	err := config.Populate(&m.config)
 	if err != nil {
 		return err
 	}

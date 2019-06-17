@@ -4,18 +4,16 @@ import (
 	"github.com/sherifabdlnaby/bimg"
 )
 
-type Config struct {
-	Operations Operations
+// config struct used to decode YAML into
+type config struct {
+	Operations operations
 	Export     export
 }
 
-type RGB struct {
-	R, G, B uint8
-}
-
-func DefaultConfig() *Config {
-	return &Config{
-		Operations: Operations{
+// defaultConfig return default configuration for VIPS plugin configuration
+func defaultConfig() *config {
+	return &config{
+		Operations: operations{
 			Resize: resize{
 				Raw: *resizeDefaults(),
 			},
@@ -36,17 +34,12 @@ func DefaultConfig() *Config {
 			},
 		},
 		Export: export{
-			Raw: exportRawConfig{
-				Format:        "jpeg",
-				Extend:        "black",
-				Quality:       85,
-				Compression:   6,
-				StripMetadata: true,
-			},
+			Raw: *exportDefaults(),
 		},
 	}
 }
 
+// resizeDefaults return default configuration for resize operation configuration
 func resizeDefaults() *resizeRawConfig {
 	return &resizeRawConfig{
 		Width:    "",
@@ -55,24 +48,28 @@ func resizeDefaults() *resizeRawConfig {
 	}
 }
 
+// flipDefaults return default configuration for flip operation configuration
 func flipDefaults() *flipRawConfig {
 	return &flipRawConfig{
 		Direction: "",
 	}
 }
 
+// blurDefaults return default configuration for blur operation configuration
 func blurDefaults() *blurRawConfig {
 	return &blurRawConfig{
 		Sigma: "",
 	}
 }
 
+// rotateDefaults return default configuration for rotate operation configuration
 func rotateDefaults() *rotateRawConfig {
 	return &rotateRawConfig{
 		Angle: "",
 	}
 }
 
+// labelDefaults return default configuration for label operation configuration
 func labelDefaults() *labelRawConfig {
 	return &labelRawConfig{
 		Width:     "",
@@ -90,6 +87,7 @@ func labelDefaults() *labelRawConfig {
 	}
 }
 
+// cropDefaults return default configuration for crop operation configuration
 func cropDefaults() *cropRawConfig {
 	return &cropRawConfig{
 		Width:  "",
@@ -98,16 +96,18 @@ func cropDefaults() *cropRawConfig {
 	}
 }
 
-// No need to use this, defaultOptions have it already embedded
-func defaultExportOptions() *exportRawConfig {
+// exportDefaults return default exporting configuration for VIPS plugin
+func exportDefaults() *exportRawConfig {
 	return &exportRawConfig{
 		Format:        "jpeg",
+		Extend:        "black",
 		Quality:       85,
-		Compression:   80,
-		StripMetadata: false,
+		Compression:   6,
+		StripMetadata: true,
 	}
 }
 
+// defaultOptions return default bimg.Options for internal usage
 func defaultOptions() *bimg.Options {
 	return &bimg.Options{
 		Quality:        85,

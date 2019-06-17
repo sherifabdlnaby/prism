@@ -5,7 +5,9 @@ import (
 	"github.com/sherifabdlnaby/prism/pkg/payload"
 )
 
-type Operations struct {
+// operations used to decode the operations: field in YAML file, and translate these config to bimg.Options used \
+// to process the image
+type operations struct {
 	// Parsing
 	Resize resize
 	Flip   flip
@@ -20,12 +22,14 @@ type Operations struct {
 	operations []operation
 }
 
+// operation represent a single operation that is applied to a bimg.Option used to process the image
 type operation interface {
 	Init() (bool, error)
 	Apply(p *bimg.Options, data payload.Data) error
 }
 
-func (o *Operations) Init() error {
+// Init each operation and validate decoded config
+func (o *operations) Init() error {
 
 	// Init every operation and add them if they're active.
 	ok, err := o.Resize.Init()
@@ -102,7 +106,8 @@ func (o *Operations) Init() error {
 	return nil
 }
 
-func (o *Operations) Do(params *bimg.Options, data payload.Data) error {
+// Apply applies operations to bimg.Options
+func (o *operations) Apply(params *bimg.Options, data payload.Data) error {
 	var err error
 
 	// Apply operations to params

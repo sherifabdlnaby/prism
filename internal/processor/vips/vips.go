@@ -6,7 +6,7 @@ import (
 
 	"github.com/sherifabdlnaby/bimg"
 	"github.com/sherifabdlnaby/prism/pkg/component"
-	"github.com/sherifabdlnaby/prism/pkg/config"
+	cfg "github.com/sherifabdlnaby/prism/pkg/config"
 	"github.com/sherifabdlnaby/prism/pkg/payload"
 	"github.com/sherifabdlnaby/prism/pkg/response"
 	"go.uber.org/zap"
@@ -14,15 +14,10 @@ import (
 
 // TODO: EXTEND BIMG TO DO FACE AND ENTROPY smart crop
 
-func init() {
-	//bimg.VipsCacheSetMaxMem(0)
-	//bimg.VipsCacheSetMax(0)
-}
-
-//Dummy Dummy Processor that does absolutely nothing to the image
+// Vips a processing plugin that use libvips C library to do multiple operations
 type Vips struct {
 	logger zap.SugaredLogger
-	config Config
+	config config
 }
 
 // NewComponent Return a new Component
@@ -35,11 +30,11 @@ type image struct {
 	options bimg.Options
 }
 
-//Init Initialize Plugin based on parsed Operations
-func (d *Vips) Init(config config.Config, logger zap.SugaredLogger) error {
+//Init Initialize Plugin based on parsed operations
+func (d *Vips) Init(config cfg.Config, logger zap.SugaredLogger) error {
 	var err error
 
-	d.config = *DefaultConfig()
+	d.config = *defaultConfig()
 	err = config.Populate(&d.config)
 	if err != nil {
 		return err
@@ -63,7 +58,6 @@ func (d *Vips) Init(config config.Config, logger zap.SugaredLogger) error {
 
 //Start Start the plugin to begin receiving input
 func (d *Vips) Start() error {
-	d.logger.Info("Started Dummy processor.")
 	return nil
 }
 
@@ -72,6 +66,7 @@ func (d *Vips) Close() error {
 	return nil
 }
 
+//Decode Decode input Bytes into a vipsImage
 func (d *Vips) Decode(in payload.Bytes, data payload.Data) (payload.DecodedImage, response.Response) {
 
 	vimage, err := bimg.NewVipsImage(in)
@@ -86,11 +81,14 @@ func (d *Vips) Decode(in payload.Bytes, data payload.Data) (payload.DecodedImage
 	}, response.ACK
 }
 
+//DecodeStream Decode input Stream into a vipsImage
 func (d *Vips) DecodeStream(in payload.Stream, data payload.Data) (payload.DecodedImage, response.Response) {
 	buff, err := ioutil.ReadAll(in)
+	if err != nil {
+		return nil, response.Error(err)
+	}
 
 	vimage, err := bimg.NewVipsImage(buff)
-
 	if err != nil {
 		return nil, response.Error(err)
 	}
@@ -101,6 +99,7 @@ func (d *Vips) DecodeStream(in payload.Stream, data payload.Data) (payload.Decod
 	}, response.ACK
 }
 
+//Process Process vips image according to internal configuration of Vips plugin
 func (d *Vips) Process(in payload.DecodedImage, data payload.Data) (payload.DecodedImage, response.Response) {
 	// TODO fix bimg fork to not need this
 	//  (this happen probably because shrink on load requires src buffer to still be alive )
@@ -112,7 +111,7 @@ func (d *Vips) Process(in payload.DecodedImage, data payload.Data) (payload.Deco
 	img := vimage.image.Clone()
 
 	// apply configs
-	err := d.config.Operations.Do(params, data)
+	err := d.config.Operations.Apply(params, data)
 	if err != nil {
 		return nil, response.Error(err)
 	}
@@ -129,6 +128,7 @@ func (d *Vips) Process(in payload.DecodedImage, data payload.Data) (payload.Deco
 	}, response.ACK
 }
 
+//Encode Encodes the image according to internal configurations of the plugin and returns it as a byte buffer
 func (d *Vips) Encode(in payload.DecodedImage, data payload.Data) (payload.Bytes, response.Response) {
 	defer runtime.KeepAlive(in)
 

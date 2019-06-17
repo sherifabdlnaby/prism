@@ -22,12 +22,16 @@ func NewConfig(config map[string]interface{}) *Config {
 	return &Config{config: objx.Map(config)}
 }
 
-//NewValue creates a temporary base and it doesn't cache it
-func (cw *Config) Populate(def interface{}) error {
+// Populate will populate 'dst' struct with the config field in the YAML configuration,
+// structs can use two tags, `mapstructure` to map the config to
+// the struct look up (github.com/mitchellh/mapstructure) docsfor more about its tags,
+// and `validate` tag for quick validation lookup (gopkg.in/go-playground/validator.v9) validate tags
+// for more about its tags.
+func (cw *Config) Populate(dst interface{}) error {
 
 	config := &mapstructure.DecoderConfig{
 		WeaklyTypedInput: true,
-		Result:           def,
+		Result:           dst,
 	}
 
 	decoder, err := mapstructure.NewDecoder(config)
@@ -43,11 +47,13 @@ func (cw *Config) Populate(def interface{}) error {
 	}
 
 	// Validate
-	err = validator.New().Struct(def)
+	err = validator.New().Struct(dst)
 
 	return err
 }
 
+//NewSelector Returns a new Selector used to evaluate dynamic fields in a config
+// (this receiver was made for easing refactoring)
 func (cw *Config) NewSelector(base string) (Selector, error) {
 	return NewSelector(base)
 }
