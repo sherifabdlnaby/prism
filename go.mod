@@ -9,21 +9,14 @@ require (
 	github.com/imdario/mergo v0.3.7
 	github.com/leodido/go-urn v1.1.0 // indirect
 	github.com/mitchellh/mapstructure v1.1.2
-	github.com/pkg/errors v0.8.1 // indirect
-	github.com/sherifabdlnaby/bimg v1.1.1
+	github.com/sherifabdlnaby/bimg v1.1.2
 	github.com/sherifabdlnaby/objx v0.2.0
 	github.com/sherifabdlnaby/semaphore v1.1.0
 	github.com/spf13/cast v1.3.0
-	github.com/stretchr/objx v0.2.0 // indirect
 	go.uber.org/atomic v1.4.0 // indirect
 	go.uber.org/multierr v1.1.0 // indirect
 	go.uber.org/zap v1.9.1
-	golang.org/x/net v0.0.0-20190613194153-d28f0bde5980 // indirect
-	golang.org/x/sync v0.0.0-20190423024810-112230192c58 // indirect
-	gopkg.in/go-playground/assert.v1 v1.2.1 // indirect
 	golang.org/x/image v0.0.0-20190321063152-3fc05d484e9f
-	google.golang.org/appengine v1.6.1 // indirect
-	gopkg.in/go-playground/assert.v1 v1.2.1 // indirect
 	gopkg.in/go-playground/validator.v9 v9.29.0
 	gopkg.in/yaml.v2 v2.2.2
 )
