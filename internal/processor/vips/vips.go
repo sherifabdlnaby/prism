@@ -107,9 +107,9 @@ func (d *Vips) Process(in payload.DecodedImage, data payload.Data) (payload.Deco
 	defer runtime.KeepAlive(in)
 
 	vimage := in.(*image)
-	params := defaultOptions()
-
 	img := vimage.image.Clone()
+
+	params := defaultOptions()
 
 	// apply configs
 	err := d.config.Operations.Do(params, data)
@@ -132,15 +132,16 @@ func (d *Vips) Process(in payload.DecodedImage, data payload.Data) (payload.Deco
 func (d *Vips) Encode(in payload.DecodedImage, data payload.Data) (payload.Bytes, response.Response) {
 	defer runtime.KeepAlive(in)
 
-	img := in.(*image)
+	vimage := in.(*image)
+	img := vimage.image.Clone()
 
 	// apply export
-	err := d.config.Export.Apply(&img.options, data)
+	err := d.config.Export.Apply(&vimage.options, data)
 	if err != nil {
 		return nil, response.Error(err)
 	}
 
-	bytes, err := img.image.Save(img.options)
+	bytes, err := img.Save(vimage.options)
 	if err != nil {
 		return nil, response.Error(err)
 	}

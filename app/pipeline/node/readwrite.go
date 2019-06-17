@@ -2,6 +2,8 @@ package node
 
 import (
 	"context"
+	"log"
+	"time"
 
 	"github.com/sherifabdlnaby/prism/app/resource"
 	"github.com/sherifabdlnaby/prism/pkg/component/processor"
@@ -39,6 +41,8 @@ func (n *readWrite) job(t transaction.Transaction) {
 		return
 	}
 
+	now := time.Now()
+
 	////////////////////////////////////////////
 	// PROCESS ( DECODE -> PROCESS -> ENCODE )
 
@@ -65,13 +69,27 @@ func (n *readWrite) job(t transaction.Transaction) {
 		return
 	}
 
-	/// ENCODE
-	output, Response := n.processor.Encode(decodedPayload, t.Data)
-	n.resource.Release()
-	if !Response.Ack {
-		t.ResponseChan <- Response
-		return
+	/// NSHOF HAN ENCODE WALA LA2
+	escapeEncode := true
+	for _, value := range n.nexts {
+		if !value.Same {
+			escapeEncode = false
+			break
+		}
 	}
+
+	/// ENCODE
+	var output payload.Bytes
+	if !escapeEncode {
+		output, Response = n.processor.Encode(decodedPayload, t.Data)
+		n.resource.Release()
+		if !Response.Ack {
+			t.ResponseChan <- Response
+			return
+		}
+	}
+
+	log.Println(time.Now().Sub(now))
 
 	ctx, cancel := context.WithCancel(t.Context)
 	defer cancel()
@@ -103,6 +121,8 @@ func (n *readWrite) jobStream(t transaction.Transaction) {
 	var decoded payload.DecodedImage
 	var Response response.Response
 
+	now := time.Now()
+
 	if !t.SameType {
 		decoded, Response = n.processor.DecodeStream(t.Payload.(payload.Stream), t.Data)
 		if !Response.Ack {
@@ -122,13 +142,27 @@ func (n *readWrite) jobStream(t transaction.Transaction) {
 		return
 	}
 
-	/// ENCODE
-	output, Response := n.processor.Encode(decodedPayload, t.Data)
-	n.resource.Release()
-	if !Response.Ack {
-		t.ResponseChan <- Response
-		return
+	/// NSHOF HAN ENCODE WALA LA2
+	escapeEncode := true
+	for _, value := range n.nexts {
+		if !value.Same {
+			escapeEncode = false
+			break
+		}
 	}
+
+	/// ENCODE
+	var output payload.Bytes
+	if !escapeEncode {
+		output, Response = n.processor.Encode(decodedPayload, t.Data)
+		n.resource.Release()
+		if !Response.Ack {
+			t.ResponseChan <- Response
+			return
+		}
+	}
+
+	log.Println(time.Now().Sub(now))
 
 	ctx, cancel := context.WithCancel(t.Context)
 	defer cancel()
