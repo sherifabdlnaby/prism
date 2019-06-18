@@ -55,3 +55,17 @@ processors:
             export:
                 format: jpeg
                 quality: 90
+    nude_censor:
+        concurrency: 100
+        plugin: nude_censor
+        config:
+            drop: false
+            censor: true
+            export:
+                format: jpeg
+                quality: 90
+    nude_detect:
+        concurrency: 100
+        plugin: nude_detector
+        config:
+            drop: true
