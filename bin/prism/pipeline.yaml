@@ -2,75 +2,22 @@ pipelines:
     profile_pic_pipeline:
         concurrency: 50
         pipeline:
-            validator:
+            dummy_processor2:
                 next:
-                    dummy_processor2:
+                    dummy_processor1:
                         next:
-                            dummy_processor1:
-                                next:
-                                    disk1:
-                                        async: false
-                            disk2:
+                            disk1:
                                 async: false
-                    dummy_processor3:
+                    disk2:
+                        async: false
+            dummy_processor3:
+                next:
+                    dummy_processor4:
                         next:
-                            dummy_processor4:
-                                next:
-                                    disk4:
-                                        async: false
+                            disk4:
+                                async: false
+                    nude_censor:
+                        async: true
+                        next:
                             disk3:
                                 async: false
-
-
-
-
-#pipelines:
-#    profile_pic_pipeline:
-#        concurrency: 120
-#        pipeline:
-#            resize_maximum:
-#                async: false
-#                next:
-#                    smart_crop:
-#                        async: false
-#                        next:
-#                            thumbnail:
-#                                async: false
-#                                next:
-#                                    s3_profile-pictures:
-#                                        async: false
-#                            resize_small:
-#                                async: false
-#                                next:
-#                                    gaussian_blur:
-#                                        async: false
-#                                        next:
-#                                            s3_profile-pictures:
-#                                                async: false
-#                                    dominant_color:
-#                                        async: false
-#                                        next:
-#                                            s3_profile-pictures:
-#                                                async: false
-#                                    s3_profile-pictures:
-#                                        async: false
-#                            resize_mid:
-#                                async: false
-#                                next:
-#                                    s3_profile-pictures:
-#                                        async: false
-#                            resize_big:
-#                                async: false
-#                                next:
-#                                    s3_profile-pictures:
-#                                        async: false
-#                    face_tag:
-#                        async: true
-#                        next:
-#                            pornography_detection_event:
-#                                async: false
-#                    pornography_detection:
-#                        async: true
-#                        next:
-#                            mongo_db_face_tag:
-#                                async: false

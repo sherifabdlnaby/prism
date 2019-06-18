@@ -55,15 +55,17 @@ processors:
             export:
                 format: jpeg
                 quality: 90
-    validator:
+    nude_censor:
         concurrency: 100
-        plugin: validator
+        plugin: nude_censor
         config:
-            format:
-                - jpeg
-                - png
-                - webp
-            max_height: 1200
-            max_width:  5000
-            min_height: 120
-            min_width:  50
+            drop: false
+            censor: true
+            export:
+                format: jpeg
+                quality: 90
+    nude_detect:
+        concurrency: 100
+        plugin: nude_detector
+        config:
+            drop: true
