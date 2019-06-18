@@ -24,8 +24,7 @@ import (
 	"go.uber.org/zap"
 )
 
-//Validator struct
-//defines file type
+// Validator plugin reads the first n bytes necessary to get image-format and its header and use them for validation.
 type Validator struct {
 	logger zap.SugaredLogger
 	config config
@@ -41,7 +40,7 @@ func NewComponent() component.Component {
 	return &Validator{}
 }
 
-//Init file validator
+// Init file validator
 func (d *Validator) Init(config cfg.Config, logger zap.SugaredLogger) error {
 	var err error
 
@@ -69,21 +68,22 @@ func (d *Validator) Init(config cfg.Config, logger zap.SugaredLogger) error {
 	return nil
 }
 
-//Start the validator plugin
+// Start validator plugin
 func (d *Validator) Start() error {
 	return nil
 }
 
-//Close the validator plugin
+// Close validator plugin
 func (d *Validator) Close() error {
 	return nil
 }
 
-//Decode
+// Decode return a decoded header(config) and image format from input bytes
 func (d *Validator) Decode(in payload.Bytes, data payload.Data) (payload.DecodedImage, response.Response) {
 	return d.DecodeStream(bytes.NewReader(in), data)
 }
 
+// DecodeStream return a decoded header(config) and image format from input stream
 func (d *Validator) DecodeStream(in payload.Stream, data payload.Data) (payload.DecodedImage, response.Response) {
 	reader := in.(io.Reader)
 
@@ -98,31 +98,37 @@ func (d *Validator) DecodeStream(in payload.Stream, data payload.Data) (payload.
 	}, response.Ack()
 }
 
+//Process Compare decoded header and format with configuration
 func (d *Validator) Process(in payload.DecodedImage, data payload.Data) response.Response {
+	var err error
 	header := in.(header)
 
 	switch header.format {
 	case "jpeg":
 		if !d.config.jpeg {
-			return response.NoAck(fmt.Errorf("unsupported format"))
+			err = fmt.Errorf("unsupported format")
 		}
 	case "png":
 		if !d.config.png {
-			return response.NoAck(fmt.Errorf("unsupported format"))
+			err = fmt.Errorf("unsupported format")
 		}
 	case "webp":
 		if !d.config.webp {
-			return response.NoAck(fmt.Errorf("unsupported format"))
+			err = fmt.Errorf("unsupported format")
 		}
 	default:
-		return response.NoAck(fmt.Errorf("unsupported format"))
+		err = fmt.Errorf("unsupported format")
+	}
+
+	if err != nil {
+		return response.NoAck(err)
 	}
 
 	if header.Width > d.config.MaxWidth ||
 		header.Width < d.config.MinWidth ||
 		header.Height > d.config.MaxHeight ||
 		header.Height < d.config.MinHeight {
-		return response.NoAck(fmt.Errorf("unsupported format"))
+		return response.NoAck(fmt.Errorf("unsupported image dimenstions"))
 	}
 
 	return response.Ack()
