@@ -125,9 +125,6 @@ func (d *Validator) Process(in payload.DecodedImage, data payload.Data) response
 		return response.NoAck(fmt.Errorf("unsupported format"))
 	}
 
-	// Add format to Data
-	data["format"] = header.format
-
 	return response.Ack()
 
 }
