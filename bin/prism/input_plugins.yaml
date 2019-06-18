@@ -5,5 +5,5 @@ inputs:
             filename: "input/test@{fileNum}.png"
             pipeline: "profile_pic_pipeline"
             timeout: 5000000
-            tick: 200
+            tick: 350
             count: 30000

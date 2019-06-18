@@ -72,7 +72,6 @@ processors:
         plugin: nude_censor
         config:
             drop: false
-            censor: true
             export:
                 format: jpeg
                 quality: 90
