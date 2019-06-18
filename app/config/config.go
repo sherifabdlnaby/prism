@@ -126,7 +126,7 @@ func unmarshal(bytes []byte, out interface{}) error {
 		return err
 	}
 
-	mapString := recursivelyTurnYAMLMaps(mapRaw)
+	mapString := RecursivelyTurnYAMLMaps(mapRaw)
 
 	config := &mapstructure.DecoderConfig{
 		WeaklyTypedInput: true,
@@ -149,26 +149,26 @@ func unmarshal(bytes []byte, out interface{}) error {
 	return nil
 }
 
-// recursivelyTurnYAMLMaps turns nested YAML maps from map[interface{}]interface{} to map[string]interface{}
+// RecursivelyTurnYAMLMaps turns nested YAML maps from map[interface{}]interface{} to map[string]interface{}
 // inspired by solutions in https://github.com/go-yaml/yaml/issues/139 especially elastic's #issuecomment-183937598
-func recursivelyTurnYAMLMaps(in interface{}) interface{} {
+func RecursivelyTurnYAMLMaps(in interface{}) interface{} {
 	switch in := in.(type) {
 	case []interface{}:
 		res := make([]interface{}, len(in))
 		for i, v := range in {
-			res[i] = recursivelyTurnYAMLMaps(v)
+			res[i] = RecursivelyTurnYAMLMaps(v)
 		}
 		return res
 	case map[interface{}]interface{}:
 		res := make(map[string]interface{})
 		for k, v := range in {
-			res[fmt.Sprintf("%v", k)] = recursivelyTurnYAMLMaps(v)
+			res[fmt.Sprintf("%v", k)] = RecursivelyTurnYAMLMaps(v)
 		}
 		return res
 	case Component:
 		res := make(map[string]interface{})
 		for k, v := range in.Config {
-			res[fmt.Sprintf("%v", k)] = recursivelyTurnYAMLMaps(v)
+			res[fmt.Sprintf("%v", k)] = RecursivelyTurnYAMLMaps(v)
 		}
 		return res
 	default:
