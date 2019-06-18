@@ -5,6 +5,7 @@ import (
 
 	"github.com/mitchellh/mapstructure"
 	"github.com/sherifabdlnaby/objx"
+	cfg "github.com/sherifabdlnaby/prism/app/config"
 	"gopkg.in/go-playground/validator.v9"
 )
 
@@ -29,6 +30,8 @@ func NewConfig(config map[string]interface{}) *Config {
 // for more about its tags.
 func (cw *Config) Populate(dst interface{}) error {
 
+	mapString := cfg.RecursivelyTurnYAMLMaps(cw.config)
+
 	config := &mapstructure.DecoderConfig{
 		WeaklyTypedInput: true,
 		Result:           dst,
@@ -40,7 +43,7 @@ func (cw *Config) Populate(dst interface{}) error {
 		return err
 	}
 
-	err = decoder.Decode(cw.config)
+	err = decoder.Decode(mapString)
 
 	if err != nil {
 		return err
