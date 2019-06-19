@@ -1,32 +1,49 @@
 outputs:
-    disk1:
+    dynamic:
         plugin: disk
-        concurrency: 1000
+        concurrency: 100
         config:
-            filepath: output/1/disk_output-1-@{count}.jpg
+            filepath: output/dynamic/@{_timestamp}-@{filename}-@{width}x@{height}.@{format}
             permission: 0777
-    disk2:
+    original:
         plugin: disk
-        concurrency: 1000
+        concurrency: 100
         config:
-            filepath: output/2/disk_output-2-@{count}.jpg
+            filepath: output/original/@{_timestamp}-@{filename}.@{format}
             permission: 0777
-    disk3:
+    big:
         plugin: disk
-        concurrency: 1000
+        concurrency: 100
         config:
-            filepath: output/3/disk_output-3-@{count}.jpg
+            filepath: output/big/@{_timestamp}-@{filename}.@{format}
             permission: 0777
-    disk4:
+    medium:
         plugin: disk
-        concurrency: 1000
+        concurrency: 100
         config:
-            filepath: output/4/disk_output-3-@{count}.jpg
+            filepath: output/medium/@{_timestamp}-@{filename}.@{format}
             permission: 0777
-#    s3First:
-#        plugin: s3
-#        concurrency: 10
-#        config:
-#            filepath: s3_output-1-@{count}-x-@{_timestamp}-x-@{_id}.jpg
-#            s3_region: us-east-2
-#            s3_bucket: prism.test
+    small:
+        plugin: disk
+        concurrency: 100
+        config:
+            filepath: output/small/@{_timestamp}-@{filename}.@{format}
+            permission: 0777
+    thumbnail:
+        plugin: disk
+        concurrency: 100
+        config:
+            filepath: output/thumbnail/@{_timestamp}-@{filename}.@{format}
+            permission: 0777
+    watermark:
+        plugin: disk
+        concurrency: 100
+        config:
+            filepath: output/watermark/@{_timestamp}-@{filename}.@{format}
+            permission: 0777
+    flipped_blurred:
+        plugin: disk
+        concurrency: 100
+        config:
+            filepath: output/flip_blur/@{_timestamp}-@{filename}.@{format}
+            permission: 0777

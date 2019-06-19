@@ -1,16 +1,102 @@
 processors:
-    dummy_processor1:
-        concurrency: 10
-        plugin: dummy_processor
+    validator:
+        concurrency: 100
+        plugin: validator
         config:
-            filename: testing.jpg
-    dummy_processor2:
-        concurrency: 10
-        plugin: dummy_processor
+            format:
+                - jpeg
+                - png
+                - webp
+    smart_crop_thumbnail:
+        plugin: vips
         config:
-            filename: testing.jpg
-    dummy_processor3:
-        plugin: dummy_processor
-        concurrency: 10
+            operations:
+                crop:
+                    width:  300
+                    height: 300
+                    anchor: smart
+            export:
+                format: jpeg
+                quality: 80
+    flip_blur:
+        concurrency: 1
+        plugin: vips
         config:
-            filename: testing.jpg
+            operations:
+                blur:
+                    sigma:  2
+                    min_ampl: 10
+                flip:
+                    direction: both
+            export:
+                format: jpeg
+                quality: 90
+    resize_minimum:
+        concurrency: 100
+        plugin: vips
+        config:
+            operations:
+                resize:
+                    max_width: 800
+                    strategy: "embed"
+            export:
+                format: jpeg
+                quality: 90
+    resize_big:
+        plugin: vips
+        config:
+            operations:
+                resize:
+                    width: 1280
+                    height: 2000
+                    strategy: "crop"
+            export:
+                format: jpeg
+                quality: 90
+    resize_medium:
+        plugin: vips
+        config:
+            operations:
+                resize:
+                    width: 600
+            export:
+                format: jpeg
+                quality: 90
+    resize_small:
+        plugin: vips
+        config:
+            operations:
+                resize:
+                    width: 300
+                    height: 0
+            export:
+                format: jpeg
+                quality: 90
+    watermark_label:
+        concurrency: 4
+        plugin: vips
+        config:
+            operations:
+                label:
+                    text: "@TestWatermark"
+                    dpi: 100
+                    width: 100
+                    font: sans 15 bold
+                    opacity: 0.75
+            export:
+                format: jpeg
+                quality: 90
+    nude_censor:
+        concurrency: 1
+        plugin: nude_censor
+        config:
+            drop: false
+            censor: true
+            export:
+                format: jpeg
+                quality: 90
+    nude_detect:
+        concurrency: 1
+        plugin: nude_detector
+        config:
+            drop: true

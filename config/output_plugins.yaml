@@ -1,19 +1,49 @@
 outputs:
-    disk1:
+    dynamic:
         plugin: disk
-        concurrency: 10
+        concurrency: 100
         config:
-            filepath: disk_output-1-@{count}.jpg
+            filepath: output/dynamic/@{_timestamp}-@{filename}-@{width}x@{height}.@{format}
             permission: 0777
-    disk2:
+    original:
         plugin: disk
-        concurrency: 10
+        concurrency: 100
         config:
-            filepath: disk_output-2-@{count}.jpg
+            filepath: output/original/@{_timestamp}-@{filename}.@{format}
             permission: 0777
-    disk3:
+    big:
         plugin: disk
-        concurrency: 10
+        concurrency: 100
         config:
-            filepath: disk_output-3-@{count}.jpg
+            filepath: output/big/@{_timestamp}-@{filename}.@{format}
+            permission: 0777
+    medium:
+        plugin: disk
+        concurrency: 100
+        config:
+            filepath: output/medium/@{_timestamp}-@{filename}.@{format}
+            permission: 0777
+    small:
+        plugin: disk
+        concurrency: 100
+        config:
+            filepath: output/small/@{_timestamp}-@{filename}.@{format}
+            permission: 0777
+    thumbnail:
+        plugin: disk
+        concurrency: 100
+        config:
+            filepath: output/thumbnail/@{_timestamp}-@{filename}.@{format}
+            permission: 0777
+    watermark:
+        plugin: disk
+        concurrency: 100
+        config:
+            filepath: output/watermark/@{_timestamp}-@{filename}.@{format}
+            permission: 0777
+    flipped_blurred:
+        plugin: disk
+        concurrency: 100
+        config:
+            filepath: output/flip_blur/@{_timestamp}-@{filename}.@{format}
             permission: 0777

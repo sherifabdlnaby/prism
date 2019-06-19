@@ -4,22 +4,43 @@ pipelines:
         pipeline:
             validator:
                 next:
-                    dummy_processor2:
+                    resize_minimum:
                         next:
-                            dummy_processor1:
-                                next:
-                                    disk1:
-                                        async: false
-                            disk2:
+                            resize_big:
                                 async: false
-                    dummy_processor3:
-                        next:
-                            dummy_processor4:
                                 next:
-                                    disk4:
+                                    big:
                                         async: false
-                            nude_censor:
+                            resize_medium:
                                 async: true
                                 next:
-                                    disk3:
+                                    smart_crop_thumbnail:
+                                        next:
+                                            thumbnail:
+                                                async: false
+                                    watermark_label:
+                                        next:
+                                            watermark:
+                                                async: false
+                                    medium:
                                         async: false
+                            resize_small:
+                                async: true
+                                next:
+                                    flip_blur:
+                                        next:
+                                            flipped_blurred:
+                                                async: false
+                                    small:
+                                        async: false
+                            original:
+                                async: false
+    dynamic_resize:
+        concurrency: 50
+        pipeline:
+            validate_size:
+                next:
+                    dynamic_resize:
+                        next:
+                            dynamic:
+                                async: false

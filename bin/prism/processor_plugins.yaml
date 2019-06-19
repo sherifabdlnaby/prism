@@ -1,6 +1,13 @@
 processors:
-    dummy_processor1:
+    validator:
         concurrency: 100
+        plugin: validator
+        config:
+            format:
+                - jpeg
+                - png
+                - webp
+    smart_crop_thumbnail:
         plugin: vips
         config:
             operations:
@@ -8,41 +15,63 @@ processors:
                     width:  300
                     height: 300
                     anchor: smart
+            export:
+                format: jpeg
+                quality: 80
+    flip_blur:
+        concurrency: 1
+        plugin: vips
+        config:
+            operations:
                 blur:
-                    sigma:  3
+                    sigma:  2
                     min_ampl: 10
                 flip:
                     direction: both
             export:
                 format: jpeg
-                quality: 80
-    dummy_processor2:
+                quality: 90
+    resize_minimum:
         concurrency: 100
         plugin: vips
         config:
             operations:
                 resize:
-                    width: "@{width}"
-                    height: "@{height}"
-                    strategy: "stretch"
-                rotate:
-                    angle: 90
+                    max_width: 800
+                    strategy: "embed"
             export:
                 format: jpeg
-                quality: 50
-    dummy_processor3:
-        concurrency: 100
+                quality: 90
+    resize_big:
         plugin: vips
         config:
             operations:
                 resize:
-                    width: 1000
+                    width: 1280
+            export:
+                format: jpeg
+                quality: 90
+    resize_medium:
+        plugin: vips
+        config:
+            operations:
+                resize:
+                    width: 600
+            export:
+                format: jpeg
+                quality: 90
+    resize_small:
+        plugin: vips
+        config:
+            operations:
+                resize:
+                    width: 300
                     height: 0
             export:
                 format: jpeg
                 quality: 90
-    dummy_processor4:
-        concurrency: 100
+    watermark_label:
+        concurrency: 4
         plugin: vips
         config:
             operations:
@@ -55,13 +84,8 @@ processors:
             export:
                 format: jpeg
                 quality: 90
-    validator:
-        concurrency: 100
-        plugin: validator
-        config:
-            format: jpeg
     nude_censor:
-        concurrency: 100
+        concurrency: 1
         plugin: nude_censor
         config:
             drop: false
@@ -70,7 +94,30 @@ processors:
                 format: jpeg
                 quality: 90
     nude_detect:
-        concurrency: 100
+        concurrency: 1
         plugin: nude_detector
         config:
             drop: true
+    validate_size:
+        concurrency: 100
+        plugin: validator
+        config:
+            max_width:  5000
+            max_height: 5000
+            min_width:  100
+            min_height: 100
+            format:
+                - jpeg
+                - png
+                - webp
+    dynamic_resize:
+        plugin: vips
+        config:
+            operations:
+                resize:
+                    width: "@{width}"
+                    height: "@{height}"
+                    strategy: "@{strategy}"
+            export:
+                format: jpeg
+                quality: 90

@@ -1,22 +1,33 @@
 inputs:
-    disk_input:
-        plugin: dummy_input
-        config:
-            filename: "test.jpg"
-            pipeline: "profile_pic_pipeline"
-            timeout: 10000
-            tick: 50000000
-    http_server:
+    http_server_1:
         plugin: http
         config:
             port: 8080
             form_name: image
             paths:
                 "/profile_picture":
-                    pipeline: "@{pipeline}"
-                "/cover_picture/":
+                    pipeline: "profile_pic_pipeline"
+            certfile: ""
+            keyfile: ""
+    http_server_2:
+        plugin: http
+        config:
+            port: 8081
+            form_name: image
+            paths:
+                "/dynamic_resize":
+                    pipeline: "dynamic_resize"
+                "/pipeline":
                     pipeline: "@{pipeline}"
             certfile: ""
             keyfile: ""
+    disk_input:
+        plugin: dummy_input
+        config:
+            filename: "input/test@{count}.png"
+            pipeline: "profile_pic_pipeline"
+            timeout: 10000
+            tick:    1000
+            count:   2
 
 
