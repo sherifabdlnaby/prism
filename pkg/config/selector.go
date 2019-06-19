@@ -17,13 +17,8 @@ type Selector struct {
 
 //NewSelector Returns a new Selector used to evaluate dynamic fields in a config
 func NewSelector(base string) (Selector, error) {
-
-	if base == "" {
-		return Selector{}, fmt.Errorf("base to selector is nil")
-	}
-
-	parts := splitToParts(base)
 	isDynamic := false
+	parts := splitToParts(base)
 
 	if parts != nil {
 		isDynamic = true

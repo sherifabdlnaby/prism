@@ -11,6 +11,8 @@ import (
 	"go.uber.org/zap"
 )
 
+const version = "1.0.0"
+
 // Webserver take input from HTTP requests
 // TODO A lot of things to be added later: URL Signature key, HTTPs (key,cert), API key..etc
 type Webserver struct {
