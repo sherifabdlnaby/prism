@@ -12,6 +12,8 @@ import (
 	_ "image/png"
 	"io"
 
+	"github.com/h2non/filetype"
+	"github.com/h2non/filetype/matchers"
 	"github.com/sherifabdlnaby/prism/pkg/component"
 
 	// register webp to decode function
@@ -65,6 +67,11 @@ func (d *Validator) Init(config cfg.Config, logger zap.SugaredLogger) error {
 		}
 	}
 
+	// check if we'll only need to get format only (to use a faster method)
+	if d.config.MinHeight+d.config.MaxHeight+d.config.MinWidth+d.config.MaxWidth == 0 {
+		d.config.formatOnly = true
+	}
+
 	d.logger = logger
 	return nil
 }
@@ -87,6 +94,30 @@ func (d *Validator) Decode(in payload.Bytes, data payload.Data) (payload.Decoded
 func (d *Validator) DecodeStream(in payload.Stream, data payload.Data) (payload.DecodedImage, response.Response) {
 	reader := in.(io.Reader)
 
+	var format string
+
+	// if only need to check for type -> use the quicker method that only need 260 byte
+	if d.config.formatOnly {
+		head := make([]byte, 261)
+		_, err := io.ReadFull(reader, head)
+		if err != nil {
+			return nil, response.NoAck(fmt.Errorf("bytes not enough to validate image type"))
+		}
+
+		if jpeg := filetype.IsType(head, matchers.TypeJpeg); jpeg {
+			format = "jpeg"
+		} else if png := filetype.IsType(head, matchers.TypePng); png {
+			format = "png"
+		} else if webp := filetype.IsType(head, matchers.TypeWebp); webp {
+			format = "webp"
+		}
+
+		return header{
+			format: format,
+		}, response.Ack()
+	}
+
+	// use image.Decode to get both format AND dimensions
 	config, format, err := image.DecodeConfig(reader)
 	if err != nil {
 		return nil, response.NoAck(fmt.Errorf("unsupported format"))
