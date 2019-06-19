@@ -20,7 +20,7 @@ type Reader struct {
 
 //NewReader Create a new Reader
 func NewReader(reader io.Reader, buffer []byte) *Reader {
-	return &Reader{reader: reader, buf: buffer, stepSize: len(buffer) / 2}
+	return &Reader{reader: reader, buf: buffer, stepSize: 40000}
 }
 
 func (r *Reader) readMore() {
@@ -43,8 +43,6 @@ func (r *Reader) readMore() {
 	if r.error != nil {
 		r.baseTotal = int64(r.curr)
 	}
-
-	r.stepSize *= 2
 
 }
 
