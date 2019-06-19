@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/sherifabdlnaby/prism/pkg/component"
+	cfg "github.com/sherifabdlnaby/prism/pkg/config"
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
 	"go.uber.org/zap"
 )
@@ -31,7 +32,7 @@ func (w *Webserver) InputTransactionChan() <-chan transaction.InputTransaction {
 }
 
 //Init initializes the web-server and read its config
-func (w *Webserver) Init(config config.Config, logger zap.SugaredLogger) error {
+func (w *Webserver) Init(config cfg.Config, logger zap.SugaredLogger) error {
 	var err error
 
 	w.config = *defaultConfig()
@@ -58,12 +59,12 @@ func (w *Webserver) Init(config config.Config, logger zap.SugaredLogger) error {
 
 // Start : starts the server and serve requests
 func (w *Webserver) Start() error {
-	w.logger.Info(fmt.Sprintf("Http server listening at %d!", w.config.Port))
 
 	// listenAndServe the server
 	go func() {
+		w.logger.Info(fmt.Sprintf("Http server listening at %d!", w.config.Port))
 		err := w.listenAndServe()
-		if err != nil {
+		if err != nil && err != http.ErrServerClosed {
 			w.logger.Errorw(fmt.Sprintf("webserver listening at port [%v] stopped", w.config.Port), "error", err.Error())
 		}
 	}()

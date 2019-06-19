@@ -7,7 +7,7 @@ inputs:
             timeout: 10000
             tick: 50000000
     http_server:
-        plugin: http_input
+        plugin: http
         config:
             port: 8080
             form_name: image

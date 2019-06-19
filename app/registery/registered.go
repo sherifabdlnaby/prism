@@ -16,7 +16,7 @@ import (
 var registered = map[string]func() component.Component{
 	"dummy_processor": dummyprocessor.NewComponent,
 	"dummy_input":     dummyinput.NewComponent,
-	"http_input":      http.NewComponent,
+	"http":            http.NewComponent,
 	"disk":            disk.NewComponent,
 	"s3":              s3.NewComponent,
 	"mysql":           mysql.NewComponent,

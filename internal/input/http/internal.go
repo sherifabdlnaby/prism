@@ -52,7 +52,7 @@ func buildHandlers(w *Webserver) http.Handler {
 }
 
 //handle will formulate request into a transaction and await response
-func (w Webserver) handle(rw http.ResponseWriter, r *http.Request) {
+func (w *Webserver) handle(rw http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
 
 		// Parse form into Data
