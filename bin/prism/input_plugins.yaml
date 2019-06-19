@@ -1,26 +1,21 @@
 inputs:
+    disk_input:
+        plugin: dummy_input
+        config:
+            filename: "test.jpg"
+            pipeline: "profile_pic_pipeline"
+            timeout: 10000
+            tick: 50000000
     http_server:
         plugin: http_input
-        concurrency: 10
         config:
             port: 8080
-            urls:
+            paths:
                 "/profile_picture":
-                    pipeline: profile_pic_pipeline
-                "/cover_picture":
-                    pipeline: cover_picture_pipeline
-                "/index":
-                    pipeline: profile_pic_pipeline
-#    http_server:
-#        plugin: dummy_input
-#        concurrency: 10
-#        config:
-#            filename: "test.jpg"
-#            host: -@{port}--@{nested.length}----@{length}--------@{nested.width}------------@{width}------
-#            port: "${HTTP_SERVER_PORT}"
-#            filepath: /asdfa/asdg/asd/asgd@{name}.jpg
-#            urls:
-#                "/profile_picture":
-#                    pipeline: profile_pic_pipeline
-#                "/cover_picture":
-#                    pipeline: cover_picture_pipeline
+                    pipeline: "@{pipeline}"
+                "/cover_picture/":
+                    pipeline: "@{pipeline}"
+            certfile: ""
+            keyfile: ""
+
+
