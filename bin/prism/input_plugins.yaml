@@ -1,9 +1,22 @@
 inputs:
-    http_server:
+    disk_input:
         plugin: dummy_input
         config:
-            filename: "input/test@{fileNum}.png"
+            filename: "test.jpg"
             pipeline: "profile_pic_pipeline"
-            timeout: 5000000
-            tick: 350
-            count: 30000
+            timeout: 10000
+            tick: 50000000
+    http_server:
+        plugin: http
+        config:
+            port: 8080
+            form_name: image
+            paths:
+                "/profile_picture":
+                    pipeline: "@{pipeline}"
+                "/cover_picture/":
+                    pipeline: "@{pipeline}"
+            certfile: ""
+            keyfile: ""
+
+

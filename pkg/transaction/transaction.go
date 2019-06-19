@@ -11,6 +11,7 @@ import (
 // which is used to indicate whether the payload was successfully processed and propagated to the next destinations.
 type Transaction struct {
 	// Payload is the message payload of this transaction.
+	// is either a payload.Stream OR payload.Bytes.
 	Payload payload.Payload
 
 	// Data is the message data of this transaction.
