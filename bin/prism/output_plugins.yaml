@@ -3,47 +3,47 @@ outputs:
         plugin: disk
         concurrency: 100
         config:
-            filepath: output/dynamic/@{_timestamp}-@{filename}-@{width}x@{height}.@{format}
+            filepath: output/dynamic/@{_timestamp}-@{_filename}-@{_width}x@{_height}.@{_format}
             permission: 0777
     original:
         plugin: disk
         concurrency: 100
         config:
-            filepath: output/original/@{_timestamp}-@{filename}.@{format}
+            filepath: output/original/@{_timestamp}-@{_filename}.@{_format}
             permission: 0777
     big:
         plugin: disk
         concurrency: 100
         config:
-            filepath: output/big/@{_timestamp}-@{filename}.@{format}
+            filepath: output/big/@{_timestamp}-@{_filename}.@{_format}
             permission: 0777
     medium:
         plugin: disk
         concurrency: 100
         config:
-            filepath: output/medium/@{_timestamp}-@{filename}.@{format}
+            filepath: output/medium/@{_timestamp}-@{_filename}.@{_format}
             permission: 0777
     small:
         plugin: disk
         concurrency: 100
         config:
-            filepath: output/small/@{_timestamp}-@{filename}.@{format}
+            filepath: output/small/@{_timestamp}-@{_filename}.@{_format}
             permission: 0777
     thumbnail:
         plugin: disk
         concurrency: 100
         config:
-            filepath: output/thumbnail/@{_timestamp}-@{filename}.@{format}
+            filepath: output/thumbnail/@{_timestamp}-@{_filename}.@{_format}
             permission: 0777
     watermark:
         plugin: disk
         concurrency: 100
         config:
-            filepath: output/watermark/@{_timestamp}-@{filename}.@{format}
+            filepath: output/watermark/@{_timestamp}-@{_filename}.@{_format}
             permission: 0777
     flipped_blurred:
         plugin: disk
         concurrency: 100
         config:
-            filepath: output/flip_blur/@{_timestamp}-@{filename}.@{format}
+            filepath: output/flip_blur/@{_timestamp}-@{_filename}.@{_format}
             permission: 0777

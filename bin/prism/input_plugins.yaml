@@ -27,7 +27,7 @@ inputs:
             filename: "input/test@{count}.png"
             pipeline: "profile_pic_pipeline"
             timeout: 10000
-            tick:    1000
-            count:   2
+            tick:    100
+            count:   100
 
 

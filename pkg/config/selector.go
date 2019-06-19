@@ -31,6 +31,7 @@ func NewSelector(base string) (Selector, error) {
 	}, nil
 }
 
+// TODO differentiate between not found in data, and being evaluated to 0 in a better way.
 // Evaluate Evaluate dynamic values of config such as `image-@{image.title}.jpg` as a string, return error if it doesn't exist in supplied
 // Data.
 func (v *Selector) Evaluate(data map[string]interface{}) (string, error) {

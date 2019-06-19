@@ -108,7 +108,7 @@ func (w *Webserver) handle(rw http.ResponseWriter, r *http.Request) {
 
 		// Add filename to Data (and remove extension
 		filename := part.FileName()
-		data["filename"] = filename[0 : len(filename)-len(filepath.Ext(filename))]
+		data["_filename"] = filename[0 : len(filename)-len(filepath.Ext(filename))]
 
 		responseChan := make(chan responseT.Response)
 		w.Transactions <- transaction.InputTransaction{

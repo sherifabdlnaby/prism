@@ -145,5 +145,8 @@ func (d *Vips) Encode(in payload.DecodedImage, data payload.Data) (payload.Bytes
 		return nil, response.Error(err)
 	}
 
+	data["_width"], data["_height"] = img.image.GetDimensions()
+	data["_format"] = d.config.Export.Raw.Format
+
 	return bytes, response.ACK
 }

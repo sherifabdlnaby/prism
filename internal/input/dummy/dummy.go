@@ -103,7 +103,7 @@ func (d *Dummy) Start() error {
 						return
 					}
 
-					payloadData["filename"] = filepath.Base(filename)[0 : len(filepath.Base(filename))-len(filepath.Ext(filepath.Base(filename)))]
+					payloadData["_filename"] = filepath.Base(filename)[0 : len(filepath.Base(filename))-len(filepath.Ext(filepath.Base(filename)))]
 
 					// Get Image Data
 					reader, err := os.Open(filename)

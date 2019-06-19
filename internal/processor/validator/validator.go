@@ -149,7 +149,7 @@ func (d *Validator) Process(in payload.DecodedImage, data payload.Data) response
 		return response.NoAck(fmt.Errorf("unsupported format"))
 	}
 
-	data["format"] = header.format
+	data["_format"] = header.format
 
 	if header.Width > d.config.MaxWidth ||
 		header.Width < d.config.MinWidth ||

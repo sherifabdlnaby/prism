@@ -15,6 +15,7 @@ type exportRawConfig struct {
 	Quality       int    `validate:"min=1,max=100"`
 	Compression   int    `validate:"min=1,max=9"`
 	StripMetadata bool   `mapstructure:"strip_metadata"`
+	Interlace     bool
 }
 
 func (o *export) Init() (bool, error) {
@@ -27,6 +28,7 @@ func (o *export) Apply(p *bimg.Options, data payload.Data) error {
 	p.Quality = o.Raw.Quality
 	p.Compression = o.Raw.Compression
 	p.StripMetadata = o.Raw.StripMetadata
+	p.Interlace = o.Raw.Interlace
 
 	switch o.Raw.Format {
 	case "jpeg", "jpg":

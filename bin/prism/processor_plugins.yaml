@@ -17,7 +17,7 @@ processors:
                     anchor: smart
             export:
                 format: jpeg
-                quality: 80
+                quality: 90
     flip_blur:
         concurrency: 1
         plugin: vips
