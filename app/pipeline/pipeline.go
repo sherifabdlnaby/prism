@@ -199,7 +199,7 @@ func NewPipeline(name string, db *bolt.DB, pc config.Pipeline, registry registry
 
 	nexts := make([]node.Next, 0)
 	for key, value := range pc.Pipeline {
-		Node, err := buildTree(key, *value, registry, NodeMap, false)
+		Node, err := buildTree(key, *value, registry, NodeMap, logger, false)
 		if err != nil {
 			return nil, err
 		}
@@ -256,13 +256,16 @@ func NewPipeline(name string, db *bolt.DB, pc config.Pipeline, registry registry
 	return &pip, nil
 }
 
-func buildTree(name string, n config.Node, registry registry.Registry, NodesList map[string]*node.Node, forceSync bool) (*node.Node, error) {
+func buildTree(name string, n config.Node, registry registry.Registry, NodesList map[string]*node.Node, logger zap.SugaredLogger, forceSync bool) (*node.Node, error) {
 
 	// create node of the configure components
 	currNode, err := chooseComponent(name, registry, len(n.Next))
 	if err != nil {
 		return nil, err
 	}
+
+	currNode.Name = name
+	currNode.Logger = *logger.Named(name)
 
 	// Give new node a unique name
 	for i := 0; ; {
@@ -280,7 +283,7 @@ func buildTree(name string, n config.Node, registry registry.Registry, NodesList
 	if n.Next != nil {
 		for key, value := range n.Next {
 
-			Node, err := buildTree(key, *value, registry, NodesList, n.Async)
+			Node, err := buildTree(key, *value, registry, NodesList, logger, n.Async)
 			if err != nil {
 				return nil, err
 			}
@@ -336,8 +339,6 @@ func chooseComponent(name string, registry registry.Registry, nextsCount int) (*
 			return nil, fmt.Errorf("plugin [%s] doesn't exists", name)
 		}
 	}
-
-	Node.Name = name
 
 	return Node, nil
 }

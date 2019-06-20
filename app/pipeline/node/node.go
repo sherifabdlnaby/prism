@@ -17,11 +17,13 @@ import (
 	"github.com/sherifabdlnaby/prism/pkg/payload"
 	"github.com/sherifabdlnaby/prism/pkg/response"
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
+	"go.uber.org/zap"
 )
 
 //Node A Node in the pipeline
 type Node struct {
 	Name           string
+	Logger         zap.SugaredLogger
 	receiveTxnChan chan transaction.Transaction //TODO make a receive only for more sanity
 	async          bool
 	wg             sync.WaitGroup
@@ -169,22 +171,22 @@ func (n *Node) startAsyncTransaction(t *transaction.Transaction) error {
 	var newPayload payload.Payload
 
 	// Get all Transaction Data
-	switch payload := t.Payload.(type) {
+	switch Payload := t.Payload.(type) {
 	case payload.Bytes:
-		nBytes, err := tmpFile.Write(payload)
+		nBytes, err := tmpFile.Write(Payload)
 
 		if err != nil {
 			err = fmt.Errorf("failed to save async transaction to tmp tmpFile, error: %s", err.Error())
 			return err
 		}
 
-		if nBytes != len(payload) {
+		if nBytes != len(Payload) {
 			err = fmt.Errorf("failed to save async transaction to tmp tmpFile, couldn't write all bytes")
 			return err
 		}
 
-		// set new payload to bytes (we keep in memory if we're in memory)
-		newPayload = payload
+		// set new Payload to bytes (we keep in memory if we're in memory)
+		newPayload = payload.Bytes(Payload)
 
 		err = tmpFile.Close()
 		if err != nil {
@@ -193,7 +195,7 @@ func (n *Node) startAsyncTransaction(t *transaction.Transaction) error {
 
 		tmpFile = nil
 	case payload.Stream:
-		_, err = io.Copy(tmpFile, payload)
+		_, err = io.Copy(tmpFile, Payload)
 
 		if err != nil {
 			_ = tmpFile.Close()
@@ -206,12 +208,14 @@ func (n *Node) startAsyncTransaction(t *transaction.Transaction) error {
 		}
 
 		tmpFile, err = os.Open(tmpFile.Name())
-		payload = tmpFile
+
+		newPayload = payload.Stream(tmpFile)
+
 		if err != nil {
 			return err
 		}
 	default:
-		err = fmt.Errorf("invalid transaction payload type, must be payload.Bytes or payload.Stream")
+		err = fmt.Errorf("invalid transaction Payload type, must be Payload.Bytes or Payload.Stream")
 		return err
 	}
 
@@ -253,7 +257,7 @@ func (n *Node) startAsyncTransaction(t *transaction.Transaction) error {
 	// cancel async nodes too )
 	t.Context = context.Background()
 
-	// New payload
+	// New Payload
 	t.Payload = newPayload
 
 	// return ack response
@@ -269,7 +273,10 @@ func (n *Node) receiveAsyncResponse(ID string, TmpFile *os.File, newResponseChan
 	defer n.wg.Done()
 
 	//TODO check Response
-	<-newResponseChan
+	response := <-newResponseChan
+	if response.Error != nil {
+		n.Logger.Errorw("error occurred when processing an async request", "error", response.Error.Error())
+	}
 
 	//close Tmp file if it was used to stream data
 	if TmpFile != nil {
