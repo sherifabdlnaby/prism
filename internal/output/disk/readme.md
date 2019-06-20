@@ -14,18 +14,16 @@ This is an example of disk config:
 
 This plugin supports the following configuration options.
 
-|Setting   |Input type      |  Required |
-|-----------|----------------------|-----------|
-| [filepath](#filepath)  |  string        | yes     |
-| [permission](#permission)  |  string            |   no     |
+|Setting   |Input type      |  Required |  Dynamic |
+|-----------|----------------------|-----------|-----------|
+| [filepath](#filepath)  |  string        | yes     | yes     |
+| [permission](#permission)  |  string            |   no     |   no     |
 
 ##### `filepath`
  * This is a required setting
  * Value type is string
  * There is no default value for this setting.
- * `@{count}` get evaluated by the current count of the pictures
- * `@{_timestamp}` get evaluated by the current time stamp
- * `@{_id}` get evaluated by the id of the picture
+ * This setting supports dynamic values
  * If the folder in the path isn't there the plugin creates it.
 
 ##### `permission`

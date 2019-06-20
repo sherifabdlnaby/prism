@@ -23,26 +23,24 @@ This is an example of s3 config:
 
 This plugin supports the following configuration options.
 
-|Setting   |Input type      |  Required |
-|-----------|----------------------|-----------|
-| [filepath](#filepath)  |  string        | yes     |
-| [s3_region](#s3_region)  |  string            |   yes     |
-| [s3_bucket](s3_bucket)  | string       |    yes     |
-| [access_key_id](#access_key_id)  |  string        | no     |
-| [secret_access_key](#secret_access_key)  |  string            |   no     |
-| [session_token](#session_token)  | string       |    no     |
-| [canned_acl](#canned_acl)  |  string        | no     |
-| [encoding](#encoding)  |  string            |   no     |
-| [server_side_encryption_algorithm](#server_side_encryption_algorithm)  | string       |    no     |
-| [storage_class](#storage_class)  | string       |    no     |
+|Setting   |Input type      |  Required |  Dynamic |
+|-----------|----------------------|-----------|-----------|
+| [filepath](#filepath)  |  string        | yes     | yes     |
+| [s3_region](#s3_region)  |  string            |   yes     | no     |
+| [s3_bucket](s3_bucket)  | string       |    yes     | no     |
+| [access_key_id](#access_key_id)  |  string        | no     | no     |
+| [secret_access_key](#secret_access_key)  |  string            |   no     | no     |
+| [session_token](#session_token)  | string       |    no     | no     |
+| [canned_acl](#canned_acl)  |  string        | no     | no     |
+| [encoding](#encoding)  |  string            |   no     | no     |
+| [server_side_encryption_algorithm](#server_side_encryption_algorithm)  | string       |    no     | no     |
+| [storage_class](#storage_class)  | string       |    no     | no     |
 
 ##### `filepath`
  * This is a required setting
  * Value type is string
  * There is no default value for this setting.
- * `@{count}` get evaluated by the current count of the pictures
- * `@{_timestamp}` get evaluated by the current time stamp
- * `@{_id}` get evaluated by the id of the picture
+ * This setting supports dynamic values
 
 ##### `s3_region`
  * This is a required setting
