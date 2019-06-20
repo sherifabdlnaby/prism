@@ -25,10 +25,10 @@ This plugin supports the following configuration options.
 |Setting   |Input type      |  Required |  Dynamic |
 |-----------|----------------------|-----------|-----------|
 | [format](#format)  |  []String        | yes     | no     |
-| [maxheight](#maxheight)  |  int        | no     | no     |
-| [minheight](#minheight)  |  int        | no     | no     |
-| [maxwidth](#maxwidth)  |  int        | no     | no     |
-| [minwidth](#minwidth)  |  int        | no     | no     |
+| [maxheight](#maxheight)  |  int        | yes     | no     |
+| [minheight](#minheight)  |  int        | yes     | no     |
+| [maxwidth](#maxwidth)  |  int        | yes     | no     |
+| [minwidth](#minwidth)  |  int        | yes    | no     |
 
 ##### `format`
  * This is a required setting
@@ -36,22 +36,22 @@ This plugin supports the following configuration options.
  * Formats available are {jpeg/jpg, PNG, webp}
 
 ##### `maxheight`
-   *This is an optional setting
+   *Should be 0 or more, 0 for non check.
   
    *Max height allowed for an input
  
 ##### `minheight`
-   *This is an optional setting
+   *Should be 0 or more, 0 for non check.
    
    *Min height allowed for an input
   
 ##### `maxwidth`
-   *This is an optional setting
+   *Should be 0 or more, 0 for non check.
    
    *Max width allowed for an input 
   
 ##### `minwidth` 
 
-   *This is an optional setting
+   *Should be 0 or more, 0 for non check.
    
    *Min width allowed for an input
