@@ -74,9 +74,6 @@ func (n *Node) Start() error {
 		}
 	}
 
-	// start Async Handler
-	go n.asyncHandler()
-
 	go func() {
 		for t := range n.receiveTxnChan {
 			n.handleTransaction(t)
@@ -170,7 +167,7 @@ func (n *Node) startAsyncTransaction(t *transaction.Transaction) error {
 		return err
 	}
 
-	tmpFile, err := ioutil.TempFile(dirPath, "async.*.bat")
+	tmpFile, err := ioutil.TempFile(dirPath, "*.bat")
 	if err != nil {
 		return err
 	}
@@ -256,13 +253,9 @@ func (n *Node) startAsyncTransaction(t *transaction.Transaction) error {
 	// --------------------------------------------------------------
 
 	newResponseChan := make(chan response.Response)
-	go func(id string, newResponseChan chan response.Response) {
-		n.asyncResponses <- response.Async{
-			Response: <-newResponseChan,
-			ID:       id,
-			TmpFile:  tmpFile,
-		}
-	}(asyncTxn.Id, newResponseChan)
+
+	n.wg.Add(1)
+	go n.receiveAsyncResponse(asyncTxn.Id, tmpFile, newResponseChan)
 
 	// since it will be async, sync transaction context is irrelevant.
 	// (we don't want sync nodes -that cancel transaction context when finishing to avoid ctx leak- to
@@ -278,55 +271,53 @@ func (n *Node) startAsyncTransaction(t *transaction.Transaction) error {
 	// now actual response is given to asyncResponds that should handle async responds
 	t.ResponseChan = newResponseChan
 
-	// used so that stop() wait for async responses to finish. (to be actually handled later)
-	n.wg.Add(1)
-
 	return nil
 }
 
-func (n *Node) asyncHandler() {
-	for asyncRes := range n.asyncResponses {
-		// DELETE TMP FILE AND DATABASE ENTRY
-		err := n.Db.Update(func(tx *bolt.Tx) error {
-			b := tx.Bucket([]byte(n.Bucket))
-			result := b.Get([]byte(asyncRes.ID))
-			if result == nil {
-				return fmt.Errorf("recieved response of a non persistent transaction")
-			}
+func (n *Node) receiveAsyncResponse(Id string, TmpFile *os.File, newResponseChan chan response.Response) {
+	defer n.wg.Done()
 
-			asyncTxn := &transaction.Async{}
-			err := json.Unmarshal(result, asyncTxn)
-			if err != nil {
-				return err
-			}
+	//TODO check Response
+	<-newResponseChan
 
-			// Delete from Storage
-			err = os.Remove(asyncTxn.Filepath)
-			if err != nil {
-				return err
-			}
+	//close Tmp file if it was used to stream data
+	if TmpFile != nil {
+		_ = TmpFile.Close()
+	}
 
-			err = b.Delete([]byte(asyncRes.ID))
-			if err != nil {
-				return err
-			}
+	tmpFilePath := ""
 
-			//close Tmp file if it was used to stream data
-			if asyncRes.TmpFile != nil {
-				err = asyncRes.TmpFile.Close()
-				if err != nil {
-					return err
-				}
-			}
-
-			return nil
-		})
-
-		if err != nil {
-			panic(err)
+	// DELETE TMP FILE AND DATABASE ENTRY
+	err := n.Db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(n.Bucket))
+		result := b.Get([]byte(Id))
+		if result == nil {
+			return fmt.Errorf("recieved response of a non persistent transaction")
 		}
 
-		n.wg.Done()
+		asyncTxn := &transaction.Async{}
+		err := json.Unmarshal(result, asyncTxn)
+		if err != nil {
+			return err
+		}
+
+		err = b.Delete([]byte(Id))
+		if err != nil {
+			return err
+		}
+
+		tmpFilePath = asyncTxn.Filepath
+
+		return nil
+	})
+	if err != nil {
+		return
+	}
+
+	// Delete from Storage
+	err = os.Remove(tmpFilePath)
+	if err != nil {
+		return
 	}
 }
 

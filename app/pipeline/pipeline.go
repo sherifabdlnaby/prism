@@ -88,60 +88,70 @@ func (p *Pipeline) ApplyPersistedAsyncRequests() error {
 		return err
 	})
 
+	if err != nil {
+		p.Logger.Infow("error occurred while reading from from in-disk DB", "error", err.Error())
+		return err
+	}
+
 	p.Logger.Infof("found %d async requests to be done...", len(TxnList))
-
 	for _, asyncTxn := range TxnList {
-		// get payload and data
-		tmpFile, err := os.Open(asyncTxn.Filepath)
-
-		if err != nil {
-			return err
-		}
-
-		// Get Node
-		Node := p.NodesList[asyncTxn.Node]
-
-		responseChan := make(chan response.Response)
-
-		Node.RedoPersistedTransaction(transaction.Transaction{
-			Payload:      io.Reader(tmpFile),
-			Data:         asyncTxn.Data,
-			Context:      context.Background(),
-			ResponseChan: responseChan,
-		})
-
-		// Wait Response
-		response := <-responseChan
-
-		// log progress
-		if !response.Ack {
-			if response.Error != nil {
-				p.Logger.Warnw("an async request that are re-done failed", "error", response.Error)
-			} else if response.AckErr != nil {
-				p.Logger.Warnw("an async request that are re-done was dropped", "reason", response.AckErr)
-			}
-		}
-
 		// Delete entry and tmp file
 		err = p.db.Update(func(tx *bolt.Tx) error {
-			b := tx.Bucket([]byte(p.name))
-
-			err = b.Delete([]byte(asyncTxn.Id))
+			// get payload and data
+			tmpFile, err := os.Open(asyncTxn.Filepath)
 			if err != nil {
 				return err
 			}
 
-			// Delete from filesystem
-			err = os.Remove(asyncTxn.Filepath)
+			// Get Node
+			Node := p.NodesList[asyncTxn.Node]
+
+			responseChan := make(chan response.Response)
+
+			Node.RedoPersistedTransaction(transaction.Transaction{
+				Payload:      io.Reader(tmpFile),
+				Data:         asyncTxn.Data,
+				Context:      context.Background(),
+				ResponseChan: responseChan,
+			})
+
+			// Wait Response
+			response := <-responseChan
+
+			// log progress
+			if !response.Ack {
+				if response.Error != nil {
+					p.Logger.Warnw("an async request that are re-done failed", "error", response.Error)
+				} else if response.AckErr != nil {
+					p.Logger.Warnw("an async request that are re-done was dropped", "reason", response.AckErr)
+				}
+			}
+
+			err = tmpFile.Close()
+			if err != nil {
+				return err
+			}
+
+			b := tx.Bucket([]byte(p.name))
+			err = b.Delete([]byte(asyncTxn.Id))
 			if err != nil {
 				return err
 			}
 
 			return nil
 		})
+		if err != nil {
+			p.Logger.Errorw("an error occurred while applying persisted async requests", "error", err.Error())
+		}
+		// Delete from filesystem
+		err = os.Remove(asyncTxn.Filepath)
+		if err != nil {
+			return err
+		}
+
 	}
 
-	return err
+	return nil
 }
 
 //Stop stops the pipeline, that means that any transaction received on this pipeline after stopping will return

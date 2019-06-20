@@ -2,7 +2,9 @@ package app
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/boltdb/bolt"
@@ -198,13 +200,40 @@ func (a *App) stopPipelines() error {
 
 // stopPipelines Stop pipelines by calling their Stop() function, any request to these pipelines will return error.
 func (a *App) applyPersistedAsyncRequests() error {
-
-	for _, value := range a.pipelines {
-		err := value.ApplyPersistedAsyncRequests()
-		if err != nil {
-			return err
-		}
+	//save current files
+	files, err := ioutil.ReadDir("./data/images")
+	if err != nil {
+		return err
 	}
+
+	go func() {
+		for _, value := range a.pipelines {
+			err := value.ApplyPersistedAsyncRequests()
+			if err != nil {
+				a.logger.Errorw("error while applying lost async requests", "error", err.Error())
+			}
+		}
+
+		// Here we remove any files we read before applying the requests,
+		// this for the narrow possibility that a system crash happened after removing it from DB but before deleting it from the file,
+		// as the DB is the source of truth, any remaining file after applying everything shall be removed.
+		// Need to check if they're not removed After we read them as applying itself could have removed its own files.
+		// Bottom line this function remove any image that has no entry in the DB.
+		for _, file := range files {
+			if !file.IsDir() {
+				// get abs Path
+				filePath := "./data/images/" + file.Name()
+				filePath, _ = filepath.Abs(filePath)
+				if _, err := os.Stat(filePath); !os.IsNotExist(err) {
+					err := os.Remove(filePath)
+					if err != nil {
+						a.logger.Errorw("error while cleaning up tmp images", "error", err.Error())
+					}
+				}
+			}
+		}
+
+	}()
 
 	return nil
 }
