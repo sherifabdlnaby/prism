@@ -10,6 +10,7 @@ type config struct {
 	Paths       map[string]path `validate:"min=1"`
 	LogRequest  int
 	LogResponse int
+	RateLimit   float64
 }
 
 type path struct {
@@ -36,5 +37,6 @@ func defaultConfig() *config {
 		KeyFile:     "",
 		LogRequest:  0,
 		LogResponse: 0,
+		RateLimit:   0,
 	}
 }

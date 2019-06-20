@@ -2,6 +2,7 @@ package http
 
 import (
 	"fmt"
+	"github.com/didip/tollbooth"
 	"github.com/sherifabdlnaby/prism/pkg/payload"
 	responseT "github.com/sherifabdlnaby/prism/pkg/response"
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
@@ -38,6 +39,7 @@ func (w *Webserver) listenAndServe() error {
 	return err
 }
 
+//Request Logger logs every request
 func requestLogger(next http.Handler, lType int, l zap.SugaredLogger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		addr := r.RemoteAddr
@@ -48,18 +50,37 @@ func requestLogger(next http.Handler, lType int, l zap.SugaredLogger) http.Handl
 		case L_Debug:
 			l.Debugw("RECIEVED A REQUEST",
 				"IP", addr,
-				"TIME", time.Now().Format("02/Jan/2006:15:04:05 -0700"),
+				"TIME", time.Now().Format("02/Jan/2006:15:04:05"),
 				"FORM", fmt.Sprintf("%s %s %s", r.Method, r.URL, r.Proto),
 				"USERAGENT", r.UserAgent())
 		case L_Info:
 			l.Infow("RECIEVED A REQUEST",
 				"IP", addr,
-				"TIME", time.Now().Format("02/Jan/2006:15:04:05 -0700"),
+				"TIME", time.Now().Format("02/Jan/2006:15:04:05"),
 				"FORM", fmt.Sprintf("%s %s %s", r.Method, r.URL, r.Proto),
 				"USERAGENT", r.UserAgent())
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+//Ratelimiter will rate limit requests to avoid denial of service attacks.
+func rateLimiter(next http.Handler, l float64, ws *Webserver) http.Handler {
+	lmt := tollbooth.NewLimiter(l, nil)
+	lmt.SetOnLimitReached(func(w http.ResponseWriter, r *http.Request) {
+		respondError(r, w, resRateLimit, ws)
+		return
+	})
+	middle := func(w http.ResponseWriter, r *http.Request) {
+		httpError := tollbooth.LimitByRequest(lmt, w, r)
+		if httpError != nil {
+			lmt.ExecOnLimitReached(w, r)
+			return
+		}
+		// There's no rate-limit error, serve the next handler.
+		next.ServeHTTP(w, r)
+	}
+	return http.HandlerFunc(middle)
 }
 
 // buildHandlers will build handlers according to config
@@ -69,8 +90,13 @@ func buildHandlers(w *Webserver) http.Handler {
 	//This is just an initial phase of the middleware.
 	//Accept images at all the provided Paths.
 	next := http.Handler(http.HandlerFunc(w.handle))
+
 	if w.config.LogRequest != L_None {
 		next = http.Handler(requestLogger(next, w.config.LogRequest, w.logger))
+	}
+
+	if w.config.RateLimit > 0 {
+		next = http.Handler(rateLimiter(next, w.config.RateLimit, w))
 	}
 
 	for path := range w.config.Paths {

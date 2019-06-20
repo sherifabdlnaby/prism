@@ -20,5 +20,6 @@ inputs:
             keyfile: ""
             LogRequest: 0
             LogResponse: 2
+            RateLimit: 1
 
 
