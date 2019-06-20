@@ -15,16 +15,16 @@ This plugin supports the following configuration options.
 |Setting   |Input type      |  Required |  Dynamic |
 |-----------|----------------------|-----------|-----------|
 | [format](#format)  |  []String        | no     | no     |
-| [Drop](#Drop)  |  bool        | no     | yes     |
-| [R](#R)  |  uint8        | no     | yes     |
-| [G](#G)  |  uint8        | no     | yes     |
-| [B](#B)  |  uint8        | no     | yes     |
-| [A](#A)  |  float64        | no     | yes     |
-| [quality](#quality)  |  int        | no     | yes     |
+| [Drop](#Drop)  |  bool        | no     | no     |
+| [R](#R)  |  uint8        | no     | no     |
+| [G](#G)  |  uint8        | no     | no     |
+| [B](#B)  |  uint8        | no     | no     |
+| [A](#A)  |  float64        | no     | no     |
+| [quality](#quality)  |  int        | no     | no     |
 
 ##### `format`
  * At least one format should be provided
- * Formats available are {jpeg/jpg, PNG}
+ * Formats available are {jpeg, jpg, PNG}
 
 ##### `Quality`
    *From 1 to 100 
