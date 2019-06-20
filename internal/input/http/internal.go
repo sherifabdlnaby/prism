@@ -29,7 +29,6 @@ func (w *Webserver) buildServer() {
 // listenAndServe start listening
 func (w *Webserver) listenAndServe() error {
 	//Check if http has https files and then start https
-	// TODO check if this is working
 	if w.config.CertFile != "" && w.config.KeyFile != "" {
 		err := w.Server.ListenAndServeTLS(w.config.CertFile, w.config.KeyFile)
 		return err

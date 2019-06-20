@@ -12,7 +12,7 @@ import (
 )
 
 // Webserver take input from HTTP requests
-// TODO A lot of things to be added later: URL Signature key, HTTPs (key,cert), API key..etc
+// TODO A lot of things to be added later: URL Signature key, API key..etc
 type Webserver struct {
 	config       config
 	Transactions chan transaction.InputTransaction
