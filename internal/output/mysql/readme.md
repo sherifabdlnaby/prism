@@ -15,12 +15,12 @@ This is an example of mysql config:
 
 This plugin supports the following configuration options.
 
-|Setting   |Input type      |  Required |
-|-----------|----------------------|-----------|
-| [username](#username)  |  string        | yes     |
-| [password](#password)  |  string            |   no     |
-| [db_name](#db_name)  |  string        | yes     |
-| [query](#query)  |  string            |   yes     |
+|Setting   |Input type      |  Required |  Dynamic |
+|-----------|----------------------|-----------|-----------|
+| [username](#username)  |  string        | yes     |   no     |
+| [password](#password)  |  string            |   no     |   no     |
+| [db_name](#db_name)  |  string        | yes     |   no     |
+| [query](#query)  |  string            |   yes     |   yes     |
 
 ##### `username`
  * This is a required setting
@@ -41,8 +41,6 @@ This plugin supports the following configuration options.
  * This is a required setting
  * Value type is string
  * There is no default value for this setting.
- * `@{count}` get evaluated by the current count of the pictures
- * `@{_timestamp}` get evaluated by the current time stamp
- * `@{_id}` get evaluated by the id of the picture
+ * This setting supports dynamic values
  * The string must be a valid mysql query to be fulfilled
  * More information and examples for mysql queries from [here](https://dev.mysql.com/doc/mysql-tutorial-excerpt/5.5/en/examples.html)
