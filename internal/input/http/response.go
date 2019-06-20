@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 )
 
 var (
@@ -28,9 +29,15 @@ func newError(err error) *response {
 	return &response{http.StatusBadRequest, fmt.Sprintf("error while processing, reason: %s", err.Error())}
 }
 
-func respondError(req *http.Request, w http.ResponseWriter, reply response) {
+func respondError(r *http.Request, w http.ResponseWriter, reply response, ws *Webserver) {
+	if ws.config.LogResponse == L_Fail {
+		ws.logger.Debugw(reply.Message,
+			"TIME", time.Now().Format("02/Jan/2006:15:04:05 -0700"),
+			"FORM", fmt.Sprintf("%s %s %s", r.Method, r.URL, r.Proto))
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(reply.Code)
+
 	jsonBuf, _ := json.Marshal(reply)
 	_, _ = w.Write(jsonBuf)
 }

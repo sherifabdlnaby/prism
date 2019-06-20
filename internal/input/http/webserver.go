@@ -49,11 +49,11 @@ func (w *Webserver) Init(config cfg.Config, logger zap.SugaredLogger) error {
 		}
 		w.config.Paths[key] = value
 	}
+	w.Transactions = make(chan transaction.InputTransaction)
+	w.logger = logger
 
 	w.buildServer()
 
-	w.Transactions = make(chan transaction.InputTransaction)
-	w.logger = logger
 	return nil
 }
 
@@ -62,7 +62,7 @@ func (w *Webserver) Start() error {
 
 	// listenAndServe the server
 	go func() {
-		w.logger.Info(fmt.Sprintf("Http server listening at %d!", w.config.Port))
+		w.logger.Infof("Http server listening at %d!", w.config.Port)
 		err := w.listenAndServe()
 		if err != nil && err != http.ErrServerClosed {
 			w.logger.Errorw(fmt.Sprintf("webserver listening at port [%v] stopped", w.config.Port), "error", err.Error())

@@ -18,5 +18,7 @@ inputs:
                     pipeline: "@{pipeline}"
             certfile: ""
             keyfile: ""
+            LogRequest: 0
+            LogResponse: 2
 
 
