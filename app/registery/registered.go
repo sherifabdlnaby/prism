@@ -20,7 +20,7 @@ var registered = map[string]func() component.Component{
 	"s3":              s3.NewComponent,
 	"mysql":           mysql.NewComponent,
 	"vips":            vips.NewComponent,
-	"face_detector":   detectors.NewFaceDetecor,
+	"face_detector":   detectors.NewFaceDetector,
 	"nude_detector":   nude.NewDetector,
 	"nude_censor":     nude.NewCensor,
 }

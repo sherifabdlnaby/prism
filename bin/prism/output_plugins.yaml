@@ -23,6 +23,12 @@ outputs:
         config:
             filepath: output/4/disk_output-3-@{count}.jpg
             permission: 0777
+    disk5:
+        plugin: disk
+        concurrency: 1000
+        config:
+            filepath: output/5/disk_output-5-@{count}.jpg
+            permission: 0777
 #    s3First:
 #        plugin: s3
 #        concurrency: 10

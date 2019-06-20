@@ -19,23 +19,22 @@ import (
 	"io"
 )
 
-// Face detector plugin will read an image and identify human faces in image,
+//FaceDetector plugin will read an image and identify human faces in image,
 // and will draw a box around each person that was identified.
 type FaceDetector struct {
 	logger zap.SugaredLogger
 	config config
 }
 
-// NewFaceDetector Return a new Component
-func NewFaceDetecor() component.Component {
+//NewFaceDetector Return a new Component
+func NewFaceDetector() component.Component {
 	return &FaceDetector{}
 }
 
 // Init file validator
 func (d *FaceDetector) Init(config cfg.Config, logger zap.SugaredLogger) error {
-	var err error
-
 	d.config = *defaultConfig()
+	var err error
 	err = config.Populate(&d.config)
 	if err != nil {
 		return err
@@ -85,10 +84,9 @@ func (d *FaceDetector) Process(in payload.DecodedImage, data payload.Data) (payl
 
 // Encode will encode Image according to configuration, only supporting encoding into jpeg/png
 func (d *FaceDetector) Encode(in payload.DecodedImage, data payload.Data) (payload.Bytes, response.Response) {
-	var err error
 	image := in.(image.Image)
-
 	outBuffer := bytes.Buffer{}
+	var err error
 
 	switch d.config.Export.Format {
 	case "jpeg", "jpg":

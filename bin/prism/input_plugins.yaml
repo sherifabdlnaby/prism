@@ -2,8 +2,8 @@ inputs:
     http_server:
         plugin: dummy_input
         config:
-            filename: "/home/noha/go/src/awesomeProject2/hey.jpeg"
+            filename: "input/test@{fileNum}.png"
             pipeline: "profile_pic_pipeline"
             timeout: 5000000
             tick: 350
-            count: 30
+            count: 30000
