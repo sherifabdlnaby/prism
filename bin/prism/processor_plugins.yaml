@@ -57,7 +57,7 @@ processors:
                 quality: 90
     dummy_processor5:
         concurrency: 100
-        plugin: vips
+        plugin: face_detector
         config:
             export:
                 format: jpeg
