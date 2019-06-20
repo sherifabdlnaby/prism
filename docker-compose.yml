@@ -15,4 +15,4 @@ services:
         environment:
           - "PRISM_ENV=dev"
         volumes:
-            - "./config:/usr/local/bin/config"
+            - "./config/example:/usr/local/bin/config"

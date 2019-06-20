@@ -15,27 +15,23 @@
 
 [linters]
     # White-listing, to be more CI safe.
-    disable-all = true
+    disable-all = false
 
     # @see https://github.com/golangci/golangci-lint#enabled-by-default-linters
     enable = [
-        "staticcheck",
-        "gosimple",
-        "ineffassign",
-        "typecheck",
         "govet",
         "errcheck",
+        "staticcheck",
         "unused",
+        "gosimple",
         "structcheck",
         "varcheck",
+        "ineffassign",
         "deadcode",
-        "stylecheck",
-        "gosec",
-        "interfacer",
         "unconvert",
-        "gocyclo",
-        "depguard",
+        "gosec",
+        "golint",
+        "bodyclose",
         "misspell",
         "unparam",
-        "gocritic",
     ]
