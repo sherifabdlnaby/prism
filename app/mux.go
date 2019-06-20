@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/sherifabdlnaby/prism/app/registery/wrapper"
+	"github.com/sherifabdlnaby/prism/app/registry/wrapper"
 	"github.com/sherifabdlnaby/prism/pkg/payload"
 	"github.com/sherifabdlnaby/prism/pkg/response"
 )

@@ -90,14 +90,12 @@ func (d *Detector) Parse() (result bool, err error) {
 					d.pixels[currentIndex].region = len(d.detectedRegions)
 					d.detectedRegions = append(d.detectedRegions, Region{d.pixels[currentIndex]})
 					continue
-				} else {
-					if region > -1 {
-						if len(d.detectedRegions) >= region {
-							d.detectedRegions = append(d.detectedRegions, Region{})
-						}
-						d.pixels[currentIndex].region = region
-						d.detectedRegions[region] = append(d.detectedRegions[region], d.pixels[currentIndex])
+				} else if region > -1 {
+					if len(d.detectedRegions) >= region {
+						d.detectedRegions = append(d.detectedRegions, Region{})
 					}
+					d.pixels[currentIndex].region = region
+					d.detectedRegions[region] = append(d.detectedRegions[region], d.pixels[currentIndex])
 				}
 			}
 		}

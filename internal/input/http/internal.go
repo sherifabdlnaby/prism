@@ -61,6 +61,11 @@ func (w *Webserver) handle(rw http.ResponseWriter, r *http.Request) {
 
 		// Parse form into Data
 		err := r.ParseForm()
+		if err != nil {
+			respondError(r, rw, errMissingPipeline)
+			return
+		}
+
 		data := make(payload.Data, len(r.Form))
 		for key := range r.Form {
 			if len(r.Form[key]) > 1 {
@@ -125,7 +130,7 @@ func (w *Webserver) handle(rw http.ResponseWriter, r *http.Request) {
 		response := <-responseChan
 
 		if !response.Ack {
-			// check if responseT is simply refused, or an internal responseT occured
+			// check if responseT is simply refused, or an internal responseT occurred
 			if response.AckErr != nil {
 				respondError(r, rw, *newNoAck(response.AckErr))
 			} else if response.Error != nil {

@@ -35,9 +35,9 @@ type Next struct {
 }
 
 //NewNext Create a new Next Node with the supplied Node.
-func NewNext(Node Node) *Next {
+func NewNext(node Node) *Next {
 	return &Next{
-		Node:            Node,
+		Node:            node,
 		TransactionChan: make(chan transaction.Transaction),
 	}
 }

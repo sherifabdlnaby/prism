@@ -7,9 +7,9 @@ import (
 
 	"github.com/sherifabdlnaby/prism/app/config"
 	"github.com/sherifabdlnaby/prism/app/pipeline/node"
-	"github.com/sherifabdlnaby/prism/app/registery"
+	"github.com/sherifabdlnaby/prism/app/registry"
 	"github.com/sherifabdlnaby/prism/app/resource"
-	processor2 "github.com/sherifabdlnaby/prism/pkg/component/processor"
+	"github.com/sherifabdlnaby/prism/pkg/component/processor"
 	"github.com/sherifabdlnaby/prism/pkg/response"
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
 	"go.uber.org/zap"
@@ -91,7 +91,7 @@ func (p *Pipeline) job(txn transaction.Transaction) {
 }
 
 //NewPipeline Construct a NewPipeline using config.
-func NewPipeline(pc config.Pipeline, registry registery.Registry, logger zap.SugaredLogger) (*Pipeline, error) {
+func NewPipeline(pc config.Pipeline, registry registry.Registry, logger zap.SugaredLogger) (*Pipeline, error) {
 
 	pipelineResource := resource.NewResource(pc.Concurrency)
 
@@ -140,7 +140,7 @@ func NewPipeline(pc config.Pipeline, registry registery.Registry, logger zap.Sug
 	return &pip, nil
 }
 
-func buildTree(name string, n config.Node, registry registery.Registry, NodesList *[]node.Node, forceSync bool) (node.Node, error) {
+func buildTree(name string, n config.Node, registry registry.Registry, NodesList *[]node.Node, forceSync bool) (node.Node, error) {
 
 	// create node of the configure components
 	currNode, err := chooseComponent(name, registry, len(n.Next))
@@ -181,22 +181,22 @@ func buildTree(name string, n config.Node, registry registery.Registry, NodesLis
 	return currNode, nil
 }
 
-func chooseComponent(name string, registry registery.Registry, nextsCount int) (node.Node, error) {
+func chooseComponent(name string, registry registry.Registry, nextsCount int) (node.Node, error) {
 	var Node node.Node
 
 	// check if ProcessReadWrite(and which types)
-	processor, ok := registry.GetProcessor(name)
+	processorBase, ok := registry.GetProcessor(name)
 	if ok {
 		if nextsCount == 0 {
 			return nil, fmt.Errorf("plugin [%s] has no nexts(s) of type output, a pipeline path must end with an output plugin", name)
 		}
-		switch p := processor.Base.(type) {
-		case processor2.ReadOnly:
-			Node = node.NewReadOnly(p, processor.Resource)
-		case processor2.ReadWrite:
-			Node = node.NewReadWrite(p, processor.Resource)
-		case processor2.ReadWriteStream:
-			Node = node.NewReadWriteStream(p, processor.Resource)
+		switch p := processorBase.Base.(type) {
+		case processor.ReadOnly:
+			Node = node.NewReadOnly(p, processorBase.Resource)
+		case processor.ReadWrite:
+			Node = node.NewReadWrite(p, processorBase.Resource)
+		case processor.ReadWriteStream:
+			Node = node.NewReadWriteStream(p, processorBase.Resource)
 		default:
 			return nil, fmt.Errorf("plugin [%s] doesn't exists", name)
 		}

@@ -40,7 +40,7 @@ func main() {
 
 	// Defer Closing the app.
 	defer func() {
-		err = app.Stop(config)
+		err = app.Stop()
 		if err != nil {
 			panic(err)
 		}
@@ -51,10 +51,10 @@ func main() {
 	signal.Notify(signalChan, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
 
 	// Termination
-	select {
-	case sig := <-signalChan:
-		config.Logger.Infof("Received %s signal, the service is closing...", sig.String())
-	}
+	sig := <-signalChan
+
+	config.Logger.Infof("Received %s signal, the service is closing...", sig.String())
+
 }
 
 // PARSE STUFF
@@ -65,7 +65,7 @@ func bootstrap() (config.Config, error) {
 	if !isset {
 		environment = "prod"
 	} else if environment != "prod" && environment != "dev" {
-		panic(fmt.Sprintf("Environemnt = \"%s\" (set by %s) can only be either \"prod\" or \"dev\" (default: prod)", environment, Env))
+		panic(fmt.Sprintf("Environment = \"%s\" (set by %s) can only be either \"prod\" or \"dev\" (default: prod)", environment, Env))
 	}
 
 	// Print logo (Yes I love this)
@@ -98,6 +98,9 @@ func bootstrap() (config.Config, error) {
 
 	// use full path
 	configDir, err = filepath.Abs(configDir)
+	if err != nil {
+		return config.Config{}, err
+	}
 
 	// Log environment
 	logger.Infof("loading config files from %s", configDir)

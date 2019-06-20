@@ -86,11 +86,12 @@ func (d *Validator) Close() error {
 	return nil
 }
 
-//Decode
+// Decode Decodes an image reading only the necessary bytes to validate the image
 func (d *Validator) Decode(in payload.Bytes, data payload.Data) (payload.DecodedImage, response.Response) {
 	return d.DecodeStream(bytes.NewReader(in), data)
 }
 
+// DecodeStream Decodes an image reading only the necessary bytes to validate the image
 func (d *Validator) DecodeStream(in payload.Stream, data payload.Data) (payload.DecodedImage, response.Response) {
 	reader := in.(io.Reader)
 
@@ -129,6 +130,7 @@ func (d *Validator) DecodeStream(in payload.Stream, data payload.Data) (payload.
 	}, response.Ack()
 }
 
+// Process will validate that the image is as configured. adding format and dimensions to payload.Dataa
 func (d *Validator) Process(in payload.DecodedImage, data payload.Data) response.Response {
 	header := in.(header)
 
@@ -151,6 +153,11 @@ func (d *Validator) Process(in payload.DecodedImage, data payload.Data) response
 
 	data["_format"] = header.format
 
+	if !d.config.formatOnly {
+		data["_width"] = header.Width
+		data["_height"] = header.Height
+	}
+
 	if header.Width > d.config.MaxWidth ||
 		header.Width < d.config.MinWidth ||
 		header.Height > d.config.MaxHeight ||
@@ -159,5 +166,4 @@ func (d *Validator) Process(in payload.DecodedImage, data payload.Data) response
 	}
 
 	return response.Ack()
-
 }

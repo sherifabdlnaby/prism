@@ -1,0 +1,25 @@
+inputs:
+    http_server_1:
+        plugin: http
+        config:
+            port: 8080
+            form_name: image
+            paths:
+                "/profile_picture":
+                    pipeline: "profile_pic_pipeline"
+            certfile: ""
+            keyfile: ""
+    http_server_2:
+        plugin: http
+        config:
+            port: 8081
+            form_name: image
+            paths:
+                "/dynamic_resize":
+                    pipeline: "dynamic_resize"
+                "/pipeline":
+                    pipeline: "@{pipeline}"
+            certfile: ""
+            keyfile: ""
+
+

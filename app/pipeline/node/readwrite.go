@@ -69,7 +69,7 @@ func (n *readWrite) job(t transaction.Transaction) {
 	responseChan := n.sendNexts(ctx, output, t.Data)
 
 	// Await Responses
-	Response = n.waitResponses(ctx, responseChan)
+	Response = n.waitResponses(responseChan)
 
 	// Send Response back.
 	t.ResponseChan <- Response
@@ -120,7 +120,7 @@ func (n *readWrite) jobStream(t transaction.Transaction) {
 	responseChan := n.sendNexts(ctx, output, t.Data)
 
 	// Await Responses
-	Response = n.waitResponses(ctx, responseChan)
+	Response = n.waitResponses(responseChan)
 
 	// Send Response back.
 	t.ResponseChan <- Response

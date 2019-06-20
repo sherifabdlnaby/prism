@@ -1,10 +1,10 @@
-package registery
+package registry
 
 import (
 	"fmt"
 
 	"github.com/sherifabdlnaby/prism/app/config"
-	"github.com/sherifabdlnaby/prism/app/registery/wrapper"
+	"github.com/sherifabdlnaby/prism/app/registry/wrapper"
 	"github.com/sherifabdlnaby/prism/app/resource"
 	"github.com/sherifabdlnaby/prism/pkg/component/input"
 	"github.com/sherifabdlnaby/prism/pkg/component/output"

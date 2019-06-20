@@ -1,25 +1,3 @@
 inputs:
-    http_server_1:
-        plugin: http
-        config:
-            port: 8080
-            form_name: image
-            paths:
-                "/profile_picture":
-                    pipeline: "@{pipeline}"
-                "/cover_picture/":
-                    pipeline: "@{pipeline}"
-            certfile: ""
-            keyfile: ""
-    http_server_2:
-        plugin: http
-        config:
-            port: 80
-            form_name: image
-            paths:
-                "/profile_picture":
-                    pipeline: "@{pipeline}"
-                "/cover_picture/":
-                    pipeline: "@{pipeline}"
-            certfile: ""
-            keyfile: ""
+
+

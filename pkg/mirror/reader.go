@@ -47,14 +47,14 @@ func (r *Reader) readMore() {
 }
 
 type readerCloner struct {
-	*Reader
-	i int
+	source *Reader
+	i      int
 }
 
 //Clone Create a new cloned reader.
 func (r *Reader) Clone() io.Reader {
 	return &readerCloner{
-		Reader: r,
+		source: r,
 		i:      0,
 	}
 }
@@ -62,25 +62,25 @@ func (r *Reader) Clone() io.Reader {
 func (c *readerCloner) Read(p []byte) (read int, error error) {
 	upperlimit := c.i + len(p)
 
-	c.mx.Lock()
-	if upperlimit > c.curr {
+	c.source.mx.Lock()
+	if upperlimit > c.source.curr {
 		// try to readMore more
-		c.readMore()
+		c.source.readMore()
 
 		// is upperlimit still over len after readMore?
-		if upperlimit > c.curr {
-			upperlimit = c.curr
+		if upperlimit > c.source.curr {
+			upperlimit = c.source.curr
 		}
 
 		// check if error
-		if int64(upperlimit) >= c.baseTotal {
-			error = c.error
+		if int64(upperlimit) >= c.source.baseTotal {
+			error = c.source.error
 		}
 
 	}
-	c.mx.Unlock()
+	c.source.mx.Unlock()
 
-	copy(p, c.buf[c.i:upperlimit])
+	copy(p, c.source.buf[c.i:upperlimit])
 
 	read = upperlimit - c.i
 
