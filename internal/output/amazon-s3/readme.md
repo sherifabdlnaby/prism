@@ -40,7 +40,7 @@ This plugin supports the following configuration options.
  * This is a required setting
  * Value type is string
  * There is no default value for this setting.
- * This setting support dynamic values
+ * This setting supports dynamic values
 
 ##### `s3_region`
  * This is a required setting
