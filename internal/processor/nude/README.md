@@ -24,11 +24,11 @@ This plugin supports the following configuration options.
 |Setting   |Input type      |  Required |  Dynamic |
 |-----------|----------------------|-----------|-----------|
 | [format](#format)  |  []String        | yes     | no     |
-| [drop](#drop)  |  bool        | no     | no     |
-| [R](#R)  |  uint8        | no     | no     |
-| [G](#G)  |  uint8        | no     | no     |
-| [B](#B)  |  uint8        | no     | no     |
-| [A](#A)  |  float64        | no     | no     |
+| [Drop](#Drop)  |  bool        | yes     | no     |
+| [R](#R)  |  uint8        | yes     | no     |
+| [G](#G)  |  uint8        | yes     | no     |
+| [B](#B)  |  uint8        | yes     | no     |
+| [A](#A)  |  float64        | yes     | no     |
 | [quality](#quality)  |  int        | yes     | no     |
 
 ##### `format`
@@ -39,25 +39,23 @@ This plugin supports the following configuration options.
 ##### `Quality`
    *This is a required setting
    *From 1 to 100 
- 
+
+##### `Drop`
+   *This is a required setting
+   *Send NoAck to Drop the image
+
 ##### `G`
    *This is a required setting
-   
    *The intensity of green
   
 ##### `R`
    *This is a required setting
-   
    *The intensity of red
   
 ##### `B` 
-
    *This is a required setting
-   
    *The intensity of Blue
    
 ##### `A` 
-
    *This is a required setting
-   
    *The opacity of the color
