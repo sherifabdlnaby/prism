@@ -2,25 +2,27 @@ package main
 
 import (
 	"fmt"
-	"log"
-	"net/http"
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 
+	"github.com/joho/godotenv"
 	"github.com/sherifabdlnaby/prism/app"
 	"github.com/sherifabdlnaby/prism/app/config"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
+const (
+	// ConfigDirEnv is Environment Variable that points to the configuration directory (default: ./config)
+	ConfigDirEnv = "PRISM_CONFIG_DIR"
+	// Env is Environment Variable that represents either prod or dev environment
+	Env = "PRISM_ENV"
+)
+
 func main() {
-
-	go func() {
-		log.Println(http.ListenAndServe("localhost:6060", nil))
-	}()
-
 	// Parse configuration from yaml files
 	config, err := bootstrap()
 	if err != nil {
@@ -45,51 +47,94 @@ func main() {
 	}()
 
 	// Listen to Signals
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
 
 	// Termination
 	select {
-	case <-sigChan:
-		config.Logger.Info("Received SIGTERM signal, the service is closing...")
+	case sig := <-signalChan:
+		config.Logger.Infof("Received %s signal, the service is closing...", sig.String())
 	}
 }
 
 // PARSE STUFF
 func bootstrap() (config.Config, error) {
-	// READ CONFIG MAIN FILES
-	appConfig := config.AppConfig{}
-	err := config.Load("prism.yaml", &appConfig, true)
+
+	// Setup ENVIRONMENT
+	environment, isset := os.LookupEnv(Env)
+	if !isset {
+		environment = "prod"
+	} else if environment != "prod" && environment != "dev" {
+		panic(fmt.Sprintf("Environemnt = \"%s\" (set by %s) can only be either \"prod\" or \"dev\" (default: prod)", environment, Env))
+	}
+
+	// Print logo (Yes I love this)
+	if environment == "dev" {
+		printLogo()
+	}
+
+	// Initialize Root Logger
+	logger, err := bootLogger(environment)
 	if err != nil {
 		return config.Config{}, err
 	}
 
-	// INIT LOGGER
-	logger, err := bootLogger(appConfig)
+	// Log environment
+	logger.Infof("logger initialized for %s environment", environment)
+
+	// Load .env environment variable if in environment is dev
+	if environment == "dev" {
+		err = godotenv.Load()
+		if err == nil {
+			logger.Info("loaded .env into environment variables")
+		}
+	}
+
+	// GET YAML FILE DIRECTORY
+	configDir, isset := os.LookupEnv(ConfigDirEnv)
+	if !isset {
+		configDir = "./config"
+	}
+
+	// use full path
+	configDir, err = filepath.Abs(configDir)
+
+	// Log environment
+	logger.Infof("loading config files from %s", configDir)
+
+	appConfigPath := configDir + "/prism.yaml"
+	inputConfigPath := configDir + "/inputs.yaml"
+	outputConfigPath := configDir + "/outputs.yaml"
+	processorConfigPath := configDir + "/processors.yaml"
+	pipelineConfigPath := configDir + "/pipelines.yaml"
+
+	// READ CONFIG MAIN FILES
+	appConfig := config.AppConfig{}
+	err = config.Load(appConfigPath, &appConfig, true)
 	if err != nil {
 		return config.Config{}, err
 	}
 
 	// READ CONFIG MAIN FILES
 	inputConfig := config.InputsConfig{}
-	err = config.Load("input_plugins.yaml", &inputConfig, true)
+	err = config.Load(inputConfigPath, &inputConfig, true)
 	if err != nil {
 		return config.Config{}, err
 	}
 
 	processorConfig := config.ProcessorsConfig{}
-	err = config.Load("processor_plugins.yaml", &processorConfig, true)
+	err = config.Load(processorConfigPath, &processorConfig, true)
 	if err != nil {
 		return config.Config{}, err
 	}
 	outputConfig := config.OutputsConfig{}
-	err = config.Load("output_plugins.yaml", &outputConfig, true)
+	err = config.Load(outputConfigPath, &outputConfig, true)
 	if err != nil {
 		return config.Config{}, err
 	}
 
 	pipelineConfig := config.PipelinesConfig{}
-	err = config.Load("pipeline.yaml", &pipelineConfig, true)
+	err = config.Load(pipelineConfigPath, &pipelineConfig, true)
 	if err != nil {
 		return config.Config{}, err
 	}
@@ -104,15 +149,13 @@ func bootstrap() (config.Config, error) {
 	}, nil
 }
 
-func bootLogger(appConfig config.AppConfig) (*zap.SugaredLogger, error) {
+func bootLogger(env string) (*zap.SugaredLogger, error) {
 	var logConfig zap.Config
-	if appConfig.Logger == "dev" {
+	if env == "dev" {
 		logConfig = zap.NewDevelopmentConfig()
 		logConfig.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
-	} else if appConfig.Logger == "prod" {
+	} else if env == "prod" {
 		logConfig = zap.NewProductionConfig()
-	} else {
-		return nil, fmt.Errorf("logger config can be either \"dev\" or \"prod\"")
 	}
 
 	loggerBase, err := logConfig.Build()
@@ -123,4 +166,19 @@ func bootLogger(appConfig config.AppConfig) (*zap.SugaredLogger, error) {
 
 	logger := loggerBase.Sugar().Named("prism")
 	return logger, nil
+}
+
+func printLogo() {
+	fmt.Print(`
+
+ ________    ________      ___      ________       _____ ______      
+|\   __  \  |\   __  \    |\  \    |\   ____\     |\   _ \  _   \    
+\ \  \|\  \ \ \  \|\  \   \ \  \   \ \  \___|_    \ \  \\\__\ \  \   
+ \ \   ____\ \ \   _  _\   \ \  \   \ \_____  \    \ \  \\|__| \  \  
+  \ \  \___|  \ \  \\  \|   \ \  \   \|____|\  \    \ \  \    \ \  \ 
+   \ \__\      \ \__\\ _\    \ \__\    ____\_\  \    \ \__\    \ \__\
+    \|__|       \|__|\|__|    \|__|   |\_________\    \|__|     \|__|
+                                      \|_________|                   
+
+`)
 }

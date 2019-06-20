@@ -1,0 +1,18 @@
+version: "3"
+
+services:
+  prism:
+        image: prism:dev
+        build:
+          context: .
+          args:
+              GOLANG: "1.11.5"
+              LIBVIPS_VERSION: "8.7.4"
+              PRISM_VERSION: "dev"
+        ports:
+          - "9000:9000"
+          - "8080:8080"
+        environment:
+          - "PRISM_ENV=dev"
+        volumes:
+            - "./config:/usr/local/bin/config"

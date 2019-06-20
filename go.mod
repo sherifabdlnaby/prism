@@ -8,6 +8,7 @@ require (
 	github.com/google/uuid v1.1.1
 	github.com/h2non/filetype v1.0.8
 	github.com/imdario/mergo v0.3.7
+	github.com/joho/godotenv v1.3.0
 	github.com/leodido/go-urn v1.1.0 // indirect
 	github.com/mitchellh/mapstructure v1.1.2
 	github.com/pkg/errors v0.8.1 // indirect
