@@ -21,7 +21,7 @@ pipelines:
                             disk4:
                                 async: false
             dummy_processor5:
-                nexr:
+                next:
                     disk5:
                         async: false
             nude_censor:
