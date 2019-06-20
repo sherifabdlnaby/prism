@@ -25,7 +25,7 @@ func defaultConfig() *config {
 		angle:        0.0,
 		iouThreshold: 0.2,
 		circleMarker: false,
-		cascadeFile:  "/home/noha/go/src/github.com/prism/internal/processor/detectors/facefinder",
+		cascadeFile:  "../../assets/facefinder",
 		Export: export{
 			Format:  "jpeg",
 			Quality: 85,

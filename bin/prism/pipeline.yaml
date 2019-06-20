@@ -2,6 +2,10 @@ pipelines:
     profile_pic_pipeline:
         concurrency: 50
         pipeline:
+            dummy_processor1:
+                next:
+                    disk2:
+                        async: false
 #            dummy_processor2:
 #                next:
 #                    dummy_processor1:
@@ -16,7 +20,7 @@ pipelines:
 #                        next:
 #                            disk4:
 #                                async: false
-         nude_censor:
+            nude_censor:
                 async: true
                 next:
                     disk3:

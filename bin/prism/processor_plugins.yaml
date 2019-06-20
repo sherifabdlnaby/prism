@@ -1,21 +1,11 @@
 processors:
-#    dummy_processor1:
-#        concurrency: 100
-#        plugin: vips
-#        config:
-#            operations:
-#                crop:
-#                    width:  300
-#                    height: 300
-#                    anchor: smart
-#                blur:
-#                    sigma:  3
-#                    min_ampl: 10
-#                flip:
-#                    direction: both
-#            export:
-#                format: jpeg
-#                quality: 80
+    dummy_processor1:
+        concurrency: 100
+        plugin: face_detector
+        config:
+            export:
+                format: jpeg
+                quality: 90
 #    dummy_processor2:
 #        concurrency: 100
 #        plugin: vips
