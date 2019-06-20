@@ -18,15 +18,22 @@ type path struct {
 	pipelineSelector cfg.Selector
 }
 
+// ENUM for logging requests
+// LNone: doesn't log any request
+// LFail:	Log all requests via Logger debug
+// LInfo: Log all requests via logger info
 const (
-	L_None = iota
-	L_Debug
-	L_Info
+	LNone = iota
+	LDebug
+	LInfo
 )
 
+// ENUM for logging responses
+// LSuccess: logging successful requests
+// LFail:	logging failed	requests
 const (
-	L_Success = iota + 1
-	L_Fail
+	LSuccess = iota + 1
+	LFail
 )
 
 func defaultConfig() *config {

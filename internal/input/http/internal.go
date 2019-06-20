@@ -46,13 +46,13 @@ func requestLogger(next http.Handler, lType int, l zap.SugaredLogger) http.Handl
 			addr = addr[:i]
 		}
 		switch lType {
-		case L_Debug:
+		case LDebug:
 			l.Debugw("RECIEVED A REQUEST",
 				"IP", addr,
 				"TIME", time.Now().Format("02/Jan/2006:15:04:05"),
 				"FORM", fmt.Sprintf("%s %s %s", r.Method, r.URL, r.Proto),
 				"USERAGENT", r.UserAgent())
-		case L_Info:
+		case LInfo:
 			l.Infow("RECIEVED A REQUEST",
 				"IP", addr,
 				"TIME", time.Now().Format("02/Jan/2006:15:04:05"),
@@ -90,7 +90,7 @@ func buildHandlers(w *Webserver) http.Handler {
 	//Accept images at all the provided Paths.
 	next := http.Handler(http.HandlerFunc(w.handle))
 
-	if w.config.LogRequest != L_None {
+	if w.config.LogRequest != LNone {
 		next = http.Handler(requestLogger(next, w.config.LogRequest, w.logger))
 	}
 
@@ -181,7 +181,7 @@ func (w *Webserver) handle(rw http.ResponseWriter, r *http.Request) {
 
 		}
 
-		if w.config.LogResponse == L_Success {
+		if w.config.LogResponse == LSuccess {
 			w.logger.Debugw("Successful request ",
 				"TIME", time.Now().Format("02/Jan/2006:15:04:05 -0700"),
 				"FORM", fmt.Sprintf("%s %s %s", r.Method, r.URL, r.Proto))

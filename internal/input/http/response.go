@@ -32,7 +32,7 @@ func newError(err error) *response {
 }
 
 func respondError(r *http.Request, w http.ResponseWriter, reply response, ws *Webserver) {
-	if ws.config.LogResponse == L_Fail {
+	if ws.config.LogResponse == LFail {
 		addr := r.RemoteAddr
 		if i := strings.LastIndex(addr, ":"); i != -1 {
 			addr = addr[:i]
