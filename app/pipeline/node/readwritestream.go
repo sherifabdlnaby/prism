@@ -15,15 +15,15 @@ import (
 //readWrite Wraps a readwrite component
 type readWriteStream struct {
 	processor processor.ReadWriteStream
-	*base
+	*Node
 }
 
 //NewReadWriteStream Construct a new ReadWriteStream Node
-func NewReadWriteStream(processorReadWrite processor.ReadWriteStream, r resource.Resource) Node {
+func NewReadWriteStream(processorReadWrite processor.ReadWriteStream, r resource.Resource) *Node {
 	Node := &readWriteStream{processor: processorReadWrite}
 	base := newBase(Node, r)
-	Node.base = base
-	return Node
+	Node.Node = base
+	return Node.Node
 }
 
 //job Process transaction by calling Decode-> Process-> Encode->
@@ -56,7 +56,7 @@ func (n *readWriteStream) job(t transaction.Transaction) {
 		return
 	}
 
-	// base output writerCloner
+	// Node output writerCloner
 	buffer := bufferspool.Get()
 	defer bufferspool.Put(buffer)
 	writerCloner := mirror.NewWriter(buffer)
@@ -112,7 +112,7 @@ func (n *readWriteStream) jobStream(t transaction.Transaction) {
 		return
 	}
 
-	// base output writerCloner
+	// Node output writerCloner
 	buffer := bufferspool.Get()
 	defer bufferspool.Put(buffer)
 	writerCloner := mirror.NewWriter(buffer)

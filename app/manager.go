@@ -128,7 +128,7 @@ func (a *App) initPipelines(c config.Config) error {
 			return fmt.Errorf("pipeline with name [%s] already declared", key)
 		}
 
-		pip, err := pipeline.NewPipeline(*value, a.registry, *a.logger.processingLogger.Named(key))
+		pip, err := pipeline.NewPipeline(key, *value, a.registry, *a.logger.processingLogger.Named(key))
 
 		if err != nil {
 			return fmt.Errorf("error occurred when constructing pipeline [%s]: %s", key, err.Error())

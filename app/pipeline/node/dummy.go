@@ -13,15 +13,15 @@ import (
 
 //dummy Used at the start of every pipeline.
 type dummy struct {
-	*base
+	*Node
 }
 
 //NewDummy Construct a new Dummy Node
-func NewDummy(r resource.Resource) Node {
+func NewDummy(r resource.Resource) *Node {
 	Node := &dummy{}
 	base := newBase(Node, r)
-	Node.base = base
-	return Node
+	Node.Node = base
+	return Node.Node
 }
 
 //job Just forwards the input.

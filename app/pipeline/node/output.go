@@ -9,14 +9,14 @@ import (
 //output Wraps an output component
 type output struct {
 	output *wrapper.Output
-	*base
+	*Node
 }
 
 //NewOutput Construct a new Output Node
-func NewOutput(out *wrapper.Output) Node {
+func NewOutput(out *wrapper.Output) *output {
 	Node := &output{output: out}
 	base := newBase(Node, out.Resource)
-	Node.base = base
+	Node.Node = base
 	return Node
 }
 

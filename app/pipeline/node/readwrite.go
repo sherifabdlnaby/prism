@@ -13,15 +13,15 @@ import (
 //readWrite Wraps a readwrite component
 type readWrite struct {
 	processor processor.ReadWrite
-	*base
+	*Node
 }
 
 //NewReadWrite Construct a new ReadWrite Node
-func NewReadWrite(processorReadWrite processor.ReadWrite, r resource.Resource) Node {
+func NewReadWrite(processorReadWrite processor.ReadWrite, r resource.Resource) *Node {
 	Node := &readWrite{processor: processorReadWrite}
 	base := newBase(Node, r)
-	Node.base = base
-	return Node
+	Node.Node = base
+	return Node.Node
 }
 
 //job Process transaction by calling Decode-> Process-> Encode->

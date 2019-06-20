@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"fmt"
+	"strconv"
 	"sync"
 	"sync/atomic"
 
@@ -19,10 +20,11 @@ import (
 type Pipeline struct {
 	receiveTxnChan <-chan transaction.Transaction
 	Root           node.Next
-	NodesList      []node.Node
+	NodesList      map[string]*node.Node
 	Logger         zap.SugaredLogger
 	wg             sync.WaitGroup
 	status         status
+	name           string
 }
 
 type status int32
@@ -91,20 +93,21 @@ func (p *Pipeline) job(txn transaction.Transaction) {
 }
 
 //NewPipeline Construct a NewPipeline using config.
-func NewPipeline(pc config.Pipeline, registry registry.Registry, logger zap.SugaredLogger) (*Pipeline, error) {
+func NewPipeline(name string, pc config.Pipeline, registry registry.Registry, logger zap.SugaredLogger) (*Pipeline, error) {
 
 	pipelineResource := resource.NewResource(pc.Concurrency)
 
 	// dummy Node is the start of every pipeline, and its nexts(s) are the pipeline starting nodes.
 	beginNode := node.NewDummy(*pipelineResource)
+	beginNode.Name = "start"
 
 	// NodesList will contain all nodes of the pipeline. (will be useful later.
-	NodesList := make([]node.Node, 0)
-	NodesList = append(NodesList, beginNode)
+	NodesList := make(map[string]*node.Node, 0)
+	NodesList[beginNode.Name] = beginNode
 
 	nexts := make([]node.Next, 0)
 	for key, value := range pc.Pipeline {
-		Node, err := buildTree(key, *value, registry, &NodesList, false)
+		Node, err := buildTree(key, *value, registry, NodesList, false)
 		if err != nil {
 			return nil, err
 		}
@@ -135,12 +138,13 @@ func NewPipeline(pc config.Pipeline, registry registry.Registry, logger zap.Suga
 		NodesList:      NodesList,
 		Logger:         logger,
 		status:         new,
+		name:           name,
 	}
 
 	return &pip, nil
 }
 
-func buildTree(name string, n config.Node, registry registry.Registry, NodesList *[]node.Node, forceSync bool) (node.Node, error) {
+func buildTree(name string, n config.Node, registry registry.Registry, NodesList map[string]*node.Node, forceSync bool) (*node.Node, error) {
 
 	// create node of the configure components
 	currNode, err := chooseComponent(name, registry, len(n.Next))
@@ -148,11 +152,19 @@ func buildTree(name string, n config.Node, registry registry.Registry, NodesList
 		return nil, err
 	}
 
-	*NodesList = append(*NodesList, currNode)
+	// Give new node a unique name
+	for i := 0; ; {
+		_, ok := NodesList[currNode.Name]
+		if ok {
+			currNode.Name += "_" + strconv.Itoa(i)
+			continue
+		}
+		NodesList[currNode.Name] = currNode
+		break
+	}
 
 	// add nexts
 	nexts := make([]node.Next, 0)
-
 	if n.Next != nil {
 		for key, value := range n.Next {
 
@@ -181,8 +193,8 @@ func buildTree(name string, n config.Node, registry registry.Registry, NodesList
 	return currNode, nil
 }
 
-func chooseComponent(name string, registry registry.Registry, nextsCount int) (node.Node, error) {
-	var Node node.Node
+func chooseComponent(name string, registry registry.Registry, nextsCount int) (*node.Node, error) {
+	var Node *node.Node
 
 	// check if ProcessReadWrite(and which types)
 	processorBase, ok := registry.GetProcessor(name)
@@ -207,11 +219,13 @@ func chooseComponent(name string, registry registry.Registry, nextsCount int) (n
 			if nextsCount > 0 {
 				return nil, fmt.Errorf("plugin [%s] has nexts(s), output plugins must not have nexts(s)", name)
 			}
-			Node = node.NewOutput(output)
+			Node = node.NewOutput(output).Node
 		} else {
 			return nil, fmt.Errorf("plugin [%s] doesn't exists", name)
 		}
 	}
+
+	Node.Name = name
 
 	return Node, nil
 }
