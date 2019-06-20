@@ -16,6 +16,7 @@ type export struct {
 	Quality int    `validate:"min=1,max=100"`
 }
 
+//defaultConfig returns the default configs
 func defaultConfig() *config {
 	return &config{
 		minSize:      20,

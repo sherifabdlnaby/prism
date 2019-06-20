@@ -19,11 +19,14 @@ import (
 	"io"
 )
 
+// Face detector plugin will read an image and identify human faces in image,
+// and will draw a box around each person that was identified.
 type FaceDetector struct {
 	logger zap.SugaredLogger
 	config config
 }
 
+// NewFaceDetector Return a new Component
 func NewFaceDetecor() component.Component {
 	return &FaceDetector{}
 }
@@ -67,9 +70,7 @@ func (d *FaceDetector) DecodeStream(in payload.Stream, data payload.Data) (paylo
 	return image, response.Ack()
 }
 
-// Process Process will process the image and calculate skin regions and the likelihood it's a nude image, according to
-// configuration, process will either send a NoAck to Drop the image, OR censor the image by adding pixels over skin regions
-// will also add "nude" boolean to payload.Data
+// Process Process will process the image and recognize the face in image, according to configuration.
 func (d *FaceDetector) Process(in payload.DecodedImage, data payload.Data) (payload.DecodedImage, response.Response) {
 	image := in.(image.Image)
 	fd := pigo.NewFaceDetector(d.config.cascadeFile, d.config.minSize, d.config.maxSize, d.config.shiftFactor, d.config.scaleFactor, d.config.iouThreshold, d.config.angle)
