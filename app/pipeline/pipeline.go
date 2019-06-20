@@ -63,12 +63,7 @@ func (p *Pipeline) Start() error {
 	return nil
 }
 
-type redoneTransactions struct {
-	Node        *node.Node
-	Transaction transaction.Transaction
-}
-
-//Start starts the pipeline and start accepting Input
+//ApplyPersistedAsyncRequests checks pipeline's persisted unfinished transactions and re-apply them
 func (p *Pipeline) ApplyPersistedAsyncRequests() error {
 
 	TxnList := make([]transaction.Async, 0)
@@ -93,7 +88,7 @@ func (p *Pipeline) ApplyPersistedAsyncRequests() error {
 		return err
 	}
 
-	p.Logger.Infof("found %d async requests to be done...", len(TxnList))
+	p.Logger.Infof("reapplying %d async requests found", len(TxnList))
 	for _, asyncTxn := range TxnList {
 		// Delete entry and tmp file
 		err = p.db.Update(func(tx *bolt.Tx) error {
@@ -108,7 +103,7 @@ func (p *Pipeline) ApplyPersistedAsyncRequests() error {
 
 			responseChan := make(chan response.Response)
 
-			Node.RedoPersistedTransaction(transaction.Transaction{
+			Node.ProcessTransaction(transaction.Transaction{
 				Payload:      io.Reader(tmpFile),
 				Data:         asyncTxn.Data,
 				Context:      context.Background(),
@@ -133,7 +128,7 @@ func (p *Pipeline) ApplyPersistedAsyncRequests() error {
 			}
 
 			b := tx.Bucket([]byte(p.name))
-			err = b.Delete([]byte(asyncTxn.Id))
+			err = b.Delete([]byte(asyncTxn.ID))
 			if err != nil {
 				return err
 			}
@@ -198,13 +193,13 @@ func NewPipeline(name string, db *bolt.DB, pc config.Pipeline, registry registry
 	beginNode := node.NewDummy(*pipelineResource)
 	beginNode.Name = "start"
 
-	// NodesList will contain all nodes of the pipeline. (will be useful later.
-	NodesList := make(map[string]*node.Node, 0)
-	NodesList[beginNode.Name] = beginNode
+	// NodeMap will contain all nodes of the pipeline. (will be useful later.
+	NodeMap := make(map[string]*node.Node)
+	NodeMap[beginNode.Name] = beginNode
 
 	nexts := make([]node.Next, 0)
 	for key, value := range pc.Pipeline {
-		Node, err := buildTree(key, *value, registry, NodesList, false)
+		Node, err := buildTree(key, *value, registry, NodeMap, false)
 		if err != nil {
 			return nil, err
 		}
@@ -232,7 +227,7 @@ func NewPipeline(name string, db *bolt.DB, pc config.Pipeline, registry registry
 	pip := Pipeline{
 		receiveTxnChan: make(chan transaction.Transaction),
 		Root:           *Next,
-		NodesList:      NodesList,
+		NodesList:      NodeMap,
 		Logger:         logger,
 		status:         new,
 		name:           name,
@@ -253,7 +248,7 @@ func NewPipeline(name string, db *bolt.DB, pc config.Pipeline, registry registry
 	}
 
 	//Add bucket ref too all nodes
-	for _, Node := range NodesList {
+	for _, Node := range NodeMap {
 		Node.Bucket = name
 		Node.Db = pip.db
 	}
@@ -336,7 +331,7 @@ func chooseComponent(name string, registry registry.Registry, nextsCount int) (*
 			if nextsCount > 0 {
 				return nil, fmt.Errorf("plugin [%s] has nexts(s), output plugins must not have nexts(s)", name)
 			}
-			Node = node.NewOutput(output).Node
+			Node = node.NewOutput(output)
 		} else {
 			return nil, fmt.Errorf("plugin [%s] doesn't exists", name)
 		}

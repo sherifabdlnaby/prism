@@ -13,11 +13,11 @@ type output struct {
 }
 
 //NewOutput Construct a new Output Node
-func NewOutput(out *wrapper.Output) *output {
+func NewOutput(out *wrapper.Output) *Node {
 	Node := &output{output: out}
 	base := newBase(Node, out.Resource)
 	Node.Node = base
-	return Node
+	return Node.Node
 }
 
 //job output job will send the transaction to output plugin and await its result.

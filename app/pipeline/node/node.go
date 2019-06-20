@@ -19,10 +19,10 @@ import (
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
 )
 
+//Node A Node in the pipeline
 type Node struct {
 	Name           string
 	receiveTxnChan chan transaction.Transaction //TODO make a receive only for more sanity
-	asyncResponses chan response.Async
 	async          bool
 	wg             sync.WaitGroup
 	nexts          []Next
@@ -54,12 +54,11 @@ func NewNext(node *Node) *Next {
 
 func newBase(nodeType component, resource resource.Resource) *Node {
 	return &Node{
-		asyncResponses: make(chan response.Async),
-		async:          false,
-		wg:             sync.WaitGroup{},
-		nexts:          nil,
-		resource:       resource,
-		nodeType:       nodeType,
+		async:    false,
+		wg:       sync.WaitGroup{},
+		nexts:    nil,
+		resource: resource,
+		nodeType: nodeType,
 	}
 }
 
@@ -134,20 +133,11 @@ func (n *Node) handleTransaction(t transaction.Transaction) {
 		}
 	}
 
-	// Start Job according to transaction payload Type
-	switch t.Payload.(type) {
-	case payload.Bytes:
-		go n.nodeType.job(t)
-	case payload.Stream:
-		go n.nodeType.jobStream(t)
-	default:
-		// This theoretically shouldn't happen
-		t.ResponseChan <- response.Error(fmt.Errorf("invalid transaction payload type, must be payload.Bytes or payload.Stream"))
-	}
-
+	n.ProcessTransaction(t)
 }
 
-func (n *Node) RedoPersistedTransaction(t transaction.Transaction) {
+// ProcessTransaction transaction according to its type stream/bytes
+func (n *Node) ProcessTransaction(t transaction.Transaction) {
 	// Start Job according to transaction payload Type
 	switch t.Payload.(type) {
 	case payload.Bytes:
@@ -222,12 +212,13 @@ func (n *Node) startAsyncTransaction(t *transaction.Transaction) error {
 		}
 	default:
 		err = fmt.Errorf("invalid transaction payload type, must be payload.Bytes or payload.Stream")
+		return err
 	}
 
 	// ----------------------------------------------------------
 
 	asyncTxn := &transaction.Async{
-		Id:       uuid.New().String(),
+		ID:       uuid.New().String(),
 		Filepath: filepath,
 		Pipeline: n.Bucket,
 		Node:     n.Name,
@@ -242,7 +233,7 @@ func (n *Node) startAsyncTransaction(t *transaction.Transaction) error {
 	// Persist to Database
 	err = n.Db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(n.Bucket))
-		err := b.Put([]byte(asyncTxn.Id), encodedBytes)
+		err := b.Put([]byte(asyncTxn.ID), encodedBytes)
 		return err
 	})
 
@@ -255,7 +246,7 @@ func (n *Node) startAsyncTransaction(t *transaction.Transaction) error {
 	newResponseChan := make(chan response.Response)
 
 	n.wg.Add(1)
-	go n.receiveAsyncResponse(asyncTxn.Id, tmpFile, newResponseChan)
+	go n.receiveAsyncResponse(asyncTxn.ID, tmpFile, newResponseChan)
 
 	// since it will be async, sync transaction context is irrelevant.
 	// (we don't want sync nodes -that cancel transaction context when finishing to avoid ctx leak- to
@@ -274,7 +265,7 @@ func (n *Node) startAsyncTransaction(t *transaction.Transaction) error {
 	return nil
 }
 
-func (n *Node) receiveAsyncResponse(Id string, TmpFile *os.File, newResponseChan chan response.Response) {
+func (n *Node) receiveAsyncResponse(ID string, TmpFile *os.File, newResponseChan chan response.Response) {
 	defer n.wg.Done()
 
 	//TODO check Response
@@ -290,9 +281,9 @@ func (n *Node) receiveAsyncResponse(Id string, TmpFile *os.File, newResponseChan
 	// DELETE TMP FILE AND DATABASE ENTRY
 	err := n.Db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(n.Bucket))
-		result := b.Get([]byte(Id))
+		result := b.Get([]byte(ID))
 		if result == nil {
-			return fmt.Errorf("recieved response of a non persistent transaction")
+			return fmt.Errorf("received response of a non persistent transaction")
 		}
 
 		asyncTxn := &transaction.Async{}
@@ -301,7 +292,7 @@ func (n *Node) receiveAsyncResponse(Id string, TmpFile *os.File, newResponseChan
 			return err
 		}
 
-		err = b.Delete([]byte(Id))
+		err = b.Delete([]byte(ID))
 		if err != nil {
 			return err
 		}

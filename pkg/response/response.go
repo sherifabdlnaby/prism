@@ -1,7 +1,5 @@
 package response
 
-import "os"
-
 // Response indicate whether the payload was successfully processed and propagated to the next destinations.
 type Response struct {
 	// Error is a non-nil error if the payload failed to process due to an *internal* error.
@@ -13,17 +11,6 @@ type Response struct {
 
 	// AckErr is why the
 	AckErr error
-}
-
-// Response indicate whether the payload was successfully processed and propagated to the next destinations.
-type Async struct {
-	Response
-
-	// Only used to identify ASYNC transactions in persistence
-	ID string
-
-	// Only used to identify ASYNC transactions in persistence
-	TmpFile *os.File
 }
 
 //ACK A Successful Ack

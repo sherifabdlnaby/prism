@@ -138,7 +138,7 @@ func (a *App) initPipelines(c config.Config) error {
 
 	db, err := bolt.Open("./data/pipelines.db", 0600, &bolt.Options{Timeout: 1 * time.Second})
 	if err != nil {
-		return fmt.Errorf("error while opening persistance DB file %s", err.Error())
+		return fmt.Errorf("error while opening persistence DB file %s", err.Error())
 	}
 
 	for key, pipConfig := range c.Pipeline.Pipelines {
