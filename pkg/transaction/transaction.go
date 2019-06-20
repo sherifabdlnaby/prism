@@ -33,3 +33,8 @@ type InputTransaction struct {
 	Transaction
 	PipelineTag string
 }
+
+type Async struct {
+	Id, Pipeline, Node, Filepath string
+	Data                         payload.Data
+}

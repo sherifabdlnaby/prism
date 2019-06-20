@@ -1,11 +1,16 @@
 package pipeline
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
+	"io"
+	"os"
 	"strconv"
 	"sync"
 	"sync/atomic"
 
+	"github.com/boltdb/bolt"
 	"github.com/sherifabdlnaby/prism/app/config"
 	"github.com/sherifabdlnaby/prism/app/pipeline/node"
 	"github.com/sherifabdlnaby/prism/app/registry"
@@ -25,6 +30,7 @@ type Pipeline struct {
 	wg             sync.WaitGroup
 	status         status
 	name           string
+	db             *bolt.DB
 }
 
 type status int32
@@ -55,6 +61,87 @@ func (p *Pipeline) Start() error {
 	}()
 
 	return nil
+}
+
+type redoneTransactions struct {
+	Node        *node.Node
+	Transaction transaction.Transaction
+}
+
+//Start starts the pipeline and start accepting Input
+func (p *Pipeline) ApplyPersistedAsyncRequests() error {
+
+	TxnList := make([]transaction.Async, 0)
+
+	err := p.db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(p.name))
+		err := b.ForEach(func(k, v []byte) error {
+			asyncTxn := &transaction.Async{}
+			err := json.Unmarshal(v, asyncTxn)
+			if err != nil {
+				return err
+			}
+			TxnList = append(TxnList, *asyncTxn)
+			return nil
+		})
+
+		return err
+	})
+
+	p.Logger.Infof("found %d async requests to be done...", len(TxnList))
+
+	for _, asyncTxn := range TxnList {
+		// get payload and data
+		tmpFile, err := os.Open(asyncTxn.Filepath)
+
+		if err != nil {
+			return err
+		}
+
+		// Get Node
+		Node := p.NodesList[asyncTxn.Node]
+
+		responseChan := make(chan response.Response)
+
+		Node.RedoPersistedTransaction(transaction.Transaction{
+			Payload:      io.Reader(tmpFile),
+			Data:         asyncTxn.Data,
+			Context:      context.Background(),
+			ResponseChan: responseChan,
+		})
+
+		// Wait Response
+		response := <-responseChan
+
+		// log progress
+		if !response.Ack {
+			if response.Error != nil {
+				p.Logger.Warnw("an async request that are re-done failed", "error", response.Error)
+			} else if response.AckErr != nil {
+				p.Logger.Warnw("an async request that are re-done was dropped", "reason", response.AckErr)
+			}
+		}
+
+		// Delete entry and tmp file
+		err = p.db.Update(func(tx *bolt.Tx) error {
+			b := tx.Bucket([]byte(p.name))
+
+			err = b.Delete([]byte(asyncTxn.Id))
+			if err != nil {
+				return err
+			}
+
+			// Delete from filesystem
+			err = os.Remove(asyncTxn.Filepath)
+			if err != nil {
+				return err
+			}
+
+			return nil
+		})
+	}
+
+	return err
 }
 
 //Stop stops the pipeline, that means that any transaction received on this pipeline after stopping will return
@@ -93,7 +180,7 @@ func (p *Pipeline) job(txn transaction.Transaction) {
 }
 
 //NewPipeline Construct a NewPipeline using config.
-func NewPipeline(name string, pc config.Pipeline, registry registry.Registry, logger zap.SugaredLogger) (*Pipeline, error) {
+func NewPipeline(name string, db *bolt.DB, pc config.Pipeline, registry registry.Registry, logger zap.SugaredLogger) (*Pipeline, error) {
 
 	pipelineResource := resource.NewResource(pc.Concurrency)
 
@@ -117,7 +204,7 @@ func NewPipeline(name string, pc config.Pipeline, registry registry.Registry, lo
 		// create a next wrapper
 		next := *node.NewNext(Node)
 
-		// gives the next's node its InputTransactionChan, now owner of the 'next' owns closing the chan.
+		// gives the next's Node its InputTransactionChan, now owner of the 'next' owns closing the chan.
 		Node.SetTransactionChan(next.TransactionChan)
 
 		// append to nexts
@@ -126,10 +213,10 @@ func NewPipeline(name string, pc config.Pipeline, registry registry.Registry, lo
 
 	beginNode.SetNexts(nexts)
 
-	// give dummy node its receive chan
+	// give dummy Node its receive chan
 	Next := node.NewNext(beginNode)
 
-	// give node its receive chan
+	// give Node its receive chan
 	beginNode.SetTransactionChan(Next.TransactionChan)
 
 	pip := Pipeline{
@@ -139,6 +226,26 @@ func NewPipeline(name string, pc config.Pipeline, registry registry.Registry, lo
 		Logger:         logger,
 		status:         new,
 		name:           name,
+		db:             db,
+	}
+
+	err := pip.db.Update(func(tx *bolt.Tx) error {
+		var err error
+		_, err = tx.CreateBucketIfNotExists([]byte(name))
+		if err != nil {
+			return fmt.Errorf("create bucket: %s", err)
+		}
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	//Add bucket ref too all nodes
+	for _, Node := range NodesList {
+		Node.Bucket = name
+		Node.Db = pip.db
 	}
 
 	return &pip, nil

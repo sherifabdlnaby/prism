@@ -2,9 +2,16 @@ package node
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 	"sync"
 
+	"github.com/boltdb/bolt"
+	"github.com/google/uuid"
 	"github.com/sherifabdlnaby/prism/app/resource"
 	"github.com/sherifabdlnaby/prism/pkg/mirror"
 	"github.com/sherifabdlnaby/prism/pkg/payload"
@@ -12,16 +19,29 @@ import (
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
 )
 
-//TODO rename
-type component interface {
-	job(t transaction.Transaction)
-	jobStream(t transaction.Transaction)
+type Node struct {
+	Name           string
+	receiveTxnChan chan transaction.Transaction //TODO make a receive only for more sanity
+	asyncResponses chan response.Async
+	async          bool
+	wg             sync.WaitGroup
+	nexts          []Next
+	resource       resource.Resource
+	nodeType       component
+	Db             *bolt.DB
+	Bucket         string
 }
 
 //Next Wraps the next Node plus the channel used to communicate with this Node to send input transactions.
 type Next struct {
 	*Node
 	TransactionChan chan transaction.Transaction
+}
+
+//TODO rename
+type component interface {
+	job(t transaction.Transaction)
+	jobStream(t transaction.Transaction)
 }
 
 //NewNext Create a new Next Node with the supplied Node.
@@ -32,20 +52,9 @@ func NewNext(node *Node) *Next {
 	}
 }
 
-type Node struct {
-	Name           string
-	receiveTxnChan <-chan transaction.Transaction
-	asyncResponses chan response.Response
-	async          bool
-	wg             sync.WaitGroup
-	nexts          []Next
-	resource       resource.Resource
-	nodeType       component
-}
-
 func newBase(nodeType component, resource resource.Resource) *Node {
 	return &Node{
-		asyncResponses: make(chan response.Response),
+		asyncResponses: make(chan response.Async),
 		async:          false,
 		wg:             sync.WaitGroup{},
 		nexts:          nil,
@@ -97,8 +106,13 @@ func (n *Node) Stop() error {
 }
 
 //SetTransactionChan Set the transaction chan Node will use to receive input
-func (n *Node) SetTransactionChan(tc <-chan transaction.Transaction) {
+func (n *Node) SetTransactionChan(tc chan transaction.Transaction) {
 	n.receiveTxnChan = tc
+}
+
+//ReceiveTxnChan Getter for receiveChan
+func (n *Node) ReceiveTxnChan() <-chan transaction.Transaction {
+	return n.receiveTxnChan
 }
 
 //SetNexts Set this Node's next nodes.
@@ -115,19 +129,12 @@ func (n *Node) handleTransaction(t transaction.Transaction) {
 	// if Node is set async, send ack response now,
 	// and navigate actual response to asyncResponses which should handle async responses
 	if n.async {
-		// since it will be async, sync transaction context is irrelevant.
-		// (we don't want sync nodes -that cancel transaction context when finishing to avoid ctx leak- to
-		// cancel async nodes too )
-		t.Context = context.Background()
+		err := n.startAsyncTransaction(&t)
 
-		// return ack response
-		t.ResponseChan <- response.Ack()
-
-		// now actual response is given to asyncResponds that should handle async responds
-		t.ResponseChan = n.asyncResponses
-
-		// used so that stop() wait for async responses to finish. (to be actually handled later)
-		n.wg.Add(1)
+		if err != nil {
+			t.ResponseChan <- response.Error(err)
+			return
+		}
 	}
 
 	// Start Job according to transaction payload Type
@@ -143,9 +150,182 @@ func (n *Node) handleTransaction(t transaction.Transaction) {
 
 }
 
-// TODO to handle failing/success async requests later.
+func (n *Node) RedoPersistedTransaction(t transaction.Transaction) {
+	// Start Job according to transaction payload Type
+	switch t.Payload.(type) {
+	case payload.Bytes:
+		go n.nodeType.job(t)
+	case payload.Stream:
+		go n.nodeType.jobStream(t)
+	default:
+		// This theoretically shouldn't happen
+		t.ResponseChan <- response.Error(fmt.Errorf("invalid transaction payload type, must be payload.Bytes or payload.Stream"))
+	}
+}
+
+func (n *Node) startAsyncTransaction(t *transaction.Transaction) error {
+
+	dirPath, err := filepath.Abs("./data/images")
+	if err != nil {
+		return err
+	}
+
+	tmpFile, err := ioutil.TempFile(dirPath, "async.*.bat")
+	if err != nil {
+		return err
+	}
+
+	filepath := tmpFile.Name()
+
+	//----------------------------------------------------------
+
+	var newPayload payload.Payload
+
+	// Get all Transaction Data
+	switch payload := t.Payload.(type) {
+	case payload.Bytes:
+		nBytes, err := tmpFile.Write(payload)
+
+		if err != nil {
+			err = fmt.Errorf("failed to save async transaction to tmp tmpFile, error: %s", err.Error())
+			return err
+		}
+
+		if nBytes != len(payload) {
+			err = fmt.Errorf("failed to save async transaction to tmp tmpFile, couldn't write all bytes")
+			return err
+		}
+
+		// set new payload to bytes (we keep in memory if we're in memory)
+		newPayload = payload
+
+		err = tmpFile.Close()
+		if err != nil {
+			return err
+		}
+
+		tmpFile = nil
+	case payload.Stream:
+		_, err = io.Copy(tmpFile, payload)
+
+		if err != nil {
+			_ = tmpFile.Close()
+			return err
+		}
+
+		err = tmpFile.Close()
+		if err != nil {
+			return err
+		}
+
+		tmpFile, err = os.Open(tmpFile.Name())
+		payload = tmpFile
+		if err != nil {
+			return err
+		}
+	default:
+		err = fmt.Errorf("invalid transaction payload type, must be payload.Bytes or payload.Stream")
+	}
+
+	// ----------------------------------------------------------
+
+	asyncTxn := &transaction.Async{
+		Id:       uuid.New().String(),
+		Filepath: filepath,
+		Pipeline: n.Bucket,
+		Node:     n.Name,
+		Data:     t.Data,
+	}
+
+	encodedBytes, err := json.Marshal(asyncTxn)
+	if err != nil {
+		return err
+	}
+
+	// Persist to Database
+	err = n.Db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(n.Bucket))
+		err := b.Put([]byte(asyncTxn.Id), encodedBytes)
+		return err
+	})
+
+	if err != nil {
+		return err
+	}
+
+	// --------------------------------------------------------------
+
+	newResponseChan := make(chan response.Response)
+	go func(id string, newResponseChan chan response.Response) {
+		n.asyncResponses <- response.Async{
+			Response: <-newResponseChan,
+			ID:       id,
+			TmpFile:  tmpFile,
+		}
+	}(asyncTxn.Id, newResponseChan)
+
+	// since it will be async, sync transaction context is irrelevant.
+	// (we don't want sync nodes -that cancel transaction context when finishing to avoid ctx leak- to
+	// cancel async nodes too )
+	t.Context = context.Background()
+
+	// New payload
+	t.Payload = newPayload
+
+	// return ack response
+	t.ResponseChan <- response.Ack()
+
+	// now actual response is given to asyncResponds that should handle async responds
+	t.ResponseChan = newResponseChan
+
+	// used so that stop() wait for async responses to finish. (to be actually handled later)
+	n.wg.Add(1)
+
+	return nil
+}
+
 func (n *Node) asyncHandler() {
-	for range n.asyncResponses {
+	for asyncRes := range n.asyncResponses {
+		// DELETE TMP FILE AND DATABASE ENTRY
+		err := n.Db.Update(func(tx *bolt.Tx) error {
+			b := tx.Bucket([]byte(n.Bucket))
+			result := b.Get([]byte(asyncRes.ID))
+			if result == nil {
+				return fmt.Errorf("recieved response of a non persistent transaction")
+			}
+
+			asyncTxn := &transaction.Async{}
+			err := json.Unmarshal(result, asyncTxn)
+			if err != nil {
+				return err
+			}
+
+			// Delete from Storage
+			err = os.Remove(asyncTxn.Filepath)
+			if err != nil {
+				return err
+			}
+
+			err = b.Delete([]byte(asyncRes.ID))
+			if err != nil {
+				return err
+			}
+
+			//close Tmp file if it was used to stream data
+			if asyncRes.TmpFile != nil {
+				err = asyncRes.TmpFile.Close()
+				if err != nil {
+					return err
+				}
+			}
+
+			return nil
+		})
+
+		if err != nil {
+			panic(err)
+		}
+
 		n.wg.Done()
 	}
 }
