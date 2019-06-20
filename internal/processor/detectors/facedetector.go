@@ -5,6 +5,7 @@ import (
 	"fmt"
 	pigo "github.com/NohaSayedA/pigo/core"
 	"github.com/sherifabdlnaby/prism/pkg/component"
+	"log"
 
 	"github.com/sherifabdlnaby/prism/pkg/response"
 
@@ -22,10 +23,10 @@ type FaceDetector struct {
 	logger zap.SugaredLogger
 	config config
 }
+
 func NewFaceDetecor() component.Component {
 	return &FaceDetector{}
 }
-
 
 // Init file validator
 func (d *FaceDetector) Init(config cfg.Config, logger zap.SugaredLogger) error {
@@ -36,11 +37,9 @@ func (d *FaceDetector) Init(config cfg.Config, logger zap.SugaredLogger) error {
 	if err != nil {
 		return err
 	}
-
 	d.logger = logger
 	return nil
 }
-
 
 // Start validator plugin
 func (d *FaceDetector) Start() error {
@@ -51,8 +50,6 @@ func (d *FaceDetector) Start() error {
 func (d *FaceDetector) Close() error {
 	return nil
 }
-
-
 
 // Decode return a decoded header(config) and image format from input bytes
 func (d *FaceDetector) Decode(in payload.Bytes, data payload.Data) (payload.DecodedImage, response.Response) {
@@ -75,6 +72,14 @@ func (d *FaceDetector) DecodeStream(in payload.Stream, data payload.Data) (paylo
 // will also add "nude" boolean to payload.Data
 func (d *FaceDetector) Process(in payload.DecodedImage, data payload.Data) (payload.DecodedImage, response.Response) {
 	image := in.(image.Image)
+	fd := pigo.NewFaceDetector(d.config.cascadeFile, d.config.minSize, d.config.maxSize, d.config.shiftFactor, d.config.scaleFactor, d.config.iouThreshold, d.config.angle)
+	faces, err := fd.DetectFaces(image)
+	if err != nil {
+		log.Fatalf("Detection error: %v", err)
+	}
+	image = fd.DrawFaces(faces, d.config.circleMarker)
+
+	return image, response.Ack()
 }
 
 // Encode will encode Image according to configuration, only supporting encoding into jpeg/png
