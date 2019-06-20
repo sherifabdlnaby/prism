@@ -17,13 +17,8 @@ type Selector struct {
 
 //NewSelector Returns a new Selector used to evaluate dynamic fields in a config
 func NewSelector(base string) (Selector, error) {
-
-	if base == "" {
-		return Selector{}, fmt.Errorf("base to selector is nil")
-	}
-
-	parts := splitToParts(base)
 	isDynamic := false
+	parts := splitToParts(base)
 
 	if parts != nil {
 		isDynamic = true
@@ -38,6 +33,7 @@ func NewSelector(base string) (Selector, error) {
 
 // Evaluate Evaluate dynamic values of config such as `image-@{image.title}.jpg` as a string, return error if it doesn't exist in supplied
 // Data.
+// TODO differentiate between not found in data, and being evaluated to 0 in a better way.
 func (v *Selector) Evaluate(data map[string]interface{}) (string, error) {
 
 	// No need to evaluate

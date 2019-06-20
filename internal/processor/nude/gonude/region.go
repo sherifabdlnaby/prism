@@ -18,7 +18,7 @@ type Pixel struct {
 }
 
 // Region A Region of pixels
-// TODO: cache caluculated leftMost, rightMost, upperMost, lowerMost.
+// TODO: cache calculated leftMost, rightMost, upperMost, lowerMost.
 type Region []*Pixel
 
 // TODO: optimize

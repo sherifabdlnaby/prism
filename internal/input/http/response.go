@@ -7,30 +7,36 @@ import (
 )
 
 var (
-	resNotFound         = response{Code: http.StatusNotFound, Message: "not found"}
-	resMethodNotAllowed = response{Code: http.StatusMethodNotAllowed, Message: "method not allowed"}
-	resMissingFile      = response{Code: http.StatusBadRequest, Message: "not file uploaded, file name should be \"image\""}
-	resMissingPipeline  = response{Code: http.StatusBadRequest, Message: "pipeline field has dynamic values which are not present in the request"}
-	resNoAck            = response{Code: http.StatusBadRequest, Message: "request was dropped on purpose"}
-	resInternalError    = response{Code: http.StatusInternalServerError, Message: "internal server error"}
+	errNotFound         = err{Code: http.StatusNotFound, Message: "not found"}
+	errMethodNotAllowed = err{Code: http.StatusMethodNotAllowed, Message: "method not allowed"}
+	errMissingFile      = err{Code: http.StatusBadRequest, Message: "not file uploaded, file name should be \"image\""}
+	errMissingPipeline  = err{Code: http.StatusBadRequest, Message: "pipeline field has dynamic values which are not present in the request"}
+	errInternalError    = err{Code: http.StatusInternalServerError, Message: "internal server error"}
 )
 
-type response struct {
+type err struct {
 	Code    int    `json:"code"`
 	Message string `json:"message,omitempty"`
 }
 
-func newNoAck(noAck error) *response {
-	return &response{http.StatusBadRequest, fmt.Sprintf("request was dropped, reason: %s", noAck.Error())}
+func newNoAck(noAck error) *err {
+	return &err{http.StatusBadRequest, fmt.Sprintf("request was dropped, reason: %s", noAck.Error())}
 }
 
-func newError(err error) *response {
-	return &response{http.StatusBadRequest, fmt.Sprintf("error while processing, reason: %s", err.Error())}
+func newError(error error) *err {
+	return &err{http.StatusBadRequest, fmt.Sprintf("error while processing, reason: %s", error.Error())}
 }
 
-func respondError(req *http.Request, w http.ResponseWriter, reply response) {
+func respondError(_ *http.Request, w http.ResponseWriter, error err) {
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(reply.Code)
-	jsonBuf, _ := json.Marshal(reply)
+	w.WriteHeader(error.Code)
+	jsonBuf, _ := json.Marshal(error)
+	_, _ = w.Write(jsonBuf)
+}
+
+func respondMessage(_ *http.Request, w http.ResponseWriter, statusCode int, jsonMap interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
+	jsonBuf, _ := json.Marshal(jsonMap)
 	_, _ = w.Write(jsonBuf)
 }

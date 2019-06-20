@@ -1,7 +1,7 @@
 package node
 
 import (
-	"github.com/sherifabdlnaby/prism/app/registery/wrapper"
+	"github.com/sherifabdlnaby/prism/app/registry/wrapper"
 	"github.com/sherifabdlnaby/prism/pkg/response"
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
 )

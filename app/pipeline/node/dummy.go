@@ -47,7 +47,7 @@ func (n *dummy) job(t transaction.Transaction) {
 	responseChan := n.sendNexts(ctx, t.Payload.(payload.Bytes), t.Data)
 
 	// Await Responses
-	Response := n.waitResponses(ctx, responseChan)
+	Response := n.waitResponses(responseChan)
 
 	// Send Response back.
 	t.ResponseChan <- Response
@@ -96,7 +96,7 @@ func (n *dummy) jobStream(t transaction.Transaction) {
 	}
 
 	// Await Responses
-	Response := n.waitResponses(t.Context, responseChan)
+	Response := n.waitResponses(responseChan)
 
 	// Send Response back.
 	t.ResponseChan <- Response

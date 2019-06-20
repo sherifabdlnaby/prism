@@ -48,7 +48,7 @@ func (a *App) initPlugins(c config.Config) error {
 		pluginConfig := *componentConfig.NewConfig(input.Config)
 		err := plugin.Init(pluginConfig, *a.logger.inputLogger.Named(name))
 		if err != nil {
-			return fmt.Errorf("failed to initalize plugin [%s]: %s", name, err.Error())
+			return fmt.Errorf("failed to initialize plugin [%s]: %s", name, err.Error())
 		}
 	}
 
@@ -58,7 +58,7 @@ func (a *App) initPlugins(c config.Config) error {
 		pluginConfig := *componentConfig.NewConfig(processor.Config)
 		err := plugin.Init(pluginConfig, *a.logger.processingLogger.Named(name))
 		if err != nil {
-			return fmt.Errorf("failed to initalize plugin [%s]: %s", name, err.Error())
+			return fmt.Errorf("failed to initialize plugin [%s]: %s", name, err.Error())
 		}
 	}
 
@@ -68,7 +68,7 @@ func (a *App) initPlugins(c config.Config) error {
 		pluginConfig := *componentConfig.NewConfig(output.Config)
 		err := plugin.Init(pluginConfig, *a.logger.outputLogger.Named(name))
 		if err != nil {
-			return fmt.Errorf("failed to initalize plugin [%s]: %s", name, err.Error())
+			return fmt.Errorf("failed to initialize plugin [%s]: %s", name, err.Error())
 		}
 	}
 
@@ -76,7 +76,7 @@ func (a *App) initPlugins(c config.Config) error {
 }
 
 // startInputPlugins start all input plugins in Config by calling their start() function
-func (a *App) startInputPlugins(c config.Config) error {
+func (a *App) startInputPlugins() error {
 
 	for name, value := range a.registry.Inputs {
 		err := value.Start()
@@ -90,7 +90,7 @@ func (a *App) startInputPlugins(c config.Config) error {
 }
 
 // startProcessorPlugins start all processor plugins in Config by calling their start() function
-func (a *App) startProcessorPlugins(c config.Config) error {
+func (a *App) startProcessorPlugins() error {
 
 	for name, value := range a.registry.Processors {
 		err := value.Start()
@@ -104,7 +104,7 @@ func (a *App) startProcessorPlugins(c config.Config) error {
 }
 
 // startOutputPlugins start all output plugins in Config by calling their start() function
-func (a *App) startOutputPlugins(c config.Config) error {
+func (a *App) startOutputPlugins() error {
 
 	for name, value := range a.registry.Outputs {
 		err := value.Start()
@@ -131,7 +131,7 @@ func (a *App) initPipelines(c config.Config) error {
 		pip, err := pipeline.NewPipeline(*value, a.registry, *a.logger.processingLogger.Named(key))
 
 		if err != nil {
-			return fmt.Errorf("error occured when constructing pipeline [%s]: %s", key, err.Error())
+			return fmt.Errorf("error occurred when constructing pipeline [%s]: %s", key, err.Error())
 		}
 
 		tc := make(chan transaction.Transaction)
@@ -147,7 +147,7 @@ func (a *App) initPipelines(c config.Config) error {
 }
 
 // startPipelines start all pipelines and start accepting input
-func (a *App) startPipelines(c config.Config) error {
+func (a *App) startPipelines() error {
 
 	for _, value := range a.pipelines {
 		err := value.Start()
@@ -161,7 +161,7 @@ func (a *App) startPipelines(c config.Config) error {
 }
 
 // stopPipelines Stop pipelines by calling their Stop() function, any request to these pipelines will return error.
-func (a *App) stopPipelines(c config.Config) error {
+func (a *App) stopPipelines() error {
 
 	for _, value := range a.pipelines {
 		// close receiving chan
@@ -178,7 +178,7 @@ func (a *App) stopPipelines(c config.Config) error {
 }
 
 // stopInputPlugins Stop all input plugins in Config by calling their Stop() function
-func (a *App) stopInputPlugins(c config.Config) error {
+func (a *App) stopInputPlugins() error {
 
 	for name, value := range a.registry.Inputs {
 		err := value.Close()
@@ -192,7 +192,7 @@ func (a *App) stopInputPlugins(c config.Config) error {
 }
 
 // stopProcessorPlugins Stop all processor plugins in Config by calling their Stop() function
-func (a *App) stopProcessorPlugins(c config.Config) error {
+func (a *App) stopProcessorPlugins() error {
 
 	for name, value := range a.registry.Processors {
 		err := value.Close()
@@ -206,7 +206,7 @@ func (a *App) stopProcessorPlugins(c config.Config) error {
 }
 
 // stopOutputPlugins Stop all output plugins in Config by calling their Stop() function
-func (a *App) stopOutputPlugins(c config.Config) error {
+func (a *App) stopOutputPlugins() error {
 
 	for name, value := range a.registry.Outputs {
 		// close its transaction chan (stop sending txns to it)

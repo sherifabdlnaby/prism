@@ -131,11 +131,17 @@ func (n *base) asyncHandler() {
 
 func (n *base) sendNextsStream(ctx context.Context, writerCloner mirror.Cloner, data payload.Data) chan response.Response {
 	responseChan := make(chan response.Response, len(n.nexts))
+
 	for _, next := range n.nexts {
+		// Copy new map
+		newData := make(payload.Data, len(data))
+		for key := range data {
+			newData[key] = data[key]
+		}
 
 		next.TransactionChan <- transaction.Transaction{
 			Payload:      writerCloner.Clone(),
-			Data:         data,
+			Data:         newData,
 			Context:      ctx,
 			ResponseChan: responseChan,
 		}
@@ -145,10 +151,17 @@ func (n *base) sendNextsStream(ctx context.Context, writerCloner mirror.Cloner, 
 
 func (n *base) sendNexts(ctx context.Context, output payload.Bytes, data payload.Data) chan response.Response {
 	responseChan := make(chan response.Response, len(n.nexts))
+
 	for _, next := range n.nexts {
+		// Copy new map
+		newData := make(payload.Data, len(data))
+		for key := range data {
+			newData[key] = data[key]
+		}
+
 		next.TransactionChan <- transaction.Transaction{
 			Payload:      output,
-			Data:         data,
+			Data:         newData,
 			Context:      ctx,
 			ResponseChan: responseChan,
 		}
@@ -156,7 +169,7 @@ func (n *base) sendNexts(ctx context.Context, output payload.Bytes, data payload
 	return responseChan
 }
 
-func (n *base) waitResponses(ctx context.Context, responseChan chan response.Response) response.Response {
+func (n *base) waitResponses(responseChan chan response.Response) response.Response {
 	////////////////////////////////////////////
 	// receive from next nodes
 	count, total := 0, len(n.nexts)

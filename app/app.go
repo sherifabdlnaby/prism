@@ -2,14 +2,14 @@ package app
 
 import (
 	"github.com/sherifabdlnaby/prism/app/config"
-	"github.com/sherifabdlnaby/prism/app/registery"
+	"github.com/sherifabdlnaby/prism/app/registry"
 )
 
 //App is an self contained instance of Prism app.
 type App struct {
 	config    config.Config
 	logger    logger
-	registry  registery.Registry
+	registry  registry.Registry
 	pipelines map[string]pipelineWrapper
 }
 
@@ -19,7 +19,7 @@ func NewApp(config config.Config) *App {
 	app := &App{
 		config:    config,
 		logger:    *newLoggers(config),
-		registry:  *registery.NewRegistry(),
+		registry:  *registry.NewRegistry(),
 		pipelines: make(map[string]pipelineWrapper),
 	}
 
@@ -41,8 +41,8 @@ func (a *App) Start(config config.Config) error {
 // 		2- Pipelines.
 // 		3- Processor Components.
 // 		4- Output Components.
-func (a *App) Stop(config config.Config) error {
-	return a.stopComponents(config)
+func (a *App) Stop() error {
+	return a.stopComponents()
 }
 
 //startComponents start components
@@ -70,7 +70,7 @@ func (a *App) startComponents(c config.Config) error {
 	}
 
 	a.logger.Info("starting pipelines...")
-	err = a.startPipelines(c)
+	err = a.startPipelines()
 	if err != nil {
 		a.logger.Errorf("error while starting pipelines: %v", err)
 		return err
@@ -79,26 +79,27 @@ func (a *App) startComponents(c config.Config) error {
 	a.start()
 
 	a.logger.Info("starting output plugins...")
-	err = a.startOutputPlugins(c)
+	err = a.startOutputPlugins()
 	if err != nil {
 		a.logger.Errorf("error while starting output plugins: %v", err)
 		return err
 	}
 
 	a.logger.Info("starting processor plugins...")
-	err = a.startProcessorPlugins(c)
+	err = a.startProcessorPlugins()
 	if err != nil {
 		a.logger.Errorf("error while starting processor plugins: %v", err)
 		return err
 	}
 
 	a.logger.Info("starting input plugins...")
-	err = a.startInputPlugins(c)
+	err = a.startInputPlugins()
 	if err != nil {
 		a.logger.Errorf("error while starting input plugins: %v", err)
 		return err
 	}
 
+	a.logger.Info("successfully started all components")
 	return nil
 }
 
@@ -108,13 +109,13 @@ func (a *App) startComponents(c config.Config) error {
 // 		3- Stop Processor Components.
 // 		4- Stop Output Components.
 // As by definition each stop functionality in these components is graceful, this should guarantee graceful shutdown.
-func (a *App) stopComponents(c config.Config) error {
+func (a *App) stopComponents() error {
 	a.logger.Info("stopping all components gracefully...")
 
 	///////////////////////////////////////
 
 	a.logger.Info("stopping input plugins...")
-	err := a.stopInputPlugins(c)
+	err := a.stopInputPlugins()
 	if err != nil {
 		a.logger.Errorf("failed to stop input plugins: %v", err)
 		return err
@@ -124,7 +125,7 @@ func (a *App) stopComponents(c config.Config) error {
 	///////////////////////////////////////
 
 	a.logger.Info("stopping pipelines...")
-	err = a.stopPipelines(c)
+	err = a.stopPipelines()
 	if err != nil {
 		a.logger.Errorf("failed to stop pipelines: %v", err)
 		return err
@@ -134,7 +135,7 @@ func (a *App) stopComponents(c config.Config) error {
 	///////////////////////////////////////
 
 	a.logger.Info("stopping processor plugins...")
-	err = a.stopProcessorPlugins(c)
+	err = a.stopProcessorPlugins()
 	if err != nil {
 		a.logger.Errorf("failed to stop input plugins: %v", err)
 		return err
@@ -144,7 +145,7 @@ func (a *App) stopComponents(c config.Config) error {
 	///////////////////////////////////////
 
 	a.logger.Info("stopping output plugins...")
-	err = a.stopOutputPlugins(c)
+	err = a.stopOutputPlugins()
 	if err != nil {
 		a.logger.Errorf("failed to stop output plugins: %v", err)
 		return err

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"path/filepath"
 
 	"github.com/sherifabdlnaby/prism/pkg/payload"
 	responseT "github.com/sherifabdlnaby/prism/pkg/response"
@@ -48,15 +49,23 @@ func buildHandlers(w *Webserver) http.Handler {
 		mux.Handle(path, next)
 	}
 
+	//register index
+	mux.HandleFunc("/index", w.index)
+
 	return mux
 }
 
-//handle will formulate request into a transaction and await response
+//handle will formulate request into a transaction and await err
 func (w *Webserver) handle(rw http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
 
 		// Parse form into Data
 		err := r.ParseForm()
+		if err != nil {
+			respondError(r, rw, errMissingPipeline)
+			return
+		}
+
 		data := make(payload.Data, len(r.Form))
 		for key := range r.Form {
 			if len(r.Form[key]) > 1 {
@@ -66,15 +75,15 @@ func (w *Webserver) handle(rw http.ResponseWriter, r *http.Request) {
 			data[key] = r.Form[key][0]
 		}
 
-		url, ok := w.config.Paths[r.URL.Path]
+		path, ok := w.config.Paths[r.URL.Path]
 		if !ok {
-			respondError(r, rw, resNotFound)
+			respondError(r, rw, errNotFound)
 			return
 		}
 
-		pipeline, err := url.pipelineSelector.Evaluate(data)
+		pipeline, err := path.pipelineSelector.Evaluate(data)
 		if err != nil {
-			respondError(r, rw, resMissingPipeline)
+			respondError(r, rw, errMissingPipeline)
 			return
 		}
 
@@ -89,7 +98,7 @@ func (w *Webserver) handle(rw http.ResponseWriter, r *http.Request) {
 		part, err := reader.NextPart()
 		if err != nil {
 			if err == io.EOF {
-				respondError(r, rw, resMissingFile)
+				respondError(r, rw, errMissingFile)
 			} else {
 				respondError(r, rw, *newError(err))
 			}
@@ -97,10 +106,14 @@ func (w *Webserver) handle(rw http.ResponseWriter, r *http.Request) {
 		}
 
 		// Check is part form name is as configured
-		if part.FormName() != w.config.FormName {
-			respondError(r, rw, resMissingFile)
+		if part.FormName() != w.config.ImageField {
+			respondError(r, rw, errMissingFile)
 			return
 		}
+
+		// Add filename to Data (and remove extension
+		filename := part.FileName()
+		data["_filename"] = filename[0 : len(filename)-len(filepath.Ext(filename))]
 
 		responseChan := make(chan responseT.Response)
 		w.Transactions <- transaction.InputTransaction{
@@ -117,7 +130,7 @@ func (w *Webserver) handle(rw http.ResponseWriter, r *http.Request) {
 		response := <-responseChan
 
 		if !response.Ack {
-			// check if responseT is simply refused, or an internal responseT occured
+			// check if responseT is simply refused, or an internal responseT occurred
 			if response.AckErr != nil {
 				respondError(r, rw, *newNoAck(response.AckErr))
 			} else if response.Error != nil {
@@ -130,7 +143,27 @@ func (w *Webserver) handle(rw http.ResponseWriter, r *http.Request) {
 		rw.WriteHeader(http.StatusOK)
 
 		return
+	} else if r.Method == http.MethodGet {
+		respondMessage(r, rw, http.StatusOK, map[string]interface{}{
+			"message":  "Prism HTTP Server, use POST multipart/form-data requests on this path.",
+			"pipeline": w.config.Paths[r.URL.Path].Pipeline,
+			"version":  version,
+		})
+		return
 	}
 
-	respondError(r, rw, resMethodNotAllowed)
+	respondError(r, rw, errMethodNotAllowed)
+}
+
+//handle will formulate request into a transaction and await err
+func (w *Webserver) index(rw http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodGet {
+		respondMessage(r, rw, http.StatusOK, map[string]interface{}{
+			"message":          "Prism HTTP Server",
+			"version":          version,
+			"registered_paths": len(w.config.Paths),
+		})
+		return
+	}
+	respondError(r, rw, errMethodNotAllowed)
 }

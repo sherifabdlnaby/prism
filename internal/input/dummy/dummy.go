@@ -4,6 +4,7 @@ import (
 	"context"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -86,10 +87,7 @@ func (d *Dummy) Start() error {
 
 					// payloadData (request params)
 					payloadData := payload.Data{
-						"count":   i,
-						"fileNum": (i % 30) + 1,
-						"width":   250 * ((i % 4) + 1),
-						"height":  250 * ((i % 6) + 1),
+						"count": i,
 					}
 
 					// get selectors
@@ -104,6 +102,8 @@ func (d *Dummy) Start() error {
 						d.logger.Debugw("Error in dummy: ", zap.Error(err))
 						return
 					}
+
+					payloadData["_filename"] = filepath.Base(filename)[0 : len(filepath.Base(filename))-len(filepath.Ext(filepath.Base(filename)))]
 
 					// Get Image Data
 					reader, err := os.Open(filename)

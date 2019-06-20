@@ -19,8 +19,8 @@ type readOnly struct {
 }
 
 //NewReadOnly Construct a new ReadOnly node
-func NewReadOnly(ProcessorReadOnly processor.ReadOnly, resource resource.Resource) Node {
-	Node := &readOnly{processor: ProcessorReadOnly}
+func NewReadOnly(processorReadOnly processor.ReadOnly, resource resource.Resource) Node {
+	Node := &readOnly{processor: processorReadOnly}
 	base := newBase(Node, resource)
 	Node.base = base
 	return Node
@@ -65,7 +65,7 @@ func (n *readOnly) job(t transaction.Transaction) {
 	responseChan := n.sendNexts(ctx, t.Payload.(payload.Bytes), t.Data)
 
 	// Await Responses
-	Response = n.waitResponses(ctx, responseChan)
+	Response = n.waitResponses(responseChan)
 
 	// Send Response back.
 	t.ResponseChan <- Response
@@ -118,7 +118,7 @@ func (n *readOnly) jobStream(t transaction.Transaction) {
 	responseChan := n.sendNextsStream(ctx, readerCloner, t.Data)
 
 	// Await Responses
-	Response = n.waitResponses(ctx, responseChan)
+	Response = n.waitResponses(responseChan)
 
 	// Send Response back.
 	t.ResponseChan <- Response
