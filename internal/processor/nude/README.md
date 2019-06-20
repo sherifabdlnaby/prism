@@ -27,19 +27,19 @@ This plugin supports the following configuration options.
  * Formats available are {jpeg, jpg, PNG}
 
 ##### `Quality`
-   *From 1 to 100 
+ * From 1 to 100 
 
 ##### `Drop`
-   *Send NoAck to Drop the image
+ * Send NoAck to Drop the image
 
 ##### `G`
-   *The intensity of green
+ * The intensity of green
   
 ##### `R`
-   *The intensity of red
+ * The intensity of red
   
 ##### `B` 
-   *The intensity of Blue
+ * The intensity of Blue
    
 ##### `A` 
-   *The opacity of the color
+ * The opacity of the color
