@@ -7,8 +7,13 @@ This is the blur operation in Vips processing plugin which will blur the photo.
 ##### Usage
 This is an example of blur operation config:
 
-    sigma:  2
-    min_ampl: 10
+    vips:
+        plugin: vips
+            config:
+                operations:                     
+                    blur:
+                        sigma:  2
+                        min_ampl: 10
     
 #### Blur Operation Configuration Options
 
