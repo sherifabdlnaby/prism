@@ -31,7 +31,15 @@ This plugin supports the following configuration options.
  * This is a required setting
  * Value type is config
  * The default value for this setting will do no operation.
+ * The operations can be one or more from the below 
+    * [blur](./operations_guide/blur.md)
+    * [flip](./operations_guide/flip.md)
+    * [rotate](./operations_guide/rotate.md)
+    * [crop](./operations_guide/crop.md)
+    * [resize](./operations_guide/resize.md)
+    * [resize](./operations_guide/label.md)
 
+ 
 ##### `export`
  * This is a required setting
  * Value type is config
