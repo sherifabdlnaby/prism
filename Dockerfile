@@ -36,17 +36,19 @@ RUN DEBIAN_FRONTEND=noninteractive \
 WORKDIR /tmp
 RUN curl -fsSL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b "${GOPATH}/bin" v1.16.0
 
-
-WORKDIR ${GOPATH}/src/github.com/sherifabdlnaby/prism/
-
-# Copy prism sources
-COPY . .
-
 # Enable GO Modules
 ENV GO111MODULE=on
 
-# Run quality control
-RUN go mod verify
+WORKDIR ${GOPATH}/src/github.com/sherifabdlnaby/prism/
+
+COPY go.mod .
+COPY go.sum .
+
+# Get dependancies - will also be cached if we won't change mod/sum
+RUN go mod download
+
+# Copy prism sources
+COPY . .
 
 WORKDIR ${GOPATH}/src/github.com/sherifabdlnaby/prism/cmd/
 

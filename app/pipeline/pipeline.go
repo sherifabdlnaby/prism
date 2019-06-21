@@ -283,7 +283,7 @@ func (p *Pipeline) ApplyPersistedAsyncRequests() error {
 	TxnList := make([]transaction.Async, 0)
 
 	err := p.db.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte(p.name))
+		b := tx.Bucket([]byte(p.bucket))
 		err := b.ForEach(func(k, v []byte) error {
 			asyncTxn := &transaction.Async{}
 			err := json.Unmarshal(v, asyncTxn)
@@ -341,7 +341,7 @@ func (p *Pipeline) ApplyPersistedAsyncRequests() error {
 				return err
 			}
 
-			b := tx.Bucket([]byte(p.name))
+			b := tx.Bucket([]byte(p.bucket))
 			err = b.Delete([]byte(asyncTxn.ID))
 			if err != nil {
 				return err
