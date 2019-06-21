@@ -157,9 +157,9 @@ func (n *Node) handleTransaction(t transaction.Transaction) {
 
 func (n *Node) startAsyncTransaction(t *transaction.Transaction) error {
 
-	dirPath := config.PRISM_TMP_DIR.Lookup()
+	dirPath := config.EnvPrismTmpDir.Lookup()
 
-	tmpFile, err := ioutil.TempFile(dirPath, "*.bat")
+	tmpFile, err := ioutil.TempFile(dirPath, "*.prism")
 	if err != nil {
 		return err
 	}
@@ -186,7 +186,7 @@ func (n *Node) startAsyncTransaction(t *transaction.Transaction) error {
 		}
 
 		// set new Payload to bytes (we keep in memory if we're in memory)
-		newPayload = payload.Bytes(Payload)
+		newPayload = Payload
 
 		err = tmpFile.Close()
 		if err != nil {

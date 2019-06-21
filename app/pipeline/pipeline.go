@@ -34,6 +34,7 @@ type Pipeline struct {
 	Logger         zap.SugaredLogger
 	receiveTxnChan <-chan transaction.Transaction
 	registry       registry.Registry
+	hash           string
 }
 
 type status int32
@@ -102,7 +103,7 @@ func (p *Pipeline) job(txn transaction.Transaction) {
 }
 
 //NewPipeline Construct a NewPipeline using config.
-func NewPipeline(name string, db *bolt.DB, Config config.Pipeline, registry registry.Registry, logger zap.SugaredLogger) (*Pipeline, error) {
+func NewPipeline(name string, db *bolt.DB, Config config.Pipeline, registry registry.Registry, logger zap.SugaredLogger, hash string) (*Pipeline, error) {
 
 	// Node Beginning Dummy Node
 	root := node.NewNext(node.NewDummy("dummy", *resource.NewResource(Config.Concurrency), logger))
@@ -120,6 +121,7 @@ func NewPipeline(name string, db *bolt.DB, Config config.Pipeline, registry regi
 		Logger:         logger,
 		receiveTxnChan: make(chan transaction.Transaction),
 		registry:       registry,
+		hash:           hash,
 	}
 
 	p.NodeMap[root.Name] = root.Node
@@ -255,12 +257,22 @@ func chooseComponent(name string, p *Pipeline, nextsCount int) (*node.Node, erro
 }
 
 func (p *Pipeline) createPersistenceBucket() error {
+	p.bucket = p.name + p.hash
 	return p.db.Update(func(tx *bolt.Tx) error {
 		var err error
-		_, err = tx.CreateBucketIfNotExists([]byte(p.bucket))
-		if err != nil {
+
+		_, err = tx.CreateBucket([]byte(p.bucket))
+
+		if err != nil && err != bolt.ErrBucketExists {
 			return fmt.Errorf("create bucket: %s", err)
 		}
+
+		if err == bolt.ErrBucketExists {
+			return nil
+		}
+
+		p.Logger.Infof("new pipeline, created a persistence bucket for new pipeline %s (%s)", p.name, p.hash)
+
 		return nil
 	})
 }

@@ -125,7 +125,7 @@ func (a *App) startOutputPlugins() error {
 // initPipelines Initialize and build all configured pipelines
 func (a *App) initPipelines(c config.Config) error {
 
-	dataDir := config.PRISM_DATA_DIR.Lookup()
+	dataDir := config.EnvPrismDataDir.Lookup()
 
 	// open pipeline DB
 	err := os.MkdirAll(dataDir, os.ModePerm)
@@ -133,7 +133,7 @@ func (a *App) initPipelines(c config.Config) error {
 		return err
 	}
 
-	err = os.MkdirAll(config.PRISM_TMP_DIR.Lookup(), os.ModePerm)
+	err = os.MkdirAll(config.EnvPrismTmpDir.Lookup(), os.ModePerm)
 	if err != nil {
 		return err
 	}
@@ -151,7 +151,7 @@ func (a *App) initPipelines(c config.Config) error {
 			return fmt.Errorf("pipeline with name [%s] already declared", key)
 		}
 
-		pip, err := pipeline.NewPipeline(key, db, *pipConfig, a.registry, *a.logger.processingLogger.Named(key))
+		pip, err := pipeline.NewPipeline(key, db, *pipConfig, a.registry, *a.logger.processingLogger.Named(key), c.Pipeline.Hash)
 
 		if err != nil {
 			return fmt.Errorf("error occurred when constructing pipeline [%s]: %s", key, err.Error())
@@ -202,7 +202,7 @@ func (a *App) stopPipelines() error {
 
 // stopPipelines Stop pipelines by calling their Stop() function, any request to these pipelines will return error.
 func (a *App) applyPersistedAsyncRequests() error {
-	tmpPath := config.PRISM_TMP_DIR.Lookup()
+	tmpPath := config.EnvPrismTmpDir.Lookup()
 
 	//save current files
 	files, err := ioutil.ReadDir(tmpPath)

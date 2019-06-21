@@ -54,9 +54,9 @@ func main() {
 func bootstrap() (config.Config, error) {
 
 	// Setup ENVIRONMENT
-	environment := config.PRISM_ENV.Lookup()
+	environment := config.EnvPrism.Lookup()
 	if environment != "prod" && environment != "dev" {
-		panic(fmt.Sprintf("Environment = \"%s\" (set by %s) can only be either \"prod\" or \"dev\" (default: prod)", environment, config.PRISM_ENV.Name()))
+		panic(fmt.Sprintf("Environment = \"%s\" (set by %s) can only be either \"prod\" or \"dev\" (default: prod)", environment, config.EnvPrism.Name()))
 	}
 
 	// Print logo (Yes I love this)
@@ -82,7 +82,7 @@ func bootstrap() (config.Config, error) {
 	}
 
 	// GET YAML FILE DIRECTORY
-	configDir := config.PRISM_CONFIG_DIR.Lookup()
+	configDir := config.EnvPrismConfigDir.Lookup()
 
 	// use full path
 	configDir, err = filepath.Abs(configDir)
@@ -101,34 +101,35 @@ func bootstrap() (config.Config, error) {
 
 	// READ CONFIG MAIN FILES
 	appConfig := config.AppConfig{}
-	err = config.Load(appConfigPath, &appConfig, true)
+	_, err = config.Load(appConfigPath, &appConfig, true)
 	if err != nil {
 		return config.Config{}, err
 	}
 
 	// READ CONFIG MAIN FILES
 	inputConfig := config.InputsConfig{}
-	err = config.Load(inputConfigPath, &inputConfig, true)
+	_, err = config.Load(inputConfigPath, &inputConfig, true)
 	if err != nil {
 		return config.Config{}, err
 	}
 
 	processorConfig := config.ProcessorsConfig{}
-	err = config.Load(processorConfigPath, &processorConfig, true)
+	_, err = config.Load(processorConfigPath, &processorConfig, true)
 	if err != nil {
 		return config.Config{}, err
 	}
 	outputConfig := config.OutputsConfig{}
-	err = config.Load(outputConfigPath, &outputConfig, true)
+	_, err = config.Load(outputConfigPath, &outputConfig, true)
 	if err != nil {
 		return config.Config{}, err
 	}
 
 	pipelineConfig := config.PipelinesConfig{}
-	err = config.Load(pipelineConfigPath, &pipelineConfig, true)
+	hash, err := config.Load(pipelineConfigPath, &pipelineConfig, true)
 	if err != nil {
 		return config.Config{}, err
 	}
+	pipelineConfig.Hash = hash
 
 	return config.Config{
 		App:        appConfig,
