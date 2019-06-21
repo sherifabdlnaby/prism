@@ -162,7 +162,7 @@ func (d *Validator) Process(in payload.DecodedImage, data payload.Data) response
 		header.Width < d.config.MinWidth ||
 		header.Height > d.config.MaxHeight ||
 		header.Height < d.config.MinHeight {
-		return response.NoAck(fmt.Errorf("unsupported format"))
+		return response.NoAck(fmt.Errorf("unsupported dimensions"))
 	}
 
 	return response.Ack()

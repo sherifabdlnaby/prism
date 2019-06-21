@@ -47,14 +47,13 @@ func requestLogger(next http.Handler, lType int, l zap.SugaredLogger) http.Handl
 
 		switch lType {
 		case LogDebug:
-			l.Debugf("request \t %v \t %s \t %d \t %s \t %s \t %s \t %s \t %s", finish, r.Method, logWriter.status, r.Proto, r.URL.Path, r.URL.RawQuery, r.UserAgent(), addr)
+			l.Debugf("request\t%v\t%s\t%d\t%s\t%s\t%s\t%s", finish, r.Method, logWriter.status, r.Proto, r.URL.Path, r.UserAgent(), addr)
 		case LogInfo:
 			l.Infow("REQUEST",
 				"ELAPSED", finish,
 				"METHOD", r.Method,
 				"STATUS", logWriter.status,
 				"PROTO", r.Proto,
-				"PATH", r.URL.Path,
 				"QUERY", r.URL.RawQuery,
 				"USERAGENT", r.UserAgent(),
 				"IP", addr,

@@ -63,7 +63,7 @@ func (d *Dummy) Init(config cfg.Config, logger zap.SugaredLogger) error {
 
 // Start Starts Plugin
 func (d *Dummy) Start() error {
-	d.logger.Debugw("Started Input, Hooray!")
+	d.logger.Debugf("Started Test Input, Sending %d requests!", d.config.Count)
 
 	d.wg.Add(1)
 	go func() {

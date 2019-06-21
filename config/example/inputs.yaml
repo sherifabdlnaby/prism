@@ -9,6 +9,7 @@ inputs:
                     pipeline: "profile_pic_pipeline"
             certfile: ""
             keyfile: ""
+            log_request: "debug"
     http_server_2:
         plugin: http
         config:
@@ -21,5 +22,6 @@ inputs:
                     pipeline: "@{pipeline}"
             certfile: ""
             keyfile: ""
+            log_request: "debug"
 
 
