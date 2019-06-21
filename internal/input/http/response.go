@@ -7,12 +7,11 @@ import (
 )
 
 var (
-	resNotFound         = response{Code: http.StatusNotFound, Message: "not found"}
-	resMethodNotAllowed = response{Code: http.StatusMethodNotAllowed, Message: "method not allowed"}
-	resMissingFile      = response{Code: http.StatusBadRequest, Message: "not file uploaded, file name should be \"image\""}
-	resMissingPipeline  = response{Code: http.StatusBadRequest, Message: "pipeline field has dynamic values which are not present in the request"}
-	resNoAck            = response{Code: http.StatusBadRequest, Message: "request was dropped on purpose"}
-	resInternalError    = response{Code: http.StatusInternalServerError, Message: "internal server error"}
+	errNotFound         = response{Code: http.StatusNotFound, Message: "not found"}
+	errMethodNotAllowed = response{Code: http.StatusMethodNotAllowed, Message: "method not allowed"}
+	errMissingFile      = response{Code: http.StatusBadRequest, Message: "not file uploaded, file name should be \"image\""}
+	errMissingPipeline  = response{Code: http.StatusBadRequest, Message: "pipeline field has dynamic values which are not present in the request"}
+	errInternalError    = response{Code: http.StatusInternalServerError, Message: "internal server error"}
 	resRateLimit        = response{Code: http.StatusTooManyRequests, Message: "Too many requests"}
 	resSuccess          = response{Code: http.StatusOK, Message: "Request Successful"}
 )
@@ -48,5 +47,14 @@ func (w *Webserver) respondMessage(r *http.Request, rw http.ResponseWriter, repl
 	rw.WriteHeader(reply.Code)
 
 	jsonBuf, _ := json.Marshal(reply)
+	_, _ = rw.Write(jsonBuf)
+}
+
+func (w *Webserver) respondJSON(_ *http.Request, rw http.ResponseWriter, statusCode int, jsonMessage map[string]interface{}) {
+
+	rw.Header().Set("Content-Type", "application/json")
+	rw.WriteHeader(statusCode)
+
+	jsonBuf, _ := json.Marshal(jsonMessage)
 	_, _ = rw.Write(jsonBuf)
 }

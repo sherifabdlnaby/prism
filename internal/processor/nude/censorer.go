@@ -119,22 +119,29 @@ func (d *Censor) Process(in payload.DecodedImage, data payload.Data) (payload.De
 // Encode will encode Image according to configuration, only supporting encoding into jpeg/png
 func (d *Censor) Encode(in payload.DecodedImage, data payload.Data) (payload.Bytes, response.Response) {
 	var err error
-	image := in.(image.Image)
+	img := in.(image.Image)
 
 	outBuffer := bytes.Buffer{}
 
 	switch d.config.Export.Format {
 	case "jpeg", "jpg":
-		err = jpeg.Encode(&outBuffer, image, &jpeg.Options{
+		err = jpeg.Encode(&outBuffer, img, &jpeg.Options{
 			Quality: d.config.Export.Quality,
 		})
 	case "png":
-		err = png.Encode(&outBuffer, image)
+		err = png.Encode(&outBuffer, img)
 	}
 
 	if err != nil {
 		return nil, response.Error(err)
 	}
+
+	// add to data
+	max := img.Bounds().Max
+
+	data["_format"] = d.config.Export.Format
+	data["_width"] = max.X
+	data["_height"] = max.Y
 
 	return outBuffer.Bytes(), response.Ack()
 }

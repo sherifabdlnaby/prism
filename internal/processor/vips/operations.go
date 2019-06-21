@@ -67,16 +67,6 @@ func (o *operations) Init() error {
 		o.operations = append(o.operations, &o.Rotate)
 	}
 
-	//// Init every operation and add them if they're active.
-	//ok, err = o.Scale.Init()
-	//if err != nil {
-	//	return err
-	//}
-	//if ok {
-	//	o.operations = append(o.operations, &o.Scale)
-	//}
-	//
-	// Init every operation and add them if they're active.
 	ok, err = o.Crop.Init()
 	if err != nil {
 		return err
@@ -93,15 +83,6 @@ func (o *operations) Init() error {
 	if ok {
 		o.operations = append(o.operations, &o.Label)
 	}
-
-	// Init every operation and add them if they're active.
-	//	ok, err = o.Invert.Init()
-	//	if err != nil {
-	//		return err
-	//	}
-	// if ok {
-	// 	o.operations = append(o.operations, &o.Resize)
-	// }
 
 	return nil
 }

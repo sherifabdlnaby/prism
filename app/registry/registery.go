@@ -1,7 +1,7 @@
-package registery
+package registry
 
 import (
-	"github.com/sherifabdlnaby/prism/app/registery/wrapper"
+	"github.com/sherifabdlnaby/prism/app/registry/wrapper"
 )
 
 //Registry Contains Plugin Instances

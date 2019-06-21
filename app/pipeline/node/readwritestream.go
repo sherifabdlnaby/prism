@@ -10,20 +10,26 @@ import (
 	"github.com/sherifabdlnaby/prism/pkg/payload"
 	"github.com/sherifabdlnaby/prism/pkg/response"
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
+	"go.uber.org/zap"
 )
 
 //readWrite Wraps a readwrite component
 type readWriteStream struct {
 	processor processor.ReadWriteStream
-	*base
+	*Node
 }
 
 //NewReadWriteStream Construct a new ReadWriteStream Node
-func NewReadWriteStream(processorReadWrite processor.ReadWriteStream, r resource.Resource) Node {
+func NewReadWriteStream(name string, processorReadWrite processor.ReadWriteStream, r resource.Resource, logger zap.SugaredLogger) *Node {
 	Node := &readWriteStream{processor: processorReadWrite}
 	base := newBase(Node, r)
-	Node.base = base
-	return Node
+
+	// Set attributes
+	base.Name = name
+	base.Logger = logger
+
+	Node.Node = base
+	return Node.Node
 }
 
 //job Process transaction by calling Decode-> Process-> Encode->
@@ -56,7 +62,7 @@ func (n *readWriteStream) job(t transaction.Transaction) {
 		return
 	}
 
-	// base output writerCloner
+	// Node output writerCloner
 	buffer := bufferspool.Get()
 	defer bufferspool.Put(buffer)
 	writerCloner := mirror.NewWriter(buffer)
@@ -76,7 +82,7 @@ func (n *readWriteStream) job(t transaction.Transaction) {
 	responseChan := n.sendNextsStream(ctx, writerCloner, t.Data)
 
 	// Await Responses
-	Response = n.waitResponses(ctx, responseChan)
+	Response = n.waitResponses(responseChan)
 
 	// Send Response back.
 	t.ResponseChan <- Response
@@ -112,7 +118,7 @@ func (n *readWriteStream) jobStream(t transaction.Transaction) {
 		return
 	}
 
-	// base output writerCloner
+	// Node output writerCloner
 	buffer := bufferspool.Get()
 	defer bufferspool.Put(buffer)
 	writerCloner := mirror.NewWriter(buffer)
@@ -132,7 +138,7 @@ func (n *readWriteStream) jobStream(t transaction.Transaction) {
 	responseChan := n.sendNextsStream(ctx, writerCloner, t.Data)
 
 	// Await Responses
-	Response = n.waitResponses(ctx, responseChan)
+	Response = n.waitResponses(responseChan)
 
 	// Send Response back.
 	t.ResponseChan <- Response

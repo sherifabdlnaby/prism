@@ -3,10 +3,10 @@ package nude
 import "image/color"
 
 type config struct {
-	Drop   bool
-	RGBA   rgba
-	Export export
 	rgba   color.RGBA
+	Drop   bool
+	Export export
+	RGBA   rgba
 }
 
 type export struct {

@@ -1,6 +1,8 @@
 package config
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -82,6 +84,7 @@ type Node struct {
 // PipelinesConfig used for YAML decoding
 type PipelinesConfig struct {
 	Pipelines map[string]*Pipeline `yaml:"pipelines"`
+	Hash      string
 }
 
 // Pipeline used for YAML decoding
@@ -94,27 +97,37 @@ type Pipeline struct {
 var envRegex = regexp.MustCompile(`\${([\w@.]+)}`)
 
 // Load loads a .yaml file into out. resolveEnv will replace ${ENV_VAR} with value of env variable "ENV_VAR"
-func Load(filePath string, out WithDefaults, resolveEnv bool) error {
+func Load(filePath string, out WithDefaults, resolveEnv bool) (hash string, err error) {
 
 	fileBytes, err := ioutil.ReadFile(filePath)
 
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	if resolveEnv {
 		fileBytes, err = resolveEnvFromBytes(fileBytes)
 		if err != nil {
-			return err
+			return "", err
 		}
 	}
 
 	err = unmarshal(fileBytes, out)
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	return out.ApplyDefault()
+	err = out.ApplyDefault()
+	if err != nil {
+		return "", err
+	}
+
+	// calculate hash
+	h := sha256.New()
+	_, _ = h.Write(fileBytes)
+	hash = hex.EncodeToString(h.Sum(nil))
+
+	return hash, nil
 }
 
 func unmarshal(bytes []byte, out interface{}) error {

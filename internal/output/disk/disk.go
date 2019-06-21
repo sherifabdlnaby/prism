@@ -3,6 +3,7 @@ package disk
 import (
 	"io"
 	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
 	"sync"
@@ -117,7 +118,12 @@ func (d *Disk) writeOnDisk(txn transaction.Transaction) {
 func writeFileFromStream(filename string, reader io.Reader, perm os.FileMode) error {
 
 	f, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, perm)
-	defer f.Close()
+	defer func() {
+		err := f.Close()
+		if err != nil {
+			log.Print("error while closing file! error:", err)
+		}
+	}()
 
 	if err != nil {
 		return err

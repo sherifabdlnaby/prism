@@ -62,48 +62,26 @@ func (s *S3) Init(config cfg.Config, logger zap.SugaredLogger) error {
 // Start the plugin and be ready for taking transactions
 func (s *S3) Start() error {
 
-	staticCreds := credentials.NewStaticCredentials(s.config.AccessKeyID, s.config.SecretAccessKey, s.config.SessionToken)
-	val, _ := staticCreds.Get()
-	creds := credentials.NewChainCredentials(
-		[]credentials.Provider{
-			&credentials.StaticProvider{
-				Value: val,
-			},
-			&credentials.EnvProvider{},
-			&credentials.SharedCredentialsProvider{},
-		})
-	_, err := creds.Get()
-	if err != nil {
-		return err
-	}
-	cfg := aws.NewConfig().WithRegion(s.config.S3Region).WithCredentials(creds)
-
-	sess, err := session.NewSession(cfg)
+	creds, err := getCredentials(s)
 	if err != nil {
 		return err
 	}
 
-	svc := s3.New(sess, cfg)
+	client, err := getClient(s.config.S3Region, creds)
+	if err != nil {
+		return err
+	}
 
 	//Test if the given credentials are valid or not by getting the bucket logging
-	bucketName := s.config.S3Bucket
-	tst := s3.GetBucketLoggingInput{Bucket: &bucketName}
-	_, err = svc.GetBucketLogging(&tst)
+	err = pingBucket(s.config.S3Bucket, client)
 	if err != nil {
 		return err
 	}
 
-	s.wg.Add(1)
 	go func() {
-		defer s.wg.Done()
-		for {
-			select {
-			case <-s.stopChan:
-				return
-			case txn := <-s.Transactions:
-				s.wg.Add(1)
-				go s.writeOnS3(svc, txn)
-			}
+		for txn := range s.Transactions {
+			s.wg.Add(1)
+			go s.writeOnS3(client, txn)
 		}
 	}()
 
@@ -161,8 +139,37 @@ func (s *S3) writeOnS3(svc *s3.S3, txn transaction.Transaction) {
 //Close func Send a close signal to stop chan
 // to stop taking transactions and Close everything safely
 func (s *S3) Close() error {
-	s.stopChan <- struct{}{}
 	s.wg.Wait()
-	close(s.stopChan)
 	return nil
+}
+
+func pingBucket(bucket string, client *s3.S3) error {
+	tst := s3.GetBucketLoggingInput{Bucket: &bucket}
+	_, err := client.GetBucketLogging(&tst)
+	return err
+}
+
+func getClient(region string, creds *credentials.Credentials) (*s3.S3, error) {
+	s3Config := aws.NewConfig().WithRegion(region).WithCredentials(creds)
+	sess, err := session.NewSession(s3Config)
+	if err != nil {
+		return &s3.S3{}, err
+	}
+	svc := s3.New(sess, s3Config)
+	return svc, nil
+}
+
+func getCredentials(s *S3) (*credentials.Credentials, error) {
+	staticCreds := credentials.NewStaticCredentials(s.config.AccessKeyID, s.config.SecretAccessKey, s.config.SessionToken)
+	val, _ := staticCreds.Get()
+	creds := credentials.NewChainCredentials(
+		[]credentials.Provider{
+			&credentials.StaticProvider{
+				Value: val,
+			},
+			&credentials.EnvProvider{},
+			&credentials.SharedCredentialsProvider{},
+		})
+	_, err := creds.Get()
+	return creds, err
 }

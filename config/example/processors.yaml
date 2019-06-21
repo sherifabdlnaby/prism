@@ -1,0 +1,122 @@
+processors:
+    validator:
+        concurrency: 100
+        plugin: validator
+        config:
+            format:
+                - jpeg
+                - png
+                - webp
+    smart_crop_thumbnail:
+        plugin: vips
+        config:
+            operations:
+                crop:
+                    width:  300
+                    height: 300
+                    anchor: smart
+            export:
+                format: jpeg
+                quality: 90
+    flip_blur:
+        concurrency: 1
+        plugin: vips
+        config:
+            operations:
+                blur:
+                    sigma:  2
+                    min_ampl: 10
+                flip:
+                    direction: both
+            export:
+                format: jpeg
+                quality: 90
+    resize_minimum:
+        concurrency: 100
+        plugin: vips
+        config:
+            operations:
+                resize:
+                    max_width: 800
+                    strategy: "embed"
+            export:
+                format: jpeg
+                quality: 90
+    resize_big:
+        plugin: vips
+        config:
+            operations:
+                resize:
+                    max_width: 1280
+            export:
+                format: jpeg
+                quality: 90
+    resize_medium:
+        plugin: vips
+        config:
+            operations:
+                resize:
+                    max_width: 600
+            export:
+                format: jpeg
+                quality: 90
+    resize_small:
+        plugin: vips
+        config:
+            operations:
+                resize:
+                    max_width: 300
+            export:
+                format: jpeg
+                quality: 90
+    watermark_label:
+        concurrency: 4
+        plugin: vips
+        config:
+            operations:
+                label:
+                    text: "@TestWatermark"
+                    dpi: 100
+                    width: 100
+                    font: sans 15 bold
+                    opacity: 0.75
+            export:
+                format: jpeg
+                quality: 90
+    nude_censor:
+        concurrency: 1
+        plugin: nude_censor
+        config:
+            drop: false
+            censor: true
+            export:
+                format: jpeg
+                quality: 90
+    nude_detect:
+        concurrency: 1
+        plugin: nude_detector
+        config:
+            drop: true
+    validate_size:
+        concurrency: 100
+        plugin: validator
+        config:
+            max_width:  5000
+            max_height: 5000
+            min_width:  100
+            min_height: 100
+            format:
+                - jpeg
+                - png
+                - webp
+    dynamic_resize:
+        plugin: vips
+        config:
+            operations:
+                resize:
+                    width: "@{width}"
+                    height: "@{height}"
+                    strategy: "@{strategy}"
+            export:
+                format: jpeg
+                quality: 90

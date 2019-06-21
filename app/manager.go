@@ -2,7 +2,12 @@ package app
 
 import (
 	"fmt"
+	"io/ioutil"
+	"os"
+	"path/filepath"
+	"time"
 
+	"github.com/boltdb/bolt"
 	"github.com/sherifabdlnaby/prism/app/config"
 	"github.com/sherifabdlnaby/prism/app/pipeline"
 	componentConfig "github.com/sherifabdlnaby/prism/pkg/config"
@@ -48,7 +53,7 @@ func (a *App) initPlugins(c config.Config) error {
 		pluginConfig := *componentConfig.NewConfig(input.Config)
 		err := plugin.Init(pluginConfig, *a.logger.inputLogger.Named(name))
 		if err != nil {
-			return fmt.Errorf("failed to initalize plugin [%s]: %s", name, err.Error())
+			return fmt.Errorf("failed to initialize plugin [%s]: %s", name, err.Error())
 		}
 	}
 
@@ -58,7 +63,7 @@ func (a *App) initPlugins(c config.Config) error {
 		pluginConfig := *componentConfig.NewConfig(processor.Config)
 		err := plugin.Init(pluginConfig, *a.logger.processingLogger.Named(name))
 		if err != nil {
-			return fmt.Errorf("failed to initalize plugin [%s]: %s", name, err.Error())
+			return fmt.Errorf("failed to initialize plugin [%s]: %s", name, err.Error())
 		}
 	}
 
@@ -68,7 +73,7 @@ func (a *App) initPlugins(c config.Config) error {
 		pluginConfig := *componentConfig.NewConfig(output.Config)
 		err := plugin.Init(pluginConfig, *a.logger.outputLogger.Named(name))
 		if err != nil {
-			return fmt.Errorf("failed to initalize plugin [%s]: %s", name, err.Error())
+			return fmt.Errorf("failed to initialize plugin [%s]: %s", name, err.Error())
 		}
 	}
 
@@ -76,7 +81,7 @@ func (a *App) initPlugins(c config.Config) error {
 }
 
 // startInputPlugins start all input plugins in Config by calling their start() function
-func (a *App) startInputPlugins(c config.Config) error {
+func (a *App) startInputPlugins() error {
 
 	for name, value := range a.registry.Inputs {
 		err := value.Start()
@@ -90,7 +95,7 @@ func (a *App) startInputPlugins(c config.Config) error {
 }
 
 // startProcessorPlugins start all processor plugins in Config by calling their start() function
-func (a *App) startProcessorPlugins(c config.Config) error {
+func (a *App) startProcessorPlugins() error {
 
 	for name, value := range a.registry.Processors {
 		err := value.Start()
@@ -104,7 +109,7 @@ func (a *App) startProcessorPlugins(c config.Config) error {
 }
 
 // startOutputPlugins start all output plugins in Config by calling their start() function
-func (a *App) startOutputPlugins(c config.Config) error {
+func (a *App) startOutputPlugins() error {
 
 	for name, value := range a.registry.Outputs {
 		err := value.Start()
@@ -120,7 +125,25 @@ func (a *App) startOutputPlugins(c config.Config) error {
 // initPipelines Initialize and build all configured pipelines
 func (a *App) initPipelines(c config.Config) error {
 
-	for key, value := range c.Pipeline.Pipelines {
+	dataDir := config.EnvPrismDataDir.Lookup()
+
+	// open pipeline DB
+	err := os.MkdirAll(dataDir, os.ModePerm)
+	if err != nil {
+		return err
+	}
+
+	err = os.MkdirAll(config.EnvPrismTmpDir.Lookup(), os.ModePerm)
+	if err != nil {
+		return err
+	}
+
+	db, err := bolt.Open(dataDir+"/async.db", 0600, &bolt.Options{Timeout: 1 * time.Second})
+	if err != nil {
+		return fmt.Errorf("error while opening persistence DB file %s", err.Error())
+	}
+
+	for key, pipConfig := range c.Pipeline.Pipelines {
 
 		// check if pipeline already exists
 		_, ok := a.pipelines[key]
@@ -128,10 +151,10 @@ func (a *App) initPipelines(c config.Config) error {
 			return fmt.Errorf("pipeline with name [%s] already declared", key)
 		}
 
-		pip, err := pipeline.NewPipeline(*value, a.registry, *a.logger.processingLogger.Named(key))
+		pip, err := pipeline.NewPipeline(key, db, *pipConfig, a.registry, *a.logger.processingLogger.Named(key), c.Pipeline.Hash)
 
 		if err != nil {
-			return fmt.Errorf("error occured when constructing pipeline [%s]: %s", key, err.Error())
+			return fmt.Errorf("error occurred when constructing pipeline [%s]: %s", key, err.Error())
 		}
 
 		tc := make(chan transaction.Transaction)
@@ -147,7 +170,7 @@ func (a *App) initPipelines(c config.Config) error {
 }
 
 // startPipelines start all pipelines and start accepting input
-func (a *App) startPipelines(c config.Config) error {
+func (a *App) startPipelines() error {
 
 	for _, value := range a.pipelines {
 		err := value.Start()
@@ -161,7 +184,7 @@ func (a *App) startPipelines(c config.Config) error {
 }
 
 // stopPipelines Stop pipelines by calling their Stop() function, any request to these pipelines will return error.
-func (a *App) stopPipelines(c config.Config) error {
+func (a *App) stopPipelines() error {
 
 	for _, value := range a.pipelines {
 		// close receiving chan
@@ -177,8 +200,50 @@ func (a *App) stopPipelines(c config.Config) error {
 	return nil
 }
 
+// stopPipelines Stop pipelines by calling their Stop() function, any request to these pipelines will return error.
+func (a *App) applyPersistedAsyncRequests() error {
+	tmpPath := config.EnvPrismTmpDir.Lookup()
+
+	//save current files
+	files, err := ioutil.ReadDir(tmpPath)
+	if err != nil {
+		return err
+	}
+
+	go func() {
+		for _, value := range a.pipelines {
+			err := value.ApplyPersistedAsyncRequests()
+			if err != nil {
+				a.logger.Errorw("error while applying lost async requests", "error", err.Error())
+			}
+		}
+
+		// Here we remove any files we read before applying the requests,
+		// this for the narrow possibility that a system crash happened after removing it from DB but before deleting it from the file,
+		// as the DB is the source of truth, any remaining file after applying everything shall be removed.
+		// Need to check if they're not removed After we read them as applying itself could have removed its own files.
+		// Bottom line this function remove any image that has no entry in the DB.
+		for _, file := range files {
+			if !file.IsDir() {
+				// get abs Path
+				filePath := tmpPath + "/" + file.Name()
+				filePath, _ = filepath.Abs(filePath)
+				if _, err := os.Stat(filePath); !os.IsNotExist(err) {
+					err := os.Remove(filePath)
+					if err != nil {
+						a.logger.Errorw("error while cleaning up tmp images", "error", err.Error())
+					}
+				}
+			}
+		}
+
+	}()
+
+	return nil
+}
+
 // stopInputPlugins Stop all input plugins in Config by calling their Stop() function
-func (a *App) stopInputPlugins(c config.Config) error {
+func (a *App) stopInputPlugins() error {
 
 	for name, value := range a.registry.Inputs {
 		err := value.Close()
@@ -192,7 +257,7 @@ func (a *App) stopInputPlugins(c config.Config) error {
 }
 
 // stopProcessorPlugins Stop all processor plugins in Config by calling their Stop() function
-func (a *App) stopProcessorPlugins(c config.Config) error {
+func (a *App) stopProcessorPlugins() error {
 
 	for name, value := range a.registry.Processors {
 		err := value.Close()
@@ -206,7 +271,7 @@ func (a *App) stopProcessorPlugins(c config.Config) error {
 }
 
 // stopOutputPlugins Stop all output plugins in Config by calling their Stop() function
-func (a *App) stopOutputPlugins(c config.Config) error {
+func (a *App) stopOutputPlugins() error {
 
 	for name, value := range a.registry.Outputs {
 		// close its transaction chan (stop sending txns to it)

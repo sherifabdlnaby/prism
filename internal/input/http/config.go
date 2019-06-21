@@ -4,7 +4,7 @@ import cfg "github.com/sherifabdlnaby/prism/pkg/config"
 
 type config struct {
 	Port       int    `validate:"required"`
-	FormName   string `mapstructure:"form_name" validate:"required"`
+	ImageField string `mapstructure:"image_field" validate:"required"`
 	CertFile   string
 	KeyFile    string
 	Paths      map[string]path `validate:"min=1"`
@@ -21,10 +21,10 @@ type path struct {
 func defaultConfig() *config {
 	return &config{
 		Port:       80,
-		FormName:   "image",
+		ImageField: "image",
 		CertFile:   "",
 		KeyFile:    "",
-		LogRequest: "info",
+		LogRequest: "all",
 		LogErrors:  false,
 		RateLimit:  20,
 	}

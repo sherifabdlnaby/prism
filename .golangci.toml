@@ -1,0 +1,37 @@
+[run]
+    concurrency = 4
+    tests = false
+
+[linters-settings]
+    [linters-settings.gocyclo]
+        min-complexity = 30
+
+    [linters-settings.goconst]
+        min-len = 2
+        min-occurrences = 2
+
+    [linters-settings.misspell]
+        locale = "US"
+
+[linters]
+    # White-listing, to be more CI safe.
+    disable-all = false
+
+    # @see https://github.com/golangci/golangci-lint#enabled-by-default-linters
+    enable = [
+        "govet",
+        "errcheck",
+        "staticcheck",
+        "unused",
+        "gosimple",
+        "structcheck",
+        "varcheck",
+        "ineffassign",
+        "deadcode",
+        "unconvert",
+        "gosec",
+        "golint",
+        "bodyclose",
+        "misspell",
+        "unparam",
+    ]
