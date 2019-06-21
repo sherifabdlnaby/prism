@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"path/filepath"
 
+	"github.com/didip/tollbooth"
 	"github.com/sherifabdlnaby/prism/pkg/payload"
 	responseT "github.com/sherifabdlnaby/prism/pkg/response"
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
@@ -27,7 +28,6 @@ func (w *Webserver) buildServer() {
 // listenAndServe start listening
 func (w *Webserver) listenAndServe() error {
 	//Check if http has https files and then start https
-	// TODO check if this is working
 	if w.config.CertFile != "" && w.config.KeyFile != "" {
 		err := w.Server.ListenAndServeTLS(w.config.CertFile, w.config.KeyFile)
 		return err
@@ -37,13 +37,44 @@ func (w *Webserver) listenAndServe() error {
 	return err
 }
 
+//Ratelimiter will rate limit requests to avoid denial of service attacks.
+func rateLimiter(next http.Handler, reqPerSecond float64, ws *Webserver) http.Handler {
+	lmt := tollbooth.NewLimiter(reqPerSecond, nil)
+	lmt.SetOnLimitReached(func(w http.ResponseWriter, r *http.Request) {
+		ws.respondError(r, w, resRateLimit)
+	})
+	middle := func(w http.ResponseWriter, r *http.Request) {
+		httpError := tollbooth.LimitByRequest(lmt, w, r)
+		if httpError != nil {
+			lmt.ExecOnLimitReached(w, r)
+			return
+		}
+		// There's no rate-limit error, serve the next handler.
+		next.ServeHTTP(w, r)
+	}
+	return http.HandlerFunc(middle)
+}
+
 // buildHandlers will build handlers according to config
 func buildHandlers(w *Webserver) http.Handler {
 	mux := http.NewServeMux()
 
 	//This is just an initial phase of the middleware.
 	//Accept images at all the provided Paths.
-	next := http.HandlerFunc(w.handle)
+	next := http.Handler(http.HandlerFunc(w.handle))
+
+	if w.config.LogRequest != "none" {
+		if w.config.LogRequest == "all" {
+			next = http.Handler(requestLogger(next, LogInfo, w.logger))
+		}
+		if w.config.LogRequest == "debug" {
+			next = http.Handler(requestLogger(next, LogDebug, w.logger))
+		}
+	}
+
+	if w.config.RateLimit > 0 {
+		next = http.Handler(rateLimiter(next, w.config.RateLimit, w))
+	}
 
 	for path := range w.config.Paths {
 		mux.Handle(path, next)
@@ -62,7 +93,7 @@ func (w *Webserver) handle(rw http.ResponseWriter, r *http.Request) {
 		// Parse form into Data
 		err := r.ParseForm()
 		if err != nil {
-			respondError(r, rw, errMissingPipeline)
+			w.respondError(r, rw, errMissingPipeline)
 			return
 		}
 
@@ -77,20 +108,20 @@ func (w *Webserver) handle(rw http.ResponseWriter, r *http.Request) {
 
 		path, ok := w.config.Paths[r.URL.Path]
 		if !ok {
-			respondError(r, rw, errNotFound)
+			w.respondError(r, rw, errNotFound)
 			return
 		}
 
 		pipeline, err := path.pipelineSelector.Evaluate(data)
 		if err != nil {
-			respondError(r, rw, errMissingPipeline)
+			w.respondError(r, rw, errMissingPipeline)
 			return
 		}
 
 		// Multi-reader
 		reader, err := r.MultipartReader()
 		if err != nil {
-			respondError(r, rw, *newError(err))
+			w.respondError(r, rw, *newError(err))
 			return
 		}
 
@@ -98,16 +129,16 @@ func (w *Webserver) handle(rw http.ResponseWriter, r *http.Request) {
 		part, err := reader.NextPart()
 		if err != nil {
 			if err == io.EOF {
-				respondError(r, rw, errMissingFile)
+				w.respondError(r, rw, errMissingFile)
 			} else {
-				respondError(r, rw, *newError(err))
+				w.respondError(r, rw, *newError(err))
 			}
 			return
 		}
 
 		// Check is part form name is as configured
 		if part.FormName() != w.config.ImageField {
-			respondError(r, rw, errMissingFile)
+			w.respondError(r, rw, errMissingFile)
 			return
 		}
 
@@ -132,19 +163,19 @@ func (w *Webserver) handle(rw http.ResponseWriter, r *http.Request) {
 		if !response.Ack {
 			// check if responseT is simply refused, or an internal responseT occurred
 			if response.AckErr != nil {
-				respondError(r, rw, *newNoAck(response.AckErr))
+				w.respondError(r, rw, *newNoAck(response.AckErr))
 			} else if response.Error != nil {
-				respondError(r, rw, *newError(response.Error))
+				w.respondError(r, rw, *newError(response.Error))
 			}
 			return
-			//
+
 		}
 
-		rw.WriteHeader(http.StatusOK)
+		w.respondMessage(r, rw, resSuccess)
 
 		return
 	} else if r.Method == http.MethodGet {
-		respondMessage(r, rw, http.StatusOK, map[string]interface{}{
+		w.respondJSON(r, rw, http.StatusOK, map[string]interface{}{
 			"message":  "Prism HTTP Server, use POST multipart/form-data requests on this path.",
 			"pipeline": w.config.Paths[r.URL.Path].Pipeline,
 			"version":  version,
@@ -152,18 +183,18 @@ func (w *Webserver) handle(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	respondError(r, rw, errMethodNotAllowed)
+	w.respondError(r, rw, errMethodNotAllowed)
 }
 
 //handle will formulate request into a transaction and await err
 func (w *Webserver) index(rw http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet {
-		respondMessage(r, rw, http.StatusOK, map[string]interface{}{
+		w.respondJSON(r, rw, http.StatusOK, map[string]interface{}{
 			"message":          "Prism HTTP Server",
 			"version":          version,
 			"registered_paths": len(w.config.Paths),
 		})
 		return
 	}
-	respondError(r, rw, errMethodNotAllowed)
+	w.respondError(r, rw, errMethodNotAllowed)
 }
