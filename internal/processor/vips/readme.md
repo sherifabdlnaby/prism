@@ -7,15 +7,21 @@ This plugin can do some operations on the picture and exports it with configurab
 ##### Usage
 This is an example of vips config:
 
-    operations:                     (required)
-        blur:
-            sigma:  2
-            min_ampl: 10
-        flip:
-            direction: both
-    export:                         (required)
-        format: jpeg
-        quality: 90
+    vips:
+        plugin: vips
+        config:
+            operations:                     (required)
+                blur:
+                    sigma:  2
+                    min_ampl: 10
+                flip:
+                    direction: both
+                resize:
+                    max_width: 800
+                    strategy: "embed"
+            export:                         (required)
+                format: jpeg
+                quality: 90
     
 #### VIPS Output Configuration Options
 
@@ -43,6 +49,7 @@ This plugin supports the following configuration options.
 ##### `export`
  * This is a required setting
  * Value type is config
+ * This setting controls the export of the picture
  * There is a default config for this setting which is
       
        format: jpeg
@@ -53,11 +60,11 @@ This plugin supports the following configuration options.
        
  export supports the following configuration options
  
- |Setting   |Input type      |  Required |  Must be
- |-----------|----------------------|-----------|-----------|
- | format |  string        | no     | jpg, jpeg, png, webp    |
- | extend |  string            |   no     | black, copy, repeat, mirror, white, last     |
- | quality |  int        | no     | between 1 and 100     |
- | compression |  int            |   no     | between 1 and 9     |
- | strip_metadata |  boolean        | no     | true or false     |
- | interlace |  boolean            |   no     | true or false     |
+ |Setting   |Input type      |  Required |  Must be       |  Default  |
+ |-----------|----------------------|-----------|-----------|-----------|
+ | format |  string        | no     | jpg, jpeg, png, webp    |jpeg     |
+ | extend |  string            |   no     | black, copy, repeat, mirror, white, last     |black     |
+ | quality |  int        | no     | between 1 and 100     |85     |
+ | compression |  int            |   no     | between 1 and 9     |6     |
+ | strip_metadata |  boolean        | no     | true or false     |true     |
+ | interlace |  boolean            |   no     | true or false     | true

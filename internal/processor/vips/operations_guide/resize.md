@@ -7,8 +7,14 @@ This is the resize operation in Vips processing plugin which will resize the pho
 ##### Usage
 This is an example of resize operation config:
 
-    max_width: 800
-    strategy: "embed"
+    vips:
+        plugin: vips
+            config:
+                operations:                     
+                    resize:
+                        max_width: 800
+                        strategy: "embed"  
+    
     
 #### Crop Operation Configuration Options
 
@@ -16,48 +22,48 @@ This Operation supports the following configuration options.
 
 |Setting   |Input type      |  Required |  Dynamic |
 |-----------|----------------------|-----------|-----------|
-| [width](#width)  |  string        | no     | yes     |
-| [height](#height)  |  string        | no     | yes     |
-| [max_height](#max_height)  |  string        | no     | yes     |
-| [max_width](#max_width)  |  string        | no     | yes     |
-| [min_height](#min_height)  |  string        | no     | yes     |
-| [min_width](#min_width)  |  string        | no     | yes     |
+| [width](#width)  |  integer        | no     | yes     |
+| [height](#height)  |  integer        | no     | yes     |
+| [max_height](#max_height)  |  integer        | no     | yes     |
+| [max_width](#max_width)  |  integer        | no     | yes     |
+| [min_height](#min_height)  |  integer        | no     | yes     |
+| [min_width](#min_width)  |  integer        | no     | yes     |
 | [strategy](#strategy)  |  string        | no     | yes     |
 
 
 ##### `width`
  * This is an optional setting
- * Value type is string
+ * Value type is integer
  * There is no default value for this setting.
  * This setting supports dynamic values
 
  ##### `height`
   * This is an optional setting
-  * Value type is string
+  * Value type is integer
   * There is no default value for this setting.
   * This setting supports dynamic values
  
  ##### `max_height`
    * This is an optional setting
-   * Value type is string
+   * Value type is integer
    * There is no default value for this setting.
    * This setting supports dynamic values
   
  ##### `max_width`
    * This is an optional setting
-   * Value type is string
+   * Value type is integer
    * There is no default value for this setting.
    * This setting supports dynamic values
    
  ##### `min_height`
    * This is an optional setting
-   * Value type is string
+   * Value type is integer
    * There is no default value for this setting.
    * This setting supports dynamic values
 
  ##### `min_width`
    * This is an optional setting
-   * Value type is string
+   * Value type is integer
    * There is no default value for this setting.
    * This setting supports dynamic values
   

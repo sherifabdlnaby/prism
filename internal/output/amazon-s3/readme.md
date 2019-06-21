@@ -12,12 +12,16 @@ This plugin uploads the output pictures into Amazon Simple Storage Service (Amaz
 ##### Usage
 This is an example of s3 config:
 
-    filepath: s3_output-1-@{count}-x-@{_timestamp}-x-@{_id}.jpg     (required)
-    s3_region: us-east-2                                            (required)
-    s3_bucket: prism.test                                           (required)
-    access_key_id: "your_access_key_here"                           (optional)
-    secret_access_key: "your_secret_access_key_here"                (optional)
-    session_token: "your_session_token"                             (optional)
+       s3:
+            plugin: s3
+            concurrency: 100
+            config:
+                filepath: output/newFolder/s3_output-1-@{count}-x-@{_timestamp}-x-@{_id}.jpg     (required)
+                s3_region: us-east-2                                            (required)
+                s3_bucket: prism.test                                           (required)
+                access_key_id: ${AWS_ACCESS_KEY_ID}                             (optional)
+                secret_access_key: ${AWS_SECRET_ACCESS_KEY}                     (optional)
+                session_token: "your_session_token"                             (optional)
     
 #### S3 Output Configuration Options
 
@@ -41,16 +45,19 @@ This plugin supports the following configuration options.
  * Value type is string
  * There is no default value for this setting.
  * This setting supports dynamic values
+ * This is specify the filepath that the picture will be saved in and if any of the folders in the path doesn't exist it will be created
 
 ##### `s3_region`
  * This is a required setting
  * Value type is string
  * There is no default value for this setting.
+ * This setting specify the s3 region example `us-east-2`
  
 ##### `s3_bucket`
   * This is a required setting
   * Value type is string
   * There is no default value for this setting.
+  * This setting specify the bucket name that you want to save the picture in
 
 ##### `access_key_id` 
 
@@ -59,13 +66,14 @@ This plugin supports the following configuration options.
 
 This plugin uses the AWS SDK and supports several ways to get credentials, which will be tried in this order:
 
-* Static configuration, using `access_key_id` and `secret_access_key` params in logstash plugin config
+* Static configuration, using `access_key_id` and `secret_access_key` params in s3 plugin config
 * Environment variables `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`
 * External credentials file specified by `aws_credentials_file`
 
 ##### `secret_access_key`
   * Value type is string
-  * There is no default value for this setting.
+  * There is no default value for this setting
+  * This setting specify the secret access key 
 
 ##### `session_token`
 The AWS Session token for temporary credential
@@ -73,7 +81,7 @@ The AWS Session token for temporary credential
   * There is no default value for this setting.
   
 ##### `canned_acl`
-The S3 canned ACL to use when putting the photo.
+The S3 canned ACL to use when putting the photo, This specify the permission of the picture
   * Value can be any of: `private`, `public-read`, `public-read-write`, `authenticated-read`, `aws-exec-read`, `bucket-owner-read`, `bucket-owner-full-control`
   * Default value is `private`
   
