@@ -105,7 +105,7 @@ func (d *Dummy) Start() error {
 
 					payloadData["_filename"] = filepath.Base(filename)[0 : len(filepath.Base(filename))-len(filepath.Ext(filepath.Base(filename)))]
 
-					// Get Image Data
+					// Lookup Image Data
 					reader, err := os.Open(filename)
 					if err != nil {
 						d.logger.Debugw("Error in dummy: ", zap.Error(err))

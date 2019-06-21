@@ -4,20 +4,26 @@ import (
 	"github.com/sherifabdlnaby/prism/app/registry/wrapper"
 	"github.com/sherifabdlnaby/prism/pkg/response"
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
+	"go.uber.org/zap"
 )
 
 //output Wraps an output component
 type output struct {
 	output *wrapper.Output
-	*base
+	*Node
 }
 
 //NewOutput Construct a new Output Node
-func NewOutput(out *wrapper.Output) Node {
+func NewOutput(name string, out *wrapper.Output, logger zap.SugaredLogger) *Node {
 	Node := &output{output: out}
 	base := newBase(Node, out.Resource)
-	Node.base = base
-	return Node
+
+	// Set attributes
+	base.Name = name
+	base.Logger = logger
+
+	Node.Node = base
+	return Node.Node
 }
 
 //job output job will send the transaction to output plugin and await its result.

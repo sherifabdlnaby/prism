@@ -33,3 +33,9 @@ type InputTransaction struct {
 	Transaction
 	PipelineTag string
 }
+
+//Async to be persisted in local DB
+type Async struct {
+	ID, Pipeline, Node, Filepath string
+	Data                         payload.Data
+}

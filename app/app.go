@@ -92,6 +92,13 @@ func (a *App) startComponents(c config.Config) error {
 		return err
 	}
 
+	a.logger.Info("checking for any persisted async requests that need to be done...")
+	err = a.applyPersistedAsyncRequests()
+	if err != nil {
+		a.logger.Errorf("error while applying persisted async requests: %v", err)
+		return err
+	}
+
 	a.logger.Info("starting input plugins...")
 	err = a.startInputPlugins()
 	if err != nil {

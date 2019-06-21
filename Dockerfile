@@ -48,7 +48,7 @@ ENV GO111MODULE=on
 # Run quality control
 RUN go mod verify
 
-WORKDIR ${GOPATH}/src/github.com/sherifabdlnaby/prism/cmd/prism
+WORKDIR ${GOPATH}/src/github.com/sherifabdlnaby/prism/cmd/
 
 # Compile prism
 RUN go build -a -o ${GOPATH}/bin/prism -ldflags="-s -w -h -X main.Version=${PRISM_VERSION}"

@@ -1,10 +1,16 @@
 package pipeline
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
+	"io"
+	"os"
+	"strconv"
 	"sync"
 	"sync/atomic"
 
+	"github.com/boltdb/bolt"
 	"github.com/sherifabdlnaby/prism/app/config"
 	"github.com/sherifabdlnaby/prism/app/pipeline/node"
 	"github.com/sherifabdlnaby/prism/app/registry"
@@ -17,12 +23,18 @@ import (
 
 //Pipeline Holds the recursive tree of Nodes and their next nodes, etc
 type Pipeline struct {
-	receiveTxnChan <-chan transaction.Transaction
-	Root           node.Next
-	NodesList      []node.Node
-	Logger         zap.SugaredLogger
-	wg             sync.WaitGroup
+	name           string
+	bucket         string
+	config         config.Pipeline
 	status         status
+	db             *bolt.DB
+	Root           *node.Next
+	NodeMap        map[string]*node.Node
+	wg             sync.WaitGroup
+	Logger         zap.SugaredLogger
+	receiveTxnChan <-chan transaction.Transaction
+	registry       registry.Registry
+	hash           string
 }
 
 type status int32
@@ -55,7 +67,7 @@ func (p *Pipeline) Start() error {
 	return nil
 }
 
-//Stop stops the pipeline, that means that any transaction received on this pipeline after stopping will return
+// Stop stops the pipeline, that means that any transaction received on this pipeline after stopping will return
 // error response unless re-started again.
 func (p *Pipeline) Stop() error {
 	atomic.SwapInt32((*int32)(&p.status), int32(closed))
@@ -91,127 +103,261 @@ func (p *Pipeline) job(txn transaction.Transaction) {
 }
 
 //NewPipeline Construct a NewPipeline using config.
-func NewPipeline(pc config.Pipeline, registry registry.Registry, logger zap.SugaredLogger) (*Pipeline, error) {
+func NewPipeline(name string, db *bolt.DB, Config config.Pipeline, registry registry.Registry, logger zap.SugaredLogger, hash string) (*Pipeline, error) {
 
-	pipelineResource := resource.NewResource(pc.Concurrency)
+	// Node Beginning Dummy Node
+	root := node.NewNext(node.NewDummy("dummy", *resource.NewResource(Config.Concurrency), logger))
 
-	// dummy Node is the start of every pipeline, and its nexts(s) are the pipeline starting nodes.
-	beginNode := node.NewDummy(*pipelineResource)
+	// Create pipeline
+	p := &Pipeline{
+		name:           name,
+		bucket:         name,
+		config:         Config,
+		status:         new,
+		db:             db,
+		Root:           root,
+		NodeMap:        make(map[string]*node.Node),
+		wg:             sync.WaitGroup{},
+		Logger:         logger,
+		receiveTxnChan: make(chan transaction.Transaction),
+		registry:       registry,
+		hash:           hash,
+	}
 
-	// NodesList will contain all nodes of the pipeline. (will be useful later.
-	NodesList := make([]node.Node, 0)
-	NodesList = append(NodesList, beginNode)
+	p.NodeMap[root.Name] = root.Node
 
+	// Lookup Nexts of this Node
+	nexts, err := getNexts(Config.Pipeline, p, false)
+	if err != nil {
+		return &Pipeline{}, nil
+	}
+
+	// set begin Node to nexts (Pipeline beginning)
+	root.SetNexts(nexts)
+
+	// create bucket for persistence
+	err = p.createPersistenceBucket()
+	if err != nil {
+		return &Pipeline{}, nil
+	}
+
+	return p, nil
+}
+
+func getNexts(next map[string]*config.Node, p *Pipeline, forceSync bool) ([]node.Next, error) {
 	nexts := make([]node.Next, 0)
-	for key, value := range pc.Pipeline {
-		Node, err := buildTree(key, *value, registry, &NodesList, false)
+	for Name, Node := range next {
+		Node, err := buildTree(Name, *Node, p, forceSync)
 		if err != nil {
 			return nil, err
 		}
 
-		Node.SetAsync(value.Async)
-
 		// create a next wrapper
-		next := *node.NewNext(Node)
-
-		// gives the next's node its InputTransactionChan, now owner of the 'next' owns closing the chan.
-		Node.SetTransactionChan(next.TransactionChan)
+		next := node.NewNext(Node)
 
 		// append to nexts
-		nexts = append(nexts, next)
+		nexts = append(nexts, *next)
 	}
-
-	beginNode.SetNexts(nexts)
-
-	// give dummy node its receive chan
-	Next := node.NewNext(beginNode)
-
-	// give node its receive chan
-	beginNode.SetTransactionChan(Next.TransactionChan)
-
-	pip := Pipeline{
-		receiveTxnChan: make(chan transaction.Transaction),
-		Root:           *Next,
-		NodesList:      NodesList,
-		Logger:         logger,
-		status:         new,
-	}
-
-	return &pip, nil
+	return nexts, nil
 }
 
-func buildTree(name string, n config.Node, registry registry.Registry, NodesList *[]node.Node, forceSync bool) (node.Node, error) {
+func buildTree(name string, n config.Node, p *Pipeline, forceSync bool) (*node.Node, error) {
 
 	// create node of the configure components
-	currNode, err := chooseComponent(name, registry, len(n.Next))
+	currNode, err := chooseComponent(name, p, len(n.Next))
 	if err != nil {
 		return nil, err
 	}
 
-	*NodesList = append(*NodesList, currNode)
+	//
+	async := n.Async
+	if forceSync {
+		async = false
+	}
+
+	// set node async
+	currNode.SetAsync(async)
+
+	// all NEXT nodes to be sync if current is async.
+	if async {
+		forceSync = true
+	}
 
 	// add nexts
-	nexts := make([]node.Next, 0)
-
-	if n.Next != nil {
-		for key, value := range n.Next {
-
-			Node, err := buildTree(key, *value, registry, NodesList, n.Async)
-			if err != nil {
-				return nil, err
-			}
-
-			// create a next wrapper
-			next := *node.NewNext(Node)
-
-			// gives the next's node its InputTransactionChan, now owner of the 'next' owns closing the chan.
-			Node.SetTransactionChan(next.TransactionChan)
-
-			// append to nexts
-			nexts = append(nexts, next)
-		}
+	nexts, err := getNexts(n.Next, p, forceSync)
+	if err != nil {
+		return nil, err
 	}
 
 	// set nexts
 	currNode.SetNexts(nexts)
 
-	// set node async
-	currNode.SetAsync(n.Async && !forceSync)
-
 	return currNode, nil
 }
 
-func chooseComponent(name string, registry registry.Registry, nextsCount int) (node.Node, error) {
-	var Node node.Node
+func getUniqueNodeName(name string, NodesList map[string]*node.Node) string {
+	for i := 0; ; {
+		_, ok := NodesList[name]
+		if !ok {
+			return name
+		}
+		name += "_" + strconv.Itoa(i)
+	}
+}
+
+func chooseComponent(name string, p *Pipeline, nextsCount int) (*node.Node, error) {
+	var Node *node.Node
 
 	// check if ProcessReadWrite(and which types)
-	processorBase, ok := registry.GetProcessor(name)
+	processorBase, ok := p.registry.GetProcessor(name)
 	if ok {
 		if nextsCount == 0 {
 			return nil, fmt.Errorf("plugin [%s] has no nexts(s) of type output, a pipeline path must end with an output plugin", name)
 		}
-		switch p := processorBase.Base.(type) {
+		switch base := processorBase.Base.(type) {
 		case processor.ReadOnly:
-			Node = node.NewReadOnly(p, processorBase.Resource)
+			Node = node.NewReadOnly(name, base, processorBase.Resource, p.Logger)
 		case processor.ReadWrite:
-			Node = node.NewReadWrite(p, processorBase.Resource)
+			Node = node.NewReadWrite(name, base, processorBase.Resource, p.Logger)
 		case processor.ReadWriteStream:
-			Node = node.NewReadWriteStream(p, processorBase.Resource)
+			Node = node.NewReadWriteStream(name, base, processorBase.Resource, p.Logger)
 		default:
 			return nil, fmt.Errorf("plugin [%s] doesn't exists", name)
 		}
 		// Not ProcessReadWrite, check if output.
 	} else {
-		output, ok := registry.GetOutput(name)
+		output, ok := p.registry.GetOutput(name)
 		if ok {
 			if nextsCount > 0 {
 				return nil, fmt.Errorf("plugin [%s] has nexts(s), output plugins must not have nexts(s)", name)
 			}
-			Node = node.NewOutput(output)
+			Node = node.NewOutput(name, output, p.Logger)
 		} else {
 			return nil, fmt.Errorf("plugin [%s] doesn't exists", name)
 		}
 	}
 
+	// Set Attrs
+	// Give new node a unique name
+	Node.Name = getUniqueNodeName(Node.Name, p.NodeMap)
+
+	// create a logger
+	Node.Logger = *p.Logger.Named(Node.Name)
+
+	// create a logger
+	Node.Db = p.db
+
+	// set bucket Name
+	Node.Bucket = p.bucket
+
+	// save in global map
+	p.NodeMap[Node.Name] = Node
+
 	return Node, nil
+}
+
+func (p *Pipeline) createPersistenceBucket() error {
+	p.bucket = p.name + p.hash
+	return p.db.Update(func(tx *bolt.Tx) error {
+		var err error
+
+		_, err = tx.CreateBucket([]byte(p.bucket))
+
+		if err != nil && err != bolt.ErrBucketExists {
+			return fmt.Errorf("create bucket: %s", err)
+		}
+
+		if err == bolt.ErrBucketExists {
+			return nil
+		}
+
+		p.Logger.Infof("new pipeline, created a persistence bucket for new pipeline %s (%s)", p.name, p.hash)
+
+		return nil
+	})
+}
+
+//ApplyPersistedAsyncRequests checks pipeline's persisted unfinished transactions and re-apply them
+func (p *Pipeline) ApplyPersistedAsyncRequests() error {
+
+	TxnList := make([]transaction.Async, 0)
+
+	err := p.db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(p.name))
+		err := b.ForEach(func(k, v []byte) error {
+			asyncTxn := &transaction.Async{}
+			err := json.Unmarshal(v, asyncTxn)
+			if err != nil {
+				return err
+			}
+			TxnList = append(TxnList, *asyncTxn)
+			return nil
+		})
+
+		return err
+	})
+
+	if err != nil {
+		p.Logger.Infow("error occurred while reading from from in-disk DB", "error", err.Error())
+		return err
+	}
+
+	p.Logger.Infof("re-applying %d async requests found", len(TxnList))
+	for _, asyncTxn := range TxnList {
+		// Delete entry and tmp file
+		err = p.db.Update(func(tx *bolt.Tx) error {
+			// get payload and data
+			tmpFile, err := os.Open(asyncTxn.Filepath)
+			if err != nil {
+				return err
+			}
+
+			// Lookup Node
+			Node := p.NodeMap[asyncTxn.Node]
+
+			responseChan := make(chan response.Response)
+
+			Node.ProcessTransaction(transaction.Transaction{
+				Payload:      io.Reader(tmpFile),
+				Data:         asyncTxn.Data,
+				Context:      context.Background(),
+				ResponseChan: responseChan,
+			})
+
+			// Wait Response
+			response := <-responseChan
+
+			// log progress
+			if !response.Ack {
+				if response.Error != nil {
+					p.Logger.Warnw("an async request that are re-done failed", "error", response.Error)
+				} else if response.AckErr != nil {
+					p.Logger.Warnw("an async request that are re-done was dropped", "reason", response.AckErr)
+				}
+			}
+
+			err = tmpFile.Close()
+			if err != nil {
+				return err
+			}
+
+			b := tx.Bucket([]byte(p.name))
+			err = b.Delete([]byte(asyncTxn.ID))
+			if err != nil {
+				return err
+			}
+
+			return nil
+		})
+		if err != nil {
+			p.Logger.Errorw("an error occurred while applying persisted async requests", "error", err.Error())
+		}
+		// Delete from filesystem
+		err = os.Remove(asyncTxn.Filepath)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

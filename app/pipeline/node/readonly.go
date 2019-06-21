@@ -10,20 +10,26 @@ import (
 	"github.com/sherifabdlnaby/prism/pkg/payload"
 	"github.com/sherifabdlnaby/prism/pkg/response"
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
+	"go.uber.org/zap"
 )
 
 //readOnly Wraps a readOnly component
 type readOnly struct {
 	processor processor.ReadOnly
-	*base
+	*Node
 }
 
 //NewReadOnly Construct a new ReadOnly node
-func NewReadOnly(processorReadOnly processor.ReadOnly, resource resource.Resource) Node {
+func NewReadOnly(name string, processorReadOnly processor.ReadOnly, resource resource.Resource, logger zap.SugaredLogger) *Node {
 	Node := &readOnly{processor: processorReadOnly}
 	base := newBase(Node, resource)
-	Node.base = base
-	return Node
+
+	// Set attributes
+	base.Name = name
+	base.Logger = logger
+
+	Node.Node = base
+	return Node.Node
 }
 
 //job Process transaction by calling Decode-> Process-> Encode->
@@ -81,7 +87,7 @@ func (n *readOnly) jobStream(t transaction.Transaction) {
 		return
 	}
 
-	// Get Buffer from pool
+	// Lookup Buffer from pool
 	buffer := bufferspool.Get()
 	defer bufferspool.Put(buffer)
 

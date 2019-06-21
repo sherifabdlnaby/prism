@@ -15,14 +15,11 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-const (
-	// ConfigDirEnv is Environment Variable that points to the configuration directory (default: ./config)
-	ConfigDirEnv = "PRISM_CONFIG_DIR"
-	// Env is Environment Variable that represents either prod or dev environment
-	Env = "PRISM_ENV"
-)
-
 func main() {
+	// Listen to Signals
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
+
 	// Parse configuration from yaml files
 	config, err := bootstrap()
 	if err != nil {
@@ -46,10 +43,6 @@ func main() {
 		}
 	}()
 
-	// Listen to Signals
-	signalChan := make(chan os.Signal, 1)
-	signal.Notify(signalChan, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
-
 	// Termination
 	sig := <-signalChan
 
@@ -61,11 +54,9 @@ func main() {
 func bootstrap() (config.Config, error) {
 
 	// Setup ENVIRONMENT
-	environment, isset := os.LookupEnv(Env)
-	if !isset {
-		environment = "prod"
-	} else if environment != "prod" && environment != "dev" {
-		panic(fmt.Sprintf("Environment = \"%s\" (set by %s) can only be either \"prod\" or \"dev\" (default: prod)", environment, Env))
+	environment := config.EnvPrism.Lookup()
+	if environment != "prod" && environment != "dev" {
+		panic(fmt.Sprintf("Environment = \"%s\" (set by %s) can only be either \"prod\" or \"dev\" (default: prod)", environment, config.EnvPrism.Name()))
 	}
 
 	// Print logo (Yes I love this)
@@ -91,10 +82,7 @@ func bootstrap() (config.Config, error) {
 	}
 
 	// GET YAML FILE DIRECTORY
-	configDir, isset := os.LookupEnv(ConfigDirEnv)
-	if !isset {
-		configDir = "./config"
-	}
+	configDir := config.EnvPrismConfigDir.Lookup()
 
 	// use full path
 	configDir, err = filepath.Abs(configDir)
@@ -113,34 +101,35 @@ func bootstrap() (config.Config, error) {
 
 	// READ CONFIG MAIN FILES
 	appConfig := config.AppConfig{}
-	err = config.Load(appConfigPath, &appConfig, true)
+	_, err = config.Load(appConfigPath, &appConfig, true)
 	if err != nil {
 		return config.Config{}, err
 	}
 
 	// READ CONFIG MAIN FILES
 	inputConfig := config.InputsConfig{}
-	err = config.Load(inputConfigPath, &inputConfig, true)
+	_, err = config.Load(inputConfigPath, &inputConfig, true)
 	if err != nil {
 		return config.Config{}, err
 	}
 
 	processorConfig := config.ProcessorsConfig{}
-	err = config.Load(processorConfigPath, &processorConfig, true)
+	_, err = config.Load(processorConfigPath, &processorConfig, true)
 	if err != nil {
 		return config.Config{}, err
 	}
 	outputConfig := config.OutputsConfig{}
-	err = config.Load(outputConfigPath, &outputConfig, true)
+	_, err = config.Load(outputConfigPath, &outputConfig, true)
 	if err != nil {
 		return config.Config{}, err
 	}
 
 	pipelineConfig := config.PipelinesConfig{}
-	err = config.Load(pipelineConfigPath, &pipelineConfig, true)
+	hash, err := config.Load(pipelineConfigPath, &pipelineConfig, true)
 	if err != nil {
 		return config.Config{}, err
 	}
+	pipelineConfig.Hash = hash
 
 	return config.Config{
 		App:        appConfig,

@@ -2,6 +2,7 @@ module github.com/sherifabdlnaby/prism
 
 require (
 	github.com/aws/aws-sdk-go v1.19.0
+	github.com/boltdb/bolt v1.3.1
 	github.com/go-playground/locales v0.12.1 // indirect
 	github.com/go-playground/universal-translator v0.16.0 // indirect
 	github.com/go-sql-driver/mysql v1.4.1
