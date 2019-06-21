@@ -18,8 +18,8 @@ inputs:
                     pipeline: "@{pipeline}"
             certfile: ""
             keyfile: ""
-            LogRequest: 0
-            LogResponse: 2
-            RateLimit: 1
+            log_request: debug
+            log_errors: false
+            rate_limit: 20
 
 

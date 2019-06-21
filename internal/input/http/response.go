@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strings"
-	"time"
 )
 
 var (
@@ -16,6 +14,7 @@ var (
 	resNoAck            = response{Code: http.StatusBadRequest, Message: "request was dropped on purpose"}
 	resInternalError    = response{Code: http.StatusInternalServerError, Message: "internal server error"}
 	resRateLimit        = response{Code: http.StatusTooManyRequests, Message: "Too many requests"}
+	resSuccess          = response{Code: http.StatusOK, Message: "Request Successful"}
 )
 
 type response struct {
@@ -31,19 +30,23 @@ func newError(err error) *response {
 	return &response{http.StatusBadRequest, fmt.Sprintf("error while processing, reason: %s", err.Error())}
 }
 
-func respondError(r *http.Request, w http.ResponseWriter, reply response, ws *Webserver) {
-	if ws.config.LogResponse == LFail {
-		addr := r.RemoteAddr
-		if i := strings.LastIndex(addr, ":"); i != -1 {
-			addr = addr[:i]
-		}
-		ws.logger.Debugw(reply.Message,
-			"IP", addr,
-			"TIME", time.Now().Format("02/Jan/2006:15:04:05"))
+func (w *Webserver) respondError(r *http.Request, wr http.ResponseWriter, reply response) {
+	if w.config.LogErrors {
+		w.logger.Error(reply.Message)
 	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(reply.Code)
+
+	wr.Header().Set("Content-Type", "application/json")
+	wr.WriteHeader(reply.Code)
 
 	jsonBuf, _ := json.Marshal(reply)
-	_, _ = w.Write(jsonBuf)
+	_, _ = wr.Write(jsonBuf)
+}
+
+func (w *Webserver) respondMessage(r *http.Request, rw http.ResponseWriter, reply response) {
+
+	rw.Header().Set("Content-Type", "application/json")
+	rw.WriteHeader(reply.Code)
+
+	jsonBuf, _ := json.Marshal(reply)
+	_, _ = rw.Write(jsonBuf)
 }

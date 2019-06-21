@@ -2,15 +2,13 @@ package http
 
 import (
 	"fmt"
+	"io"
+	"net/http"
+
 	"github.com/didip/tollbooth"
 	"github.com/sherifabdlnaby/prism/pkg/payload"
 	responseT "github.com/sherifabdlnaby/prism/pkg/response"
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
-	"go.uber.org/zap"
-	"io"
-	"net/http"
-	"strings"
-	"time"
 )
 
 // buildServer build handlers and server
@@ -38,37 +36,11 @@ func (w *Webserver) listenAndServe() error {
 	return err
 }
 
-//Request Logger logs every request
-func requestLogger(next http.Handler, lType int, l zap.SugaredLogger) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		addr := r.RemoteAddr
-		if i := strings.LastIndex(addr, ":"); i != -1 {
-			addr = addr[:i]
-		}
-		switch lType {
-		case LDebug:
-			l.Debugw("RECIEVED A REQUEST",
-				"IP", addr,
-				"TIME", time.Now().Format("02/Jan/2006:15:04:05"),
-				"FORM", fmt.Sprintf("%s %s %s", r.Method, r.URL, r.Proto),
-				"USERAGENT", r.UserAgent())
-		case LInfo:
-			l.Infow("RECIEVED A REQUEST",
-				"IP", addr,
-				"TIME", time.Now().Format("02/Jan/2006:15:04:05"),
-				"FORM", fmt.Sprintf("%s %s %s", r.Method, r.URL, r.Proto),
-				"USERAGENT", r.UserAgent())
-		}
-		next.ServeHTTP(w, r)
-	})
-}
-
 //Ratelimiter will rate limit requests to avoid denial of service attacks.
-func rateLimiter(next http.Handler, l float64, ws *Webserver) http.Handler {
-	lmt := tollbooth.NewLimiter(l, nil)
+func rateLimiter(next http.Handler, reqPerSecond float64, ws *Webserver) http.Handler {
+	lmt := tollbooth.NewLimiter(reqPerSecond, nil)
 	lmt.SetOnLimitReached(func(w http.ResponseWriter, r *http.Request) {
-		respondError(r, w, resRateLimit, ws)
-		return
+		ws.respondError(r, w, resRateLimit)
 	})
 	middle := func(w http.ResponseWriter, r *http.Request) {
 		httpError := tollbooth.LimitByRequest(lmt, w, r)
@@ -90,8 +62,13 @@ func buildHandlers(w *Webserver) http.Handler {
 	//Accept images at all the provided Paths.
 	next := http.Handler(http.HandlerFunc(w.handle))
 
-	if w.config.LogRequest != LNone {
-		next = http.Handler(requestLogger(next, w.config.LogRequest, w.logger))
+	if w.config.LogRequest != "none" {
+		if w.config.LogRequest == "all" {
+			next = http.Handler(requestLogger(next, LogInfo, w.logger))
+		}
+		if w.config.LogRequest == "debug" {
+			next = http.Handler(requestLogger(next, LogDebug, w.logger))
+		}
 	}
 
 	if w.config.RateLimit > 0 {
@@ -122,20 +99,20 @@ func (w *Webserver) handle(rw http.ResponseWriter, r *http.Request) {
 
 		url, ok := w.config.Paths[r.URL.Path]
 		if !ok {
-			respondError(r, rw, resNotFound, w)
+			w.respondError(r, rw, resNotFound)
 			return
 		}
 
 		pipeline, err := url.pipelineSelector.Evaluate(data)
 		if err != nil {
-			respondError(r, rw, resMissingPipeline, w)
+			w.respondError(r, rw, resMissingPipeline)
 			return
 		}
 
 		// Multi-reader
 		reader, err := r.MultipartReader()
 		if err != nil {
-			respondError(r, rw, *newError(err), w)
+			w.respondError(r, rw, *newError(err))
 			return
 		}
 
@@ -143,16 +120,16 @@ func (w *Webserver) handle(rw http.ResponseWriter, r *http.Request) {
 		part, err := reader.NextPart()
 		if err != nil {
 			if err == io.EOF {
-				respondError(r, rw, resMissingFile, w)
+				w.respondError(r, rw, resMissingFile)
 			} else {
-				respondError(r, rw, *newError(err), w)
+				w.respondError(r, rw, *newError(err))
 			}
 			return
 		}
 
 		// Check is part form name is as configured
 		if part.FormName() != w.config.FormName {
-			respondError(r, rw, resMissingFile, w)
+			w.respondError(r, rw, resMissingFile)
 			return
 		}
 
@@ -173,23 +150,18 @@ func (w *Webserver) handle(rw http.ResponseWriter, r *http.Request) {
 		if !response.Ack {
 			// check if responseT is simply refused, or an internal responseT occured
 			if response.AckErr != nil {
-				respondError(r, rw, *newNoAck(response.AckErr), w)
+				w.respondError(r, rw, *newNoAck(response.AckErr))
 			} else if response.Error != nil {
-				respondError(r, rw, *newError(response.Error), w)
+				w.respondError(r, rw, *newError(response.Error))
 			}
 			return
 
 		}
 
-		if w.config.LogResponse == LSuccess {
-			w.logger.Debugw("Successful request ",
-				"TIME", time.Now().Format("02/Jan/2006:15:04:05 -0700"),
-				"FORM", fmt.Sprintf("%s %s %s", r.Method, r.URL, r.Proto))
-		}
-		rw.WriteHeader(http.StatusOK)
+		w.respondMessage(r, rw, resSuccess)
 
 		return
 	}
 
-	respondError(r, rw, resMethodNotAllowed, w)
+	w.respondError(r, rw, resMethodNotAllowed)
 }
