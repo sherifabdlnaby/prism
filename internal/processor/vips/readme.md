@@ -37,7 +37,7 @@ This plugin supports the following configuration options.
     * [rotate](./operations_guide/rotate.md)
     * [crop](./operations_guide/crop.md)
     * [resize](./operations_guide/resize.md)
-    * [resize](./operations_guide/label.md)
+    * [label](./operations_guide/label.md)
 
  
 ##### `export`
