@@ -3,10 +3,10 @@ Prism provides an easy way to set up the available plugins and workflow by simpl
 a file taking the [yaml](https://yaml.org) format. 
  
 In order to get Prism up and running there are five configuration files that should exist.
-* [inputs.yaml](#inputs-yaml)
-* [processors.yaml](#processors-yaml)
-* [outputs.yaml](#outputs-yaml)
-* [pipelines.yaml](#pipelines-yaml)
+* [inputs.yaml](#inputsyaml)
+* [processors.yaml](#processorsyaml)
+* [outputs.yaml](#outputsyaml)
+* [pipelines.yaml](#pipelinesyaml)
 * [prism.yaml](#prism)
 
 An example of the files exist [here](./example)
