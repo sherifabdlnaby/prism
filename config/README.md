@@ -3,17 +3,17 @@ Prism provides an easy way to set up the available plugins and workflow by simpl
 a file taking the [yaml](https://yaml.org) format. 
  
 In order to get Prism up and running there are five configuration files that should exist.
-* [inputs.yaml](#inputs)
-* [processors.yaml](#processors)
-* [outputs.yaml](#outputs)
-* [pipelines.yaml](#pipelines)
+* [inputs.yaml](#inputs.yaml)
+* [processors.yaml](#processors.yaml)
+* [outputs.yaml](#outputs.yaml)
+* [pipelines.yaml](#pipelines.yaml)
 * [prism.yaml](#prism)
 
 An example of the files exist [here](./example)
 
 
 
-###`inputs`
+### inputs.yaml 
 
 This file contains the input plugins that you would like to start and their configuration.
 
@@ -64,7 +64,7 @@ and its configuration.
 
 
 
-###`processors`
+### processors.yaml
 
 This file contains the processor plugins.
 
@@ -130,7 +130,7 @@ eg:
   
 
 
-###`outputs`
+### outputs.yaml
 This file contains the output plugins.
 
 
@@ -173,7 +173,7 @@ eg:
 
 <!--####`prism.yaml`  to be added -->
 
-###`pipelines`
+### pipelines.yaml
 Unlike the other files, this one isn't responsible for plugins initiation and configuration setting, but is 
 the most important  as it controls the flow of a photo since it was inputted till its saved.
 
@@ -272,7 +272,7 @@ plugin that it shouldn't wait for an acknowledgment.
 
 
 
-###Dynamic Values
+### Dynamic Values
 In order to make the configuration files more dynamic, Prism provides different ways to 
 set field values.
 
