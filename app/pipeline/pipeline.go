@@ -23,14 +23,17 @@ import (
 
 //Pipeline Holds the recursive tree of Nodes and their next nodes, etc
 type Pipeline struct {
-	receiveTxnChan <-chan transaction.Transaction
-	Root           node.Next
-	NodesList      map[string]*node.Node
-	Logger         zap.SugaredLogger
-	wg             sync.WaitGroup
-	status         status
 	name           string
+	bucket         string
+	config         config.Pipeline
+	status         status
 	db             *bolt.DB
+	Root           *node.Next
+	NodeMap        map[string]*node.Node
+	wg             sync.WaitGroup
+	Logger         zap.SugaredLogger
+	receiveTxnChan <-chan transaction.Transaction
+	registry       registry.Registry
 }
 
 type status int32
@@ -63,6 +66,205 @@ func (p *Pipeline) Start() error {
 	return nil
 }
 
+// Stop stops the pipeline, that means that any transaction received on this pipeline after stopping will return
+// error response unless re-started again.
+func (p *Pipeline) Stop() error {
+	atomic.SwapInt32((*int32)(&p.status), int32(closed))
+
+	// Wait all running jobs to return
+	p.wg.Wait()
+
+	//Stop
+	err := p.Root.Stop()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+//SetTransactionChan Set the transaction chan pipeline will use to receive input
+func (p *Pipeline) SetTransactionChan(tc <-chan transaction.Transaction) {
+	p.receiveTxnChan = tc
+}
+
+func (p *Pipeline) job(txn transaction.Transaction) {
+	p.wg.Add(1)
+	responseChan := make(chan response.Response)
+	p.Root.TransactionChan <- transaction.Transaction{
+		Payload:      txn.Payload,
+		Data:         txn.Data,
+		ResponseChan: responseChan,
+		Context:      txn.Context,
+	}
+	txn.ResponseChan <- <-responseChan
+	p.wg.Done()
+}
+
+//NewPipeline Construct a NewPipeline using config.
+func NewPipeline(name string, db *bolt.DB, Config config.Pipeline, registry registry.Registry, logger zap.SugaredLogger) (*Pipeline, error) {
+
+	// Node Beginning Dummy Node
+	root := node.NewNext(node.NewDummy("dummy", *resource.NewResource(Config.Concurrency), logger))
+
+	// Create pipeline
+	p := &Pipeline{
+		name:           name,
+		bucket:         name,
+		config:         Config,
+		status:         new,
+		db:             db,
+		Root:           root,
+		NodeMap:        make(map[string]*node.Node),
+		wg:             sync.WaitGroup{},
+		Logger:         logger,
+		receiveTxnChan: make(chan transaction.Transaction),
+		registry:       registry,
+	}
+
+	p.NodeMap[root.Name] = root.Node
+
+	// Lookup Nexts of this Node
+	nexts, err := getNexts(Config.Pipeline, p, false)
+	if err != nil {
+		return &Pipeline{}, nil
+	}
+
+	// set begin Node to nexts (Pipeline beginning)
+	root.SetNexts(nexts)
+
+	// create bucket for persistence
+	err = p.createPersistenceBucket()
+	if err != nil {
+		return &Pipeline{}, nil
+	}
+
+	return p, nil
+}
+
+func getNexts(next map[string]*config.Node, p *Pipeline, forceSync bool) ([]node.Next, error) {
+	nexts := make([]node.Next, 0)
+	for Name, Node := range next {
+		Node, err := buildTree(Name, *Node, p, forceSync)
+		if err != nil {
+			return nil, err
+		}
+
+		// create a next wrapper
+		next := node.NewNext(Node)
+
+		// append to nexts
+		nexts = append(nexts, *next)
+	}
+	return nexts, nil
+}
+
+func buildTree(name string, n config.Node, p *Pipeline, forceSync bool) (*node.Node, error) {
+
+	// create node of the configure components
+	currNode, err := chooseComponent(name, p, len(n.Next))
+	if err != nil {
+		return nil, err
+	}
+
+	//
+	async := n.Async
+	if forceSync {
+		async = false
+	}
+
+	// set node async
+	currNode.SetAsync(async)
+
+	// all NEXT nodes to be sync if current is async.
+	if async {
+		forceSync = true
+	}
+
+	// add nexts
+	nexts, err := getNexts(n.Next, p, forceSync)
+	if err != nil {
+		return nil, err
+	}
+
+	// set nexts
+	currNode.SetNexts(nexts)
+
+	return currNode, nil
+}
+
+func getUniqueNodeName(name string, NodesList map[string]*node.Node) string {
+	for i := 0; ; {
+		_, ok := NodesList[name]
+		if !ok {
+			return name
+		}
+		name += "_" + strconv.Itoa(i)
+	}
+}
+
+func chooseComponent(name string, p *Pipeline, nextsCount int) (*node.Node, error) {
+	var Node *node.Node
+
+	// check if ProcessReadWrite(and which types)
+	processorBase, ok := p.registry.GetProcessor(name)
+	if ok {
+		if nextsCount == 0 {
+			return nil, fmt.Errorf("plugin [%s] has no nexts(s) of type output, a pipeline path must end with an output plugin", name)
+		}
+		switch base := processorBase.Base.(type) {
+		case processor.ReadOnly:
+			Node = node.NewReadOnly(name, base, processorBase.Resource, p.Logger)
+		case processor.ReadWrite:
+			Node = node.NewReadWrite(name, base, processorBase.Resource, p.Logger)
+		case processor.ReadWriteStream:
+			Node = node.NewReadWriteStream(name, base, processorBase.Resource, p.Logger)
+		default:
+			return nil, fmt.Errorf("plugin [%s] doesn't exists", name)
+		}
+		// Not ProcessReadWrite, check if output.
+	} else {
+		output, ok := p.registry.GetOutput(name)
+		if ok {
+			if nextsCount > 0 {
+				return nil, fmt.Errorf("plugin [%s] has nexts(s), output plugins must not have nexts(s)", name)
+			}
+			Node = node.NewOutput(name, output, p.Logger)
+		} else {
+			return nil, fmt.Errorf("plugin [%s] doesn't exists", name)
+		}
+	}
+
+	// Set Attrs
+	// Give new node a unique name
+	Node.Name = getUniqueNodeName(Node.Name, p.NodeMap)
+
+	// create a logger
+	Node.Logger = *p.Logger.Named(Node.Name)
+
+	// create a logger
+	Node.Db = p.db
+
+	// set bucket Name
+	Node.Bucket = p.bucket
+
+	// save in global map
+	p.NodeMap[Node.Name] = Node
+
+	return Node, nil
+}
+
+func (p *Pipeline) createPersistenceBucket() error {
+	return p.db.Update(func(tx *bolt.Tx) error {
+		var err error
+		_, err = tx.CreateBucketIfNotExists([]byte(p.bucket))
+		if err != nil {
+			return fmt.Errorf("create bucket: %s", err)
+		}
+		return nil
+	})
+}
+
 //ApplyPersistedAsyncRequests checks pipeline's persisted unfinished transactions and re-apply them
 func (p *Pipeline) ApplyPersistedAsyncRequests() error {
 
@@ -88,7 +290,7 @@ func (p *Pipeline) ApplyPersistedAsyncRequests() error {
 		return err
 	}
 
-	p.Logger.Infof("reapplying %d async requests found", len(TxnList))
+	p.Logger.Infof("re-applying %d async requests found", len(TxnList))
 	for _, asyncTxn := range TxnList {
 		// Delete entry and tmp file
 		err = p.db.Update(func(tx *bolt.Tx) error {
@@ -98,8 +300,8 @@ func (p *Pipeline) ApplyPersistedAsyncRequests() error {
 				return err
 			}
 
-			// Get Node
-			Node := p.NodesList[asyncTxn.Node]
+			// Lookup Node
+			Node := p.NodeMap[asyncTxn.Node]
 
 			responseChan := make(chan response.Response)
 
@@ -143,202 +345,7 @@ func (p *Pipeline) ApplyPersistedAsyncRequests() error {
 		if err != nil {
 			return err
 		}
-
 	}
 
 	return nil
-}
-
-//Stop stops the pipeline, that means that any transaction received on this pipeline after stopping will return
-// error response unless re-started again.
-func (p *Pipeline) Stop() error {
-	atomic.SwapInt32((*int32)(&p.status), int32(closed))
-
-	// Wait all running jobs to return
-	p.wg.Wait()
-
-	//Stop
-	err := p.Root.Stop()
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-//SetTransactionChan Set the transaction chan pipeline will use to receive input
-func (p *Pipeline) SetTransactionChan(tc <-chan transaction.Transaction) {
-	p.receiveTxnChan = tc
-}
-
-func (p *Pipeline) job(txn transaction.Transaction) {
-	p.wg.Add(1)
-	responseChan := make(chan response.Response)
-	p.Root.TransactionChan <- transaction.Transaction{
-		Payload:      txn.Payload,
-		Data:         txn.Data,
-		ResponseChan: responseChan,
-		Context:      txn.Context,
-	}
-	txn.ResponseChan <- <-responseChan
-	p.wg.Done()
-}
-
-//NewPipeline Construct a NewPipeline using config.
-func NewPipeline(name string, db *bolt.DB, pc config.Pipeline, registry registry.Registry, logger zap.SugaredLogger) (*Pipeline, error) {
-
-	pipelineResource := resource.NewResource(pc.Concurrency)
-
-	// dummy Node is the start of every pipeline, and its nexts(s) are the pipeline starting nodes.
-	beginNode := node.NewDummy(*pipelineResource)
-	beginNode.Name = "start"
-
-	// NodeMap will contain all nodes of the pipeline. (will be useful later.
-	NodeMap := make(map[string]*node.Node)
-	NodeMap[beginNode.Name] = beginNode
-
-	nexts := make([]node.Next, 0)
-	for key, value := range pc.Pipeline {
-		Node, err := buildTree(key, *value, registry, NodeMap, logger, false)
-		if err != nil {
-			return nil, err
-		}
-
-		Node.SetAsync(value.Async)
-
-		// create a next wrapper
-		next := *node.NewNext(Node)
-
-		// gives the next's Node its InputTransactionChan, now owner of the 'next' owns closing the chan.
-		Node.SetTransactionChan(next.TransactionChan)
-
-		// append to nexts
-		nexts = append(nexts, next)
-	}
-
-	beginNode.SetNexts(nexts)
-
-	// give dummy Node its receive chan
-	Next := node.NewNext(beginNode)
-
-	// give Node its receive chan
-	beginNode.SetTransactionChan(Next.TransactionChan)
-
-	pip := Pipeline{
-		receiveTxnChan: make(chan transaction.Transaction),
-		Root:           *Next,
-		NodesList:      NodeMap,
-		Logger:         logger,
-		status:         new,
-		name:           name,
-		db:             db,
-	}
-
-	err := pip.db.Update(func(tx *bolt.Tx) error {
-		var err error
-		_, err = tx.CreateBucketIfNotExists([]byte(name))
-		if err != nil {
-			return fmt.Errorf("create bucket: %s", err)
-		}
-		return nil
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	//Add bucket ref too all nodes
-	for _, Node := range NodeMap {
-		Node.Bucket = name
-		Node.Db = pip.db
-	}
-
-	return &pip, nil
-}
-
-func buildTree(name string, n config.Node, registry registry.Registry, NodesList map[string]*node.Node, logger zap.SugaredLogger, forceSync bool) (*node.Node, error) {
-
-	// create node of the configure components
-	currNode, err := chooseComponent(name, registry, len(n.Next))
-	if err != nil {
-		return nil, err
-	}
-
-	currNode.Name = name
-	currNode.Logger = *logger.Named(name)
-
-	// Give new node a unique name
-	for i := 0; ; {
-		_, ok := NodesList[currNode.Name]
-		if ok {
-			currNode.Name += "_" + strconv.Itoa(i)
-			continue
-		}
-		NodesList[currNode.Name] = currNode
-		break
-	}
-
-	// add nexts
-	nexts := make([]node.Next, 0)
-	if n.Next != nil {
-		for key, value := range n.Next {
-
-			Node, err := buildTree(key, *value, registry, NodesList, logger, n.Async)
-			if err != nil {
-				return nil, err
-			}
-
-			// create a next wrapper
-			next := *node.NewNext(Node)
-
-			// gives the next's node its InputTransactionChan, now owner of the 'next' owns closing the chan.
-			Node.SetTransactionChan(next.TransactionChan)
-
-			// append to nexts
-			nexts = append(nexts, next)
-		}
-	}
-
-	// set nexts
-	currNode.SetNexts(nexts)
-
-	// set node async
-	currNode.SetAsync(n.Async && !forceSync)
-
-	return currNode, nil
-}
-
-func chooseComponent(name string, registry registry.Registry, nextsCount int) (*node.Node, error) {
-	var Node *node.Node
-
-	// check if ProcessReadWrite(and which types)
-	processorBase, ok := registry.GetProcessor(name)
-	if ok {
-		if nextsCount == 0 {
-			return nil, fmt.Errorf("plugin [%s] has no nexts(s) of type output, a pipeline path must end with an output plugin", name)
-		}
-		switch p := processorBase.Base.(type) {
-		case processor.ReadOnly:
-			Node = node.NewReadOnly(p, processorBase.Resource)
-		case processor.ReadWrite:
-			Node = node.NewReadWrite(p, processorBase.Resource)
-		case processor.ReadWriteStream:
-			Node = node.NewReadWriteStream(p, processorBase.Resource)
-		default:
-			return nil, fmt.Errorf("plugin [%s] doesn't exists", name)
-		}
-		// Not ProcessReadWrite, check if output.
-	} else {
-		output, ok := registry.GetOutput(name)
-		if ok {
-			if nextsCount > 0 {
-				return nil, fmt.Errorf("plugin [%s] has nexts(s), output plugins must not have nexts(s)", name)
-			}
-			Node = node.NewOutput(output)
-		} else {
-			return nil, fmt.Errorf("plugin [%s] doesn't exists", name)
-		}
-	}
-
-	return Node, nil
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/sherifabdlnaby/prism/pkg/payload"
 	"github.com/sherifabdlnaby/prism/pkg/response"
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
+	"go.uber.org/zap"
 )
 
 //dummy Used at the start of every pipeline.
@@ -17,11 +18,16 @@ type dummy struct {
 }
 
 //NewDummy Construct a new Dummy Node
-func NewDummy(r resource.Resource) *Node {
-	Node := &dummy{}
-	base := newBase(Node, r)
-	Node.Node = base
-	return Node.Node
+func NewDummy(name string, r resource.Resource, logger zap.SugaredLogger) *Node {
+	dummy := &dummy{}
+	base := newBase(dummy, r)
+
+	// Set attributes
+	base.Name = name
+	base.Logger = logger
+
+	dummy.Node = base
+	return dummy.Node
 }
 
 //job Just forwards the input.

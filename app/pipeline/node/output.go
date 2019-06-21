@@ -4,6 +4,7 @@ import (
 	"github.com/sherifabdlnaby/prism/app/registry/wrapper"
 	"github.com/sherifabdlnaby/prism/pkg/response"
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
+	"go.uber.org/zap"
 )
 
 //output Wraps an output component
@@ -13,9 +14,14 @@ type output struct {
 }
 
 //NewOutput Construct a new Output Node
-func NewOutput(out *wrapper.Output) *Node {
+func NewOutput(name string, out *wrapper.Output, logger zap.SugaredLogger) *Node {
 	Node := &output{output: out}
 	base := newBase(Node, out.Resource)
+
+	// Set attributes
+	base.Name = name
+	base.Logger = logger
+
 	Node.Node = base
 	return Node.Node
 }

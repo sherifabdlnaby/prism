@@ -8,6 +8,7 @@ import (
 	"github.com/sherifabdlnaby/prism/pkg/payload"
 	"github.com/sherifabdlnaby/prism/pkg/response"
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
+	"go.uber.org/zap"
 )
 
 //readWrite Wraps a readwrite component
@@ -17,9 +18,14 @@ type readWrite struct {
 }
 
 //NewReadWrite Construct a new ReadWrite Node
-func NewReadWrite(processorReadWrite processor.ReadWrite, r resource.Resource) *Node {
+func NewReadWrite(name string, processorReadWrite processor.ReadWrite, r resource.Resource, logger zap.SugaredLogger) *Node {
 	Node := &readWrite{processor: processorReadWrite}
 	base := newBase(Node, r)
+
+	// Set attributes
+	base.Name = name
+	base.Logger = logger
+
 	Node.Node = base
 	return Node.Node
 }

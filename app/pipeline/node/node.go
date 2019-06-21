@@ -7,11 +7,11 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"path/filepath"
 	"sync"
 
 	"github.com/boltdb/bolt"
 	"github.com/google/uuid"
+	"github.com/sherifabdlnaby/prism/app/config"
 	"github.com/sherifabdlnaby/prism/app/resource"
 	"github.com/sherifabdlnaby/prism/pkg/mirror"
 	"github.com/sherifabdlnaby/prism/pkg/payload"
@@ -23,15 +23,15 @@ import (
 //Node A Node in the pipeline
 type Node struct {
 	Name           string
-	Logger         zap.SugaredLogger
-	receiveTxnChan chan transaction.Transaction //TODO make a receive only for more sanity
 	async          bool
-	wg             sync.WaitGroup
 	nexts          []Next
-	resource       resource.Resource
+	Bucket         string
 	nodeType       component
 	Db             *bolt.DB
-	Bucket         string
+	wg             sync.WaitGroup
+	resource       resource.Resource
+	Logger         zap.SugaredLogger
+	receiveTxnChan chan transaction.Transaction //TODO make a receive only for more sanity
 }
 
 //Next Wraps the next Node plus the channel used to communicate with this Node to send input transactions.
@@ -48,9 +48,14 @@ type component interface {
 
 //NewNext Create a new Next Node with the supplied Node.
 func NewNext(node *Node) *Next {
+	transactionChan := make(chan transaction.Transaction)
+
+	// gives the next's Node its InputTransactionChan, now owner of the 'next' owns closing the chan.
+	node.SetTransactionChan(transactionChan)
+
 	return &Next{
 		Node:            node,
-		TransactionChan: make(chan transaction.Transaction),
+		TransactionChan: transactionChan,
 	}
 }
 
@@ -123,21 +128,6 @@ func (n *Node) SetAsync(async bool) {
 	n.async = async
 }
 
-func (n *Node) handleTransaction(t transaction.Transaction) {
-	// if Node is set async, send ack response now,
-	// and navigate actual response to asyncResponses which should handle async responses
-	if n.async {
-		err := n.startAsyncTransaction(&t)
-
-		if err != nil {
-			t.ResponseChan <- response.Error(err)
-			return
-		}
-	}
-
-	n.ProcessTransaction(t)
-}
-
 // ProcessTransaction transaction according to its type stream/bytes
 func (n *Node) ProcessTransaction(t transaction.Transaction) {
 	// Start Job according to transaction payload Type
@@ -152,12 +142,22 @@ func (n *Node) ProcessTransaction(t transaction.Transaction) {
 	}
 }
 
+func (n *Node) handleTransaction(t transaction.Transaction) {
+	// if Node is set async, convert to async transaction
+	if n.async {
+		err := n.startAsyncTransaction(&t)
+		if err != nil {
+			t.ResponseChan <- response.Error(err)
+			return
+		}
+	}
+
+	n.ProcessTransaction(t)
+}
+
 func (n *Node) startAsyncTransaction(t *transaction.Transaction) error {
 
-	dirPath, err := filepath.Abs("./data/images")
-	if err != nil {
-		return err
-	}
+	dirPath := config.PRISM_TMP_DIR.Lookup()
 
 	tmpFile, err := ioutil.TempFile(dirPath, "*.bat")
 	if err != nil {
@@ -170,7 +170,7 @@ func (n *Node) startAsyncTransaction(t *transaction.Transaction) error {
 
 	var newPayload payload.Payload
 
-	// Get all Transaction Data
+	// Lookup all Transaction Data
 	switch Payload := t.Payload.(type) {
 	case payload.Bytes:
 		nBytes, err := tmpFile.Write(Payload)

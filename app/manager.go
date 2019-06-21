@@ -125,18 +125,20 @@ func (a *App) startOutputPlugins() error {
 // initPipelines Initialize and build all configured pipelines
 func (a *App) initPipelines(c config.Config) error {
 
+	dataDir := config.PRISM_DATA_DIR.Lookup()
+
 	// open pipeline DB
-	err := os.MkdirAll("./data/", os.ModePerm)
+	err := os.MkdirAll(dataDir, os.ModePerm)
 	if err != nil {
 		return err
 	}
 
-	err = os.MkdirAll("./data/images", os.ModePerm)
+	err = os.MkdirAll(config.PRISM_TMP_DIR.Lookup(), os.ModePerm)
 	if err != nil {
 		return err
 	}
 
-	db, err := bolt.Open("./data/pipelines.db", 0600, &bolt.Options{Timeout: 1 * time.Second})
+	db, err := bolt.Open(dataDir+"/async.db", 0600, &bolt.Options{Timeout: 1 * time.Second})
 	if err != nil {
 		return fmt.Errorf("error while opening persistence DB file %s", err.Error())
 	}
@@ -200,8 +202,10 @@ func (a *App) stopPipelines() error {
 
 // stopPipelines Stop pipelines by calling their Stop() function, any request to these pipelines will return error.
 func (a *App) applyPersistedAsyncRequests() error {
+	tmpPath := config.PRISM_TMP_DIR.Lookup()
+
 	//save current files
-	files, err := ioutil.ReadDir("./data/images")
+	files, err := ioutil.ReadDir(tmpPath)
 	if err != nil {
 		return err
 	}
@@ -222,7 +226,7 @@ func (a *App) applyPersistedAsyncRequests() error {
 		for _, file := range files {
 			if !file.IsDir() {
 				// get abs Path
-				filePath := "./data/images/" + file.Name()
+				filePath := tmpPath + "/" + file.Name()
 				filePath, _ = filepath.Abs(filePath)
 				if _, err := os.Stat(filePath); !os.IsNotExist(err) {
 					err := os.Remove(filePath)
