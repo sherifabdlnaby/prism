@@ -111,7 +111,7 @@ func NewPipeline(name string, db *bolt.DB, Config config.Pipeline, registry regi
 	// Create pipeline
 	p := &Pipeline{
 		name:           name,
-		bucket:         name,
+		bucket:         name + hash,
 		config:         Config,
 		status:         new,
 		db:             db,
@@ -257,7 +257,6 @@ func chooseComponent(name string, p *Pipeline, nextsCount int) (*node.Node, erro
 }
 
 func (p *Pipeline) createPersistenceBucket() error {
-	p.bucket = p.name + p.hash
 	return p.db.Update(func(tx *bolt.Tx) error {
 		var err error
 

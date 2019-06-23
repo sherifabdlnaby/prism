@@ -87,7 +87,7 @@ func (d *Dummy) Start() error {
 
 					// payloadData (request params)
 					payloadData := payload.Data{
-						"count": i,
+						"count": i + 1,
 					}
 
 					// get selectors
@@ -141,7 +141,7 @@ func (d *Dummy) Start() error {
 					}
 
 					// alternate between stream/data
-					flag = !flag
+					//flag = !flag
 
 					// Wait Transaction
 					response := <-responseChan
