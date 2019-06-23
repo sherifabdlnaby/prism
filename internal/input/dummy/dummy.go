@@ -159,10 +159,8 @@ func (d *Dummy) Start() error {
 
 // Close closes the plugin gracefully
 func (d *Dummy) Close() error {
-	d.logger.Debugw("received closing signal, closing...")
 	d.stopChan <- struct{}{}
 	d.wg.Wait()
 	close(d.Transactions)
-	d.logger.Debugw("closed.")
 	return nil
 }
