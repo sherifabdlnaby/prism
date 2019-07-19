@@ -67,7 +67,6 @@ LABEL maintainer="sherifabdlnaby@gmail.com" \
       org.label-schema.version="${PRISM_VERSION}"
 
 COPY --from=builder /usr/local/lib /usr/local/lib
-COPY --from=builder /go/bin/prism /usr/local/bin/prism
 COPY --from=builder /etc/ssl/certs /etc/ssl/certs
 
 # Install runtime dependencies
@@ -82,6 +81,8 @@ RUN DEBIAN_FRONTEND=noninteractive \
   apt-get autoclean && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+COPY --from=builder /go/bin/prism /usr/local/bin/prism
 
 ## Server port to listen
 #ENV PORT 9000
