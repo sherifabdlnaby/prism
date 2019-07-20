@@ -19,48 +19,12 @@ type Node struct {
 	Name           string
 	async          bool
 	nexts          []Next
-	Bucket         string
-	nodeType       component
+	nodeType       Type
 	wg             sync.WaitGroup
-	resource       resource.Resource
+	resource       *resource.Resource
 	Logger         zap.SugaredLogger
 	persistence    persistence.Persistence
 	receiveTxnChan chan transaction.Transaction //TODO make a receive only for more sanity
-}
-
-//Next Wraps the next Node plus the channel used to communicate with this Node to send input transactions.
-type Next struct {
-	*Node
-	TransactionChan chan transaction.Transaction
-}
-
-//TODO rename
-type component interface {
-	job(t transaction.Transaction)
-	jobStream(t transaction.Transaction)
-}
-
-//NewNext Create a new Next Node with the supplied Node.
-func NewNext(node *Node) *Next {
-	transactionChan := make(chan transaction.Transaction)
-
-	// gives the next's Node its InputTransactionChan, now owner of the 'next' owns closing the chan.
-	node.SetTransactionChan(transactionChan)
-
-	return &Next{
-		Node:            node,
-		TransactionChan: transactionChan,
-	}
-}
-
-func newBase(nodeType component, resource resource.Resource) *Node {
-	return &Node{
-		async:    false,
-		wg:       sync.WaitGroup{},
-		nexts:    nil,
-		resource: resource,
-		nodeType: nodeType,
-	}
 }
 
 // Start starts this Node and all its next nodes to start receiving transactions

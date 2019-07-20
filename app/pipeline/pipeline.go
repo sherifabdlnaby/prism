@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/sherifabdlnaby/prism/app/pipeline/persistence"
+	"github.com/sherifabdlnaby/prism/app/registry/wrapper"
 	"io"
 	"strconv"
 	"sync"
@@ -13,7 +14,6 @@ import (
 	"github.com/sherifabdlnaby/prism/app/pipeline/node"
 	"github.com/sherifabdlnaby/prism/app/registry"
 	"github.com/sherifabdlnaby/prism/app/resource"
-	"github.com/sherifabdlnaby/prism/pkg/component/processor"
 	"github.com/sherifabdlnaby/prism/pkg/response"
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
 	"go.uber.org/zap"
@@ -104,7 +104,7 @@ func NewPipeline(name string, Config config.Pipeline, registry registry.Registry
 	var err error
 
 	// Node Beginning Dummy Node
-	root := node.NewNext(node.NewDummy("dummy", *resource.NewResource(Config.Concurrency), logger))
+	root := node.NewNext(node.NewDummy("dummy", resource.NewResource(Config.Concurrency), logger))
 
 	// Create pipeline
 	p := &Pipeline{
@@ -160,23 +160,17 @@ func getNexts(next map[string]*config.Node, p *Pipeline, forceSync bool) ([]node
 
 func buildTree(name string, n config.Node, p *Pipeline, forceSync bool) (*node.Node, error) {
 
-	// create node of the configure components
-	currNode, err := chooseComponent(name, p, len(n.Next))
-	if err != nil {
-		return nil, err
-	}
-
 	//
 	async := n.Async
 	if forceSync {
 		async = false
 	}
 
-	// set node async
-	currNode.SetAsync(async)
-
-	// set persistence
-	currNode.SetPersistence(p.persistence)
+	// create node of the configure components
+	currNode, err := p.createNode(name, p.getUniqueNodeName(name), async, p.persistence, len(n.Next))
+	if err != nil {
+		return nil, err
+	}
 
 	// all NEXT nodes to be sync if current is async.
 	if async {
@@ -195,9 +189,9 @@ func buildTree(name string, n config.Node, p *Pipeline, forceSync bool) (*node.N
 	return currNode, nil
 }
 
-func getUniqueNodeName(name string, NodesList map[string]*node.Node) string {
+func (p Pipeline) getUniqueNodeName(name string) string {
 	for i := 0; ; {
-		_, ok := NodesList[name]
+		_, ok := p.NodeMap[name]
 		if !ok {
 			return name
 		}
@@ -205,47 +199,45 @@ func getUniqueNodeName(name string, NodesList map[string]*node.Node) string {
 	}
 }
 
-func chooseComponent(name string, p *Pipeline, nextsCount int) (*node.Node, error) {
+func (p Pipeline) createNode(componentName, nodeName string, async bool, persistence persistence.Persistence, nextsCount int) (*node.Node, error) {
 	var Node *node.Node
 
 	// check if ProcessReadWrite(and which types)
-	processorBase, ok := p.registry.GetProcessor(name)
-	if ok {
-		if nextsCount == 0 {
-			return nil, fmt.Errorf("plugin [%s] has no nexts(s) of type output, a pipeline path must end with an output plugin", name)
-		}
-		switch base := processorBase.Base.(type) {
-		case processor.ReadOnly:
-			Node = node.NewReadOnly(name, base, processorBase.Resource, p.Logger)
-		case processor.ReadWrite:
-			Node = node.NewReadWrite(name, base, processorBase.Resource, p.Logger)
-		case processor.ReadWriteStream:
-			Node = node.NewReadWriteStream(name, base, processorBase.Resource, p.Logger)
-		default:
-			return nil, fmt.Errorf("plugin [%s] doesn't exists", name)
-		}
-		// Not ProcessReadWrite, check if output.
-	} else {
-		output, ok := p.registry.GetOutput(name)
-		if ok {
-			if nextsCount > 0 {
-				return nil, fmt.Errorf("plugin [%s] has nexts(s), output plugins must not have nexts(s)", name)
-			}
-			Node = node.NewOutput(name, output, p.Logger)
-		} else {
-			return nil, fmt.Errorf("plugin [%s] doesn't exists", name)
-		}
+	component := p.registry.GetComponent(componentName)
+	if component == nil {
+		return nil, fmt.Errorf("plugin [%s] doesn't exists", componentName)
 	}
 
-	// Set Attrs
-	// Give new node a unique name
-	Node.Name = getUniqueNodeName(Node.Name, p.NodeMap)
+	switch component := component.(type) {
+	case *wrapper.ProcessorReadWrite, *wrapper.ProcessorReadOnly, *wrapper.ProcessorReadWriteStream:
+		if nextsCount == 0 {
+			return nil, fmt.Errorf("plugin [%s] has no nexts(s) of type output, a pipeline path must end with an output plugin", nodeName)
+		}
 
-	// create a Logger
-	Node.Logger = *p.Logger.Named(Node.Name)
+		switch component := component.(type) {
+		case *wrapper.ProcessorReadWrite:
+			Node = node.NewReadWrite(nodeName, component, p.Logger)
+		case *wrapper.ProcessorReadOnly:
+			Node = node.NewReadOnly(nodeName, component, p.Logger)
+		case *wrapper.ProcessorReadWriteStream:
+			Node = node.NewReadWriteStream(nodeName, component, p.Logger)
+		}
 
-	// save in global map
-	p.NodeMap[Node.Name] = Node
+	case *wrapper.Output:
+		if nextsCount > 0 {
+			return nil, fmt.Errorf("plugin [%s] has nexts(s), output plugins must not have nexts(s)", nodeName)
+		}
+		Node = node.NewOutput(nodeName, component, p.Logger)
+	default:
+		return nil, fmt.Errorf("plugin [%s] doesn't exists", nodeName)
+	}
+
+	Node.SetAsync(async)
+
+	Node.SetPersistence(p.persistence)
+
+	// save in map
+	p.NodeMap[nodeName] = Node
 
 	return Node, nil
 }

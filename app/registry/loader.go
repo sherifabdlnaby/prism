@@ -2,6 +2,7 @@ package registry
 
 import (
 	"fmt"
+	"github.com/sherifabdlnaby/prism/pkg/component"
 
 	"github.com/sherifabdlnaby/prism/app/config"
 	"github.com/sherifabdlnaby/prism/app/registry/wrapper"
@@ -12,6 +13,51 @@ import (
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
 	"go.uber.org/zap"
 )
+
+func (m *Registry) GetComponent(name string) component.Component {
+	var component component.Component = nil
+
+	component, ok := m.Inputs[name]
+	if !ok {
+		component, ok = m.ProcessorReadWrite[name]
+		if !ok {
+			component, ok = m.ProcessorReadWriteStream[name]
+			if !ok {
+				component, ok = m.ProcessorReadOnly[name]
+				if !ok {
+					component, ok = m.Outputs[name]
+					if !ok {
+						return nil
+					}
+				}
+
+			}
+		}
+	}
+
+	return component
+}
+
+func (m *Registry) GetProcessorsList() []wrapper.Processor {
+	processorsList := make([]wrapper.Processor, 0)
+
+	for _, value := range m.ProcessorReadWrite {
+		processorsList = append(processorsList, value)
+	}
+
+	for _, value := range m.ProcessorReadOnly {
+		processorsList = append(processorsList, value)
+	}
+
+	for _, value := range m.ProcessorReadWriteStream {
+		processorsList = append(processorsList, value)
+	}
+
+	return processorsList
+
+}
+
+// --------------------------------------------------------
 
 // LoadInput Load wrapper.Input Plugin in the loaded registry, according to the parsed config.
 func (m *Registry) LoadInput(name string, config config.Input, Logger zap.SugaredLogger) error {
@@ -38,12 +84,11 @@ func (m *Registry) LoadInput(name string, config config.Input, Logger zap.Sugare
 }
 
 // GetInput Get wrapper.Input Plugin from the loaded plugins.
-func (m *Registry) GetInput(name string) (a *wrapper.Input, b bool) {
-	a, b = m.Inputs[name]
-	return
+func (m *Registry) GetInput(name string) *wrapper.Input {
+	return m.Inputs[name]
 }
 
-/////////////
+// --------------------------------------------------------
 
 // LoadProcessor Load wrapper.ProcessReadWrite Plugin in the loaded registry, according to the parsed config.
 func (m *Registry) LoadProcessor(name string, config config.Processor, Logger zap.SugaredLogger) error {
@@ -59,29 +104,48 @@ func (m *Registry) LoadProcessor(name string, config config.Processor, Logger za
 
 	pluginInstance := componentConst()
 
-	switch pluginInstance.(type) {
+	switch plugin := pluginInstance.(type) {
 	case processor.ReadWrite:
+		m.ProcessorReadWrite[name] = &wrapper.ProcessorReadWrite{
+			ReadWrite: plugin,
+			Resource:  *resource.NewResource(config.Concurrency),
+		}
 	case processor.ReadWriteStream:
+		m.ProcessorReadWriteStream[name] = &wrapper.ProcessorReadWriteStream{
+			ReadWriteStream: plugin,
+			Resource:        *resource.NewResource(config.Concurrency),
+		}
 	case processor.ReadOnly:
+		m.ProcessorReadOnly[name] = &wrapper.ProcessorReadOnly{
+			ReadOnly: plugin,
+			Resource: *resource.NewResource(config.Concurrency),
+		}
 	default:
 		return fmt.Errorf("plugin type [%s] is not a processor plugin", config.Plugin)
-	}
-
-	m.Processors[name] = &wrapper.Processor{
-		Base:     pluginInstance.(processor.Base),
-		Resource: *resource.NewResource(config.Concurrency),
 	}
 
 	return nil
 }
 
 // GetProcessor Get wrapper.ProcessReadWrite Plugin from the loaded plugins.
-func (m *Registry) GetProcessor(name string) (a *wrapper.Processor, b bool) {
-	a, b = m.Processors[name]
+func (m *Registry) GetProcessorReadWrite(name string) (a *wrapper.ProcessorReadWrite, b bool) {
+	a, b = m.ProcessorReadWrite[name]
 	return
 }
 
-/////////////
+// GetProcessor Get wrapper.ProcessReadWrite Plugin from the loaded plugins.
+func (m *Registry) GetProcessorReadWriteStream(name string) (a *wrapper.ProcessorReadWriteStream, b bool) {
+	a, b = m.ProcessorReadWriteStream[name]
+	return
+}
+
+// GetProcessor Get wrapper.ProcessReadWrite Plugin from the loaded plugins.
+func (m *Registry) GetProcessorReadOnly(name string) (a *wrapper.ProcessorReadOnly, b bool) {
+	a, b = m.ProcessorReadOnly[name]
+	return
+}
+
+// --------------------------------------------------------
 
 // LoadOutput Load wrapper.Output Plugin in the loaded registry, according to the parsed config.
 func (m *Registry) LoadOutput(name string, config config.Output, Logger zap.SugaredLogger) error {
@@ -113,17 +177,25 @@ func (m *Registry) LoadOutput(name string, config config.Output, Logger zap.Suga
 }
 
 // GetOutput Get wrapper.Output Plugin from the loaded plugins.
-func (m *Registry) GetOutput(name string) (a *wrapper.Output, b bool) {
-	a, b = m.Outputs[name]
-	return
+func (m *Registry) GetOutput(name string) *wrapper.Output {
+	return m.Outputs[name]
 }
+
+// --------------------------------------------------------
 
 func (m *Registry) exists(name string) bool {
 	_, ok := m.Inputs[name]
 	if !ok {
-		_, ok = m.Processors[name]
+		_, ok = m.ProcessorReadWrite[name]
 		if !ok {
-			_, ok = m.Outputs[name]
+			_, ok = m.ProcessorReadWriteStream[name]
+			if !ok {
+				_, ok = m.ProcessorReadOnly[name]
+				if !ok {
+					_, ok = m.Outputs[name]
+				}
+
+			}
 		}
 	}
 	return ok

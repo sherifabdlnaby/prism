@@ -3,31 +3,16 @@ package node
 import (
 	"context"
 
-	"github.com/sherifabdlnaby/prism/app/resource"
 	"github.com/sherifabdlnaby/prism/pkg/component/processor"
 	"github.com/sherifabdlnaby/prism/pkg/payload"
 	"github.com/sherifabdlnaby/prism/pkg/response"
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
-	"go.uber.org/zap"
 )
 
-//readWrite Wraps a readwrite component
+//readWrite Wraps a readwrite Type
 type readWrite struct {
 	processor processor.ReadWrite
 	*Node
-}
-
-//NewReadWrite Construct a new ReadWrite Node
-func NewReadWrite(name string, processorReadWrite processor.ReadWrite, r resource.Resource, logger zap.SugaredLogger) *Node {
-	Node := &readWrite{processor: processorReadWrite}
-	base := newBase(Node, r)
-
-	// Set attributes
-	base.Name = name
-	base.Logger = logger
-
-	Node.Node = base
-	return Node.Node
 }
 
 //job Process transaction by calling Decode-> Process-> Encode->

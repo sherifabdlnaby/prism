@@ -46,8 +46,8 @@ func (a *App) initPlugins(c config.Config) error {
 
 	// Init Input Plugins
 	for name, input := range c.Inputs.Inputs {
-		plugin, _ := a.registry.GetInput(name)
 		pluginConfig := *componentConfig.NewConfig(input.Config)
+		plugin := a.registry.GetInput(name)
 		err := plugin.Init(pluginConfig, *a.logger.inputLogger.Named(name))
 		if err != nil {
 			return fmt.Errorf("failed to initialize plugin [%s]: %s", name, err.Error())
@@ -56,8 +56,8 @@ func (a *App) initPlugins(c config.Config) error {
 
 	// Load Processor Plugins
 	for name, processor := range c.Processors.Processors {
-		plugin, _ := a.registry.GetProcessor(name)
 		pluginConfig := *componentConfig.NewConfig(processor.Config)
+		plugin := a.registry.GetComponent(name)
 		err := plugin.Init(pluginConfig, *a.logger.processingLogger.Named(name))
 		if err != nil {
 			return fmt.Errorf("failed to initialize plugin [%s]: %s", name, err.Error())
@@ -66,8 +66,8 @@ func (a *App) initPlugins(c config.Config) error {
 
 	// Load Output Plugins
 	for name, output := range c.Outputs.Outputs {
-		plugin, _ := a.registry.GetOutput(name)
 		pluginConfig := *componentConfig.NewConfig(output.Config)
+		plugin := a.registry.GetOutput(name)
 		err := plugin.Init(pluginConfig, *a.logger.outputLogger.Named(name))
 		if err != nil {
 			return fmt.Errorf("failed to initialize plugin [%s]: %s", name, err.Error())
@@ -94,7 +94,7 @@ func (a *App) startInputPlugins() error {
 // startProcessorPlugins start all processor plugins in Config by calling their start() function
 func (a *App) startProcessorPlugins() error {
 
-	for name, value := range a.registry.Processors {
+	for name, value := range a.registry.GetProcessorsList() {
 		err := value.Start()
 		if err != nil {
 			a.logger.processingLogger.Errorf("failed to start processor plugin [%s]: %v", name, err)
@@ -238,7 +238,7 @@ func (a *App) stopInputPlugins() error {
 // stopProcessorPlugins Stop all processor plugins in Config by calling their Stop() function
 func (a *App) stopProcessorPlugins() error {
 
-	for name, value := range a.registry.Processors {
+	for name, value := range a.registry.GetProcessorsList() {
 		err := value.Close()
 		if err != nil {
 			a.logger.processingLogger.Errorf("failed to stop processor plugin [%s]: %v", name, err)

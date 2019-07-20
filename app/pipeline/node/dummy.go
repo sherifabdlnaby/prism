@@ -3,31 +3,16 @@ package node
 import (
 	"context"
 
-	"github.com/sherifabdlnaby/prism/app/resource"
 	"github.com/sherifabdlnaby/prism/pkg/bufferspool"
 	"github.com/sherifabdlnaby/prism/pkg/mirror"
 	"github.com/sherifabdlnaby/prism/pkg/payload"
 	"github.com/sherifabdlnaby/prism/pkg/response"
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
-	"go.uber.org/zap"
 )
 
 //dummy Used at the start of every pipeline.
 type dummy struct {
 	*Node
-}
-
-//NewDummy Construct a new Dummy Node
-func NewDummy(name string, r resource.Resource, logger zap.SugaredLogger) *Node {
-	dummy := &dummy{}
-	base := newBase(dummy, r)
-
-	// Set attributes
-	base.Name = name
-	base.Logger = logger
-
-	dummy.Node = base
-	return dummy.Node
 }
 
 //job Just forwards the input.

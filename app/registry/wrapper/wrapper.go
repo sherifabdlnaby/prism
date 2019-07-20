@@ -15,9 +15,8 @@ type Input struct {
 }
 
 // Processor wraps a processor Plugin Instance
-type Processor struct {
+type Processor interface {
 	processor.Base
-	Resource resource.Resource
 }
 
 // ProcessorReadOnly wraps a readonly processor Plugin Instance and its resource

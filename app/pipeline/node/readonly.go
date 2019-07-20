@@ -3,33 +3,18 @@ package node
 import (
 	"context"
 
-	"github.com/sherifabdlnaby/prism/app/resource"
 	"github.com/sherifabdlnaby/prism/pkg/bufferspool"
 	"github.com/sherifabdlnaby/prism/pkg/component/processor"
 	"github.com/sherifabdlnaby/prism/pkg/mirror"
 	"github.com/sherifabdlnaby/prism/pkg/payload"
 	"github.com/sherifabdlnaby/prism/pkg/response"
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
-	"go.uber.org/zap"
 )
 
-//readOnly Wraps a readOnly component
+//readOnly Wraps a readOnly Type
 type readOnly struct {
 	processor processor.ReadOnly
 	*Node
-}
-
-//NewReadOnly Construct a new ReadOnly node
-func NewReadOnly(name string, processorReadOnly processor.ReadOnly, resource resource.Resource, logger zap.SugaredLogger) *Node {
-	Node := &readOnly{processor: processorReadOnly}
-	base := newBase(Node, resource)
-
-	// Set attributes
-	base.Name = name
-	base.Logger = logger
-
-	Node.Node = base
-	return Node.Node
 }
 
 //job Process transaction by calling Decode-> Process-> Encode->
