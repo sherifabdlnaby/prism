@@ -64,7 +64,7 @@ func bootstrap() (config.Config, error) {
 		printLogo()
 	}
 
-	// Initialize Root Logger
+	// Initialize Root logger
 	logger, err := bootLogger(environment)
 	if err != nil {
 		return config.Config{}, err

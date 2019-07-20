@@ -2,6 +2,7 @@ package transaction
 
 import (
 	"context"
+	"os"
 
 	"github.com/sherifabdlnaby/prism/pkg/payload"
 	"github.com/sherifabdlnaby/prism/pkg/response"
@@ -34,8 +35,17 @@ type InputTransaction struct {
 	PipelineTag string
 }
 
-//Async to be persisted in local DB
+// Async to be persisted in local DB
 type Async struct {
-	ID, Pipeline, Node, Filepath string
-	Data                         payload.Data
+	ID, Node, Filepath string
+	Data               payload.Data
+	// ----- Used to close files after async request is done
+	TmpFile *os.File `json:"-"`
+}
+
+func (a Async) Finalize() error {
+	if a.TmpFile != nil {
+		return a.TmpFile.Close()
+	}
+	return nil
 }

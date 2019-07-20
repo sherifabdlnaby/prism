@@ -2,16 +2,13 @@ package app
 
 import (
 	"fmt"
-	"io/ioutil"
-	"os"
-	"path/filepath"
-	"time"
-
-	"github.com/boltdb/bolt"
 	"github.com/sherifabdlnaby/prism/app/config"
 	"github.com/sherifabdlnaby/prism/app/pipeline"
 	componentConfig "github.com/sherifabdlnaby/prism/pkg/config"
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 )
 
 // loadPlugins Load all plugins in Config
@@ -125,24 +122,6 @@ func (a *App) startOutputPlugins() error {
 // initPipelines Initialize and build all configured pipelines
 func (a *App) initPipelines(c config.Config) error {
 
-	dataDir := config.EnvPrismDataDir.Lookup()
-
-	// open pipeline DB
-	err := os.MkdirAll(dataDir, os.ModePerm)
-	if err != nil {
-		return err
-	}
-
-	err = os.MkdirAll(config.EnvPrismTmpDir.Lookup(), os.ModePerm)
-	if err != nil {
-		return err
-	}
-
-	db, err := bolt.Open(dataDir+"/async.db", 0600, &bolt.Options{Timeout: 1 * time.Second})
-	if err != nil {
-		return fmt.Errorf("error while opening persistence DB file %s", err.Error())
-	}
-
 	for key, pipConfig := range c.Pipeline.Pipelines {
 
 		// check if pipeline already exists
@@ -151,7 +130,7 @@ func (a *App) initPipelines(c config.Config) error {
 			return fmt.Errorf("pipeline with name [%s] already declared", key)
 		}
 
-		pip, err := pipeline.NewPipeline(key, db, *pipConfig, a.registry, *a.logger.processingLogger.Named(key), c.Pipeline.Hash)
+		pip, err := pipeline.NewPipeline(key, *pipConfig, a.registry, *a.logger.processingLogger.Named(key), c.Pipeline.Hash)
 
 		if err != nil {
 			return fmt.Errorf("error occurred when constructing pipeline [%s]: %s", key, err.Error())
@@ -175,7 +154,7 @@ func (a *App) startPipelines() error {
 	for _, value := range a.pipelines {
 		err := value.Start()
 		if err != nil {
-			value.Logger.Error(err.Error())
+			a.logger.pipelineLogger.Error(err.Error())
 			return err
 		}
 	}

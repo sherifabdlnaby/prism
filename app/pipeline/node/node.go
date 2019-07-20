@@ -2,16 +2,10 @@ package node
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
-	"io/ioutil"
-	"os"
+	"github.com/sherifabdlnaby/prism/app/pipeline/persistence"
 	"sync"
 
-	"github.com/boltdb/bolt"
-	"github.com/google/uuid"
-	"github.com/sherifabdlnaby/prism/app/config"
 	"github.com/sherifabdlnaby/prism/app/resource"
 	"github.com/sherifabdlnaby/prism/pkg/mirror"
 	"github.com/sherifabdlnaby/prism/pkg/payload"
@@ -27,10 +21,10 @@ type Node struct {
 	nexts          []Next
 	Bucket         string
 	nodeType       component
-	Db             *bolt.DB
 	wg             sync.WaitGroup
 	resource       resource.Resource
 	Logger         zap.SugaredLogger
+	persistence    persistence.Persistence
 	receiveTxnChan chan transaction.Transaction //TODO make a receive only for more sanity
 }
 
@@ -128,6 +122,11 @@ func (n *Node) SetAsync(async bool) {
 	n.async = async
 }
 
+//SetAsync Set if this Node is sync/async
+func (n *Node) SetPersistence(p persistence.Persistence) {
+	n.persistence = p
+}
+
 // ProcessTransaction transaction according to its type stream/bytes
 func (n *Node) ProcessTransaction(t transaction.Transaction) {
 	// Start Job according to transaction payload Type
@@ -143,114 +142,37 @@ func (n *Node) ProcessTransaction(t transaction.Transaction) {
 }
 
 func (n *Node) handleTransaction(t transaction.Transaction) {
+
 	// if Node is set async, convert to async transaction
 	if n.async {
-		err := n.startAsyncTransaction(&t)
+
+		newTxn, err := n.startAsyncTransaction(t)
 		if err != nil {
 			t.ResponseChan <- response.Error(err)
 			return
 		}
+
+		// Respond to Awaiting sender as now the new transaction is gonna be handled by Async Manager
+		t.ResponseChan <- response.ACK
+
+		t = newTxn
 	}
 
 	n.ProcessTransaction(t)
 }
 
-func (n *Node) startAsyncTransaction(t *transaction.Transaction) error {
+func (n *Node) startAsyncTransaction(t transaction.Transaction) (transaction.Transaction, error) {
 
-	dirPath := config.EnvPrismTmpDir.Lookup()
-
-	tmpFile, err := ioutil.TempFile(dirPath, "*.prism")
+	asyncTxn, newPayload, err := n.persistence.SaveTxn(n.Name, t)
 	if err != nil {
-		return err
-	}
-
-	filepath := tmpFile.Name()
-
-	//----------------------------------------------------------
-
-	var newPayload payload.Payload
-
-	// Lookup all Transaction Data
-	switch Payload := t.Payload.(type) {
-	case payload.Bytes:
-		nBytes, err := tmpFile.Write(Payload)
-
-		if err != nil {
-			err = fmt.Errorf("failed to save async transaction to tmp tmpFile, error: %s", err.Error())
-			return err
-		}
-
-		if nBytes != len(Payload) {
-			err = fmt.Errorf("failed to save async transaction to tmp tmpFile, couldn't write all bytes")
-			return err
-		}
-
-		// set new Payload to bytes (we keep in memory if we're in memory)
-		newPayload = Payload
-
-		err = tmpFile.Close()
-		if err != nil {
-			return err
-		}
-
-		tmpFile = nil
-	case payload.Stream:
-		_, err = io.Copy(tmpFile, Payload)
-
-		if err != nil {
-			_ = tmpFile.Close()
-			return err
-		}
-
-		err = tmpFile.Close()
-		if err != nil {
-			return err
-		}
-
-		tmpFile, err = os.Open(tmpFile.Name())
-
-		newPayload = payload.Stream(tmpFile)
-
-		if err != nil {
-			return err
-		}
-	default:
-		err = fmt.Errorf("invalid transaction Payload type, must be Payload.Bytes or Payload.Stream")
-		return err
-	}
-
-	// ----------------------------------------------------------
-
-	asyncTxn := &transaction.Async{
-		ID:       uuid.New().String(),
-		Filepath: filepath,
-		Pipeline: n.Bucket,
-		Node:     n.Name,
-		Data:     t.Data,
-	}
-
-	encodedBytes, err := json.Marshal(asyncTxn)
-	if err != nil {
-		return err
-	}
-
-	// Persist to Database
-	err = n.Db.Update(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte(n.Bucket))
-		err := b.Put([]byte(asyncTxn.ID), encodedBytes)
-		return err
-	})
-
-	if err != nil {
-		return err
+		return transaction.Transaction{}, nil
 	}
 
 	// --------------------------------------------------------------
 
 	newResponseChan := make(chan response.Response)
-
 	n.wg.Add(1)
-	go n.receiveAsyncResponse(asyncTxn.ID, tmpFile, newResponseChan)
+	go n.receiveAsyncResponse(asyncTxn, newResponseChan)
 
 	// since it will be async, sync transaction context is irrelevant.
 	// (we don't want sync nodes -that cancel transaction context when finishing to avoid ctx leak- to
@@ -260,62 +182,30 @@ func (n *Node) startAsyncTransaction(t *transaction.Transaction) error {
 	// New Payload
 	t.Payload = newPayload
 
-	// return ack response
-	t.ResponseChan <- response.Ack()
-
 	// now actual response is given to asyncResponds that should handle async responds
 	t.ResponseChan = newResponseChan
 
-	return nil
+	return t, nil
 }
 
-func (n *Node) receiveAsyncResponse(ID string, TmpFile *os.File, newResponseChan chan response.Response) {
+func (n *Node) receiveAsyncResponse(asyncTxn *transaction.Async, newResponseChan chan response.Response) {
 	defer n.wg.Done()
 
-	//TODO check Response
 	response := <-newResponseChan
 	if response.Error != nil {
 		n.Logger.Errorw("error occurred when processing an async request", "error", response.Error.Error())
 	}
 
-	//close Tmp file if it was used to stream data
-	if TmpFile != nil {
-		_ = TmpFile.Close()
+	// ------------------ Clean UP ------------------ //
+	err := asyncTxn.Finalize()
+	if err != nil {
+		n.Logger.Errorw("an error occurred while applying finalizing async requests", "error", err.Error())
 	}
 
-	tmpFilePath := ""
-
-	// DELETE TMP FILE AND DATABASE ENTRY
-	err := n.Db.Update(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte(n.Bucket))
-		result := b.Get([]byte(ID))
-		if result == nil {
-			return fmt.Errorf("received response of a non persistent transaction")
-		}
-
-		asyncTxn := &transaction.Async{}
-		err := json.Unmarshal(result, asyncTxn)
-		if err != nil {
-			return err
-		}
-
-		err = b.Delete([]byte(ID))
-		if err != nil {
-			return err
-		}
-
-		tmpFilePath = asyncTxn.Filepath
-
-		return nil
-	})
+	// Delete Entry from DB
+	err = n.persistence.DeleteTxn(asyncTxn)
 	if err != nil {
-		return
-	}
-
-	// Delete from Storage
-	err = os.Remove(tmpFilePath)
-	if err != nil {
-		return
+		n.Logger.Errorw("an error occurred while applying persisted async requests", "error", err.Error())
 	}
 }
 

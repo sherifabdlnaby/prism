@@ -9,7 +9,7 @@ import (
 )
 
 // ENUM for logging requests
-// LFail:	Log all requests via Logger debug
+// LFail:	Log all requests via logger debug
 // LogInfo:   Log all requests via logger info
 const (
 	LogDebug = iota
@@ -27,7 +27,7 @@ func (rec *logResponseWriter) WriteHeader(code int) {
 	rec.ResponseWriter.WriteHeader(code)
 }
 
-//Request Logger logs every request
+//Request logger logs every request
 func requestLogger(next http.Handler, lType int, l zap.SugaredLogger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
