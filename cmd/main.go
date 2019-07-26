@@ -103,31 +103,31 @@ func bootstrap() (config.Config, error) {
 	pipelineConfigPath := configDir + "/pipelines.yaml"
 
 	// READ CONFIG MAIN FILES
-	appConfig := config.AppConfig{}
+	appConfig := config.App{}
 	_, err = config.Load(appConfigPath, &appConfig, true)
 	if err != nil {
 		return config.Config{}, err
 	}
 
 	// READ CONFIG MAIN FILES
-	inputConfig := config.InputsConfig{}
+	inputConfig := config.Inputs{}
 	_, err = config.Load(inputConfigPath, &inputConfig, true)
 	if err != nil {
 		return config.Config{}, err
 	}
 
-	processorConfig := config.ProcessorsConfig{}
+	processorConfig := config.Processors{}
 	_, err = config.Load(processorConfigPath, &processorConfig, true)
 	if err != nil {
 		return config.Config{}, err
 	}
-	outputConfig := config.OutputsConfig{}
+	outputConfig := config.Outputs{}
 	_, err = config.Load(outputConfigPath, &outputConfig, true)
 	if err != nil {
 		return config.Config{}, err
 	}
 
-	pipelineConfig := config.PipelinesConfig{}
+	pipelineConfig := config.Pipelines{}
 	hash, err := config.Load(pipelineConfigPath, &pipelineConfig, true)
 	if err != nil {
 		return config.Config{}, err
@@ -135,12 +135,14 @@ func bootstrap() (config.Config, error) {
 	pipelineConfig.Hash = hash
 
 	return config.Config{
-		App:        appConfig,
-		Inputs:     inputConfig,
-		Processors: processorConfig,
-		Outputs:    outputConfig,
-		Pipeline:   pipelineConfig,
-		Logger:     *logger,
+		App: appConfig,
+		Components: config.Components{
+			Inputs:     inputConfig,
+			Processors: processorConfig,
+			Outputs:    outputConfig,
+		},
+		Pipelines: pipelineConfig,
+		Logger:    *logger,
 	}, nil
 }
 

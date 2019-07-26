@@ -1,27 +1,34 @@
-package app
+package forwarder
 
 import (
 	"fmt"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/sherifabdlnaby/prism/app/registry"
 	"github.com/sherifabdlnaby/prism/pkg/payload"
 	"github.com/sherifabdlnaby/prism/pkg/response"
+	"github.com/sherifabdlnaby/prism/pkg/transaction"
 )
 
-//start starts the mux that forwards the transactions from input to pipelines based on PipelineTag in transaction.
-func (a *App) start() {
-	for _, value := range a.registry.Inputs {
-		go a.forwardInputToPipeline(value)
+type Forwarder struct {
+	inputChans []<-chan transaction.InputTransaction
+	pipelines  map[string]chan<- transaction.Transaction
+}
+
+func NewForwarder(inputChans []<-chan transaction.InputTransaction, pipelines map[string]chan<- transaction.Transaction) *Forwarder {
+	return &Forwarder{inputChans: inputChans, pipelines: pipelines}
+}
+
+//Start starts the Forwarder that forwards the transactions from input to pipelines based on PipelineTag in transaction.
+func (m *Forwarder) Start() {
+	for _, value := range m.inputChans {
+		go m.forwardInputToPipeline(value)
 	}
 }
 
-func (a *App) forwardInputToPipeline(input *registry.Input) {
+func (m *Forwarder) forwardInputToPipeline(input <-chan transaction.InputTransaction) {
 
-	pipelines := a.pipelineManger.Pipelines()
-
-	for in := range input.InputTransactionChan() {
+	for in := range input {
 
 		//get pipeline tag
 		if in.PipelineTag == "" {
@@ -29,7 +36,7 @@ func (a *App) forwardInputToPipeline(input *registry.Input) {
 			continue
 		}
 
-		_, ok := pipelines[in.PipelineTag]
+		_, ok := m.pipelines[in.PipelineTag]
 		if !ok {
 			in.ResponseChan <- response.Error(fmt.Errorf("pipeline [%s] is not defined", in.PipelineTag))
 			continue
@@ -39,7 +46,7 @@ func (a *App) forwardInputToPipeline(input *registry.Input) {
 		applyDefaultFields(in.Data)
 
 		// Forward
-		pipelines[in.PipelineTag].TransactionChan <- in.Transaction
+		m.pipelines[in.PipelineTag] <- in.Transaction
 	}
 }
 

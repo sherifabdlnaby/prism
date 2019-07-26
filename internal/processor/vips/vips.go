@@ -61,8 +61,8 @@ func (d *Vips) Start() error {
 	return nil
 }
 
-//Close Close plugin gracefully
-func (d *Vips) Close() error {
+//Stop Stop plugin gracefully
+func (d *Vips) Stop() error {
 	return nil
 }
 

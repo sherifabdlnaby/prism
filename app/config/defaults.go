@@ -29,7 +29,7 @@ var DefaultOutput = Output{
 }
 
 //DefaultAppConfig used in defaults
-var DefaultAppConfig = AppConfig{
+var DefaultAppConfig = App{
 	Logger: "prod",
 }
 
@@ -91,12 +91,12 @@ func (n *Node) ApplyDefault() error {
 }
 
 //ApplyDefault func used in defaults
-func (n *AppConfig) ApplyDefault() error {
+func (n *App) ApplyDefault() error {
 	return mergo.Merge(n, DefaultAppConfig)
 }
 
 //ApplyDefault func used in defaults
-func (i *InputsConfig) ApplyDefault() error {
+func (i *Inputs) ApplyDefault() error {
 	for _, value := range i.Inputs {
 		err := value.ApplyDefault()
 		if err != nil {
@@ -107,7 +107,7 @@ func (i *InputsConfig) ApplyDefault() error {
 }
 
 //ApplyDefault func used in defaults
-func (i *OutputsConfig) ApplyDefault() error {
+func (i *Outputs) ApplyDefault() error {
 	for _, value := range i.Outputs {
 		err := value.ApplyDefault()
 		if err != nil {
@@ -118,7 +118,7 @@ func (i *OutputsConfig) ApplyDefault() error {
 }
 
 //ApplyDefault func used in defaults
-func (i *ProcessorsConfig) ApplyDefault() error {
+func (i *Processors) ApplyDefault() error {
 	for _, value := range i.Processors {
 		err := value.ApplyDefault()
 		if err != nil {
@@ -129,7 +129,7 @@ func (i *ProcessorsConfig) ApplyDefault() error {
 }
 
 //ApplyDefault func used in defaults
-func (i *PipelinesConfig) ApplyDefault() error {
+func (i *Pipelines) ApplyDefault() error {
 	for _, value := range i.Pipelines {
 		err := value.ApplyDefault()
 		if err != nil {

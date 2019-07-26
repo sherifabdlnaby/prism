@@ -57,8 +57,8 @@ func (d *Detector) Start() error {
 	return nil
 }
 
-// Close validator plugin
-func (d *Detector) Close() error {
+// Stop validator plugin
+func (d *Detector) Stop() error {
 	return nil
 }
 

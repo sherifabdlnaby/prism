@@ -1,34 +1,44 @@
 package app
 
 import (
+	"github.com/sherifabdlnaby/prism/app/component"
 	"github.com/sherifabdlnaby/prism/app/config"
+	"github.com/sherifabdlnaby/prism/app/forwarder"
 	"github.com/sherifabdlnaby/prism/app/pipeline"
-	"github.com/sherifabdlnaby/prism/app/registry"
 )
 
 //App is an self contained instance of Prism app.
 type App struct {
-	config         config.Config
-	logger         logger
-	registry       registry.Registry
-	pipelineManger pipeline.Manager
+	config     config.Config
+	logger     logger
+	components component.Manager
+	pipelines  pipeline.Manager
+	forwarder  forwarder.Forwarder
 }
 
 //NewApp Construct a new instance of Prism App using parsed config, instance still need to be initialized and started.
 func NewApp(config config.Config) (*App, error) {
 
 	app := &App{
-		config:   config,
-		logger:   *newLoggers(config),
-		registry: *registry.NewRegistry(), //TODO delete when create component manager
+		config: config,
+		logger: *newLoggers(config),
 	}
 
-	pipelineManager, err := pipeline.NewManager(config.Pipeline, app.logger.SugaredLogger)
+	components, err := component.NewManager(config.Components, app.logger.SugaredLogger)
 	if err != nil {
 		return nil, err
 	}
 
-	app.pipelineManger = *pipelineManager
+	pipelines, err := pipeline.NewManager(config.Pipelines, components.Registry(), app.logger.SugaredLogger)
+	if err != nil {
+		return nil, err
+	}
+
+	forwarder := forwarder.NewForwarder(components.InputsReceiveChans(), pipelines.PipelinesReceiveChan())
+
+	app.components = *components
+	app.pipelines = *pipelines
+	app.forwarder = *forwarder
 
 	return app, nil
 }
@@ -40,73 +50,45 @@ func NewApp(config config.Config) (*App, error) {
 // 4-start pipelines
 // 5-start plugins
 func (a *App) Start(config config.Config) error {
-	return a.startComponents(config)
-}
 
-//Stop Stop all components gracefully, will stop in the following sequence
-// 		1- Input Components.
-// 		2- Pipelines.
-// 		3- Processor Components.
-// 		4- Output Components.
-func (a *App) Stop() error {
-	return a.stopComponents()
-}
-
-//startComponents start components
-func (a *App) startComponents(c config.Config) error {
-
-	a.logger.Info("loading plugins configuration...")
-	err := a.loadPlugins(c)
-	if err != nil {
-		a.logger.Errorf("error while loading plugins: %v", err)
-		return err
-	}
-
-	a.logger.Info("initializing plugins...")
-	err = a.initPlugins(c)
-	if err != nil {
-		a.logger.Errorf("error while initializing plugins: %v", err)
-		return err
-	}
-
-	err = a.pipelineManger.StartAll()
+	err := a.pipelines.StartAll()
 	if err != nil {
 		a.logger.Errorf("error while starting pipelines: %v", err)
 		return err
 	}
 
 	// starting Mux
-	a.start()
+	a.forwarder.Start()
 
 	a.logger.Info("starting output plugins...")
-	err = a.startOutputPlugins()
+	err = a.components.StartAllOutputs()
 	if err != nil {
 		a.logger.Errorf("error while starting output plugins: %v", err)
 		return err
 	}
 
 	a.logger.Info("starting processor plugins...")
-	err = a.startProcessorPlugins()
+	err = a.components.StartAllProcessors()
 	if err != nil {
 		a.logger.Errorf("error while starting processor plugins: %v", err)
 		return err
 	}
 
 	a.logger.Info("checking for any persisted async requests that need to be done...")
-	err = a.pipelineManger.RecoverAsyncAll()
+	err = a.pipelines.RecoverAsyncAll()
 	if err != nil {
 		a.logger.Errorf("error while applying persisted async requests: %v", err)
 		return err
 	}
 
-	err = a.pipelineManger.Cleanup()
+	err = a.pipelines.Cleanup()
 	if err != nil {
 		a.logger.Errorf("error while applying persisted async requests: %v", err)
 		return err
 	}
 
 	a.logger.Info("starting input plugins...")
-	err = a.startInputPlugins()
+	err = a.components.StartAllInputs()
 	if err != nil {
 		a.logger.Errorf("error while starting input plugins: %v", err)
 		return err
@@ -116,19 +98,18 @@ func (a *App) startComponents(c config.Config) error {
 	return nil
 }
 
-//stopComponents Stop components in graceful strategy
-// 		1- Stop Input Components.
-// 		2- Stop Pipelines.
-// 		3- Stop Processor Components.
-// 		4- Stop Output Components.
-// As by definition each stop functionality in these components is graceful, this should guarantee graceful shutdown.
-func (a *App) stopComponents() error {
+//Stop Stop all components gracefully, will stop in the following sequence
+// 		1- Input Components.
+// 		2- Pipelines.
+// 		3- Processor Components.
+// 		4- Output Components.
+func (a *App) Stop() error {
 	a.logger.Info("stopping all components gracefully...")
 
 	///////////////////////////////////////
 
 	a.logger.Info("stopping input plugins...")
-	err := a.stopInputPlugins()
+	err := a.components.StopAllInputs()
 	if err != nil {
 		a.logger.Errorf("failed to stop input plugins: %v", err)
 		return err
@@ -138,7 +119,7 @@ func (a *App) stopComponents() error {
 	///////////////////////////////////////
 
 	a.logger.Info("stopping pipelines...")
-	err = a.pipelineManger.StopAll()
+	err = a.pipelines.StopAll()
 	if err != nil {
 		a.logger.Errorf("failed to stop pipelines: %v", err)
 		return err
@@ -148,7 +129,7 @@ func (a *App) stopComponents() error {
 	///////////////////////////////////////
 
 	a.logger.Info("stopping processor plugins...")
-	err = a.stopProcessorPlugins()
+	err = a.components.StopAllProcessors()
 	if err != nil {
 		a.logger.Errorf("failed to stop input plugins: %v", err)
 		return err
@@ -158,7 +139,7 @@ func (a *App) stopComponents() error {
 	///////////////////////////////////////
 
 	a.logger.Info("stopping output plugins...")
-	err = a.stopOutputPlugins()
+	err = a.components.StopAllOutputs()
 	if err != nil {
 		a.logger.Errorf("failed to stop output plugins: %v", err)
 		return err

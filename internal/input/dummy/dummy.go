@@ -157,8 +157,8 @@ func (d *Dummy) Start() error {
 	return nil
 }
 
-// Close closes the plugin gracefully
-func (d *Dummy) Close() error {
+// Stop closes the plugin gracefully
+func (d *Dummy) Stop() error {
 	d.stopChan <- struct{}{}
 	d.wg.Wait()
 	close(d.Transactions)

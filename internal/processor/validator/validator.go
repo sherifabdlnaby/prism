@@ -81,8 +81,8 @@ func (d *Validator) Start() error {
 	return nil
 }
 
-//Close the validator plugin
-func (d *Validator) Close() error {
+//Stop the validator plugin
+func (d *Validator) Stop() error {
 	return nil
 }
 

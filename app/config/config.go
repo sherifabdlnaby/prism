@@ -25,11 +25,9 @@ type WithDefaults interface {
 
 // Config is the collection of config needed for the engine to start.
 type Config struct {
-	App        AppConfig
-	Inputs     InputsConfig
-	Processors ProcessorsConfig
-	Outputs    OutputsConfig
-	Pipeline   PipelinesConfig
+	App        App
+	Components Components
+	Pipelines  Pipelines
 	Logger     zap.SugaredLogger
 }
 
@@ -55,23 +53,29 @@ type Output struct {
 	Component `yaml:",inline" mapstructure:",squash"`
 }
 
-// InputsConfig used for YAML decoding
-type InputsConfig struct {
+type Components struct {
+	Inputs     Inputs
+	Processors Processors
+	Outputs    Outputs
+}
+
+// inputs used for YAML decoding
+type Inputs struct {
 	Inputs map[string]*Input `yaml:"inputs"`
 }
 
-// AppConfig used for YAML decoding
-type AppConfig struct {
+// App used for YAML decoding
+type App struct {
 	Logger string `yaml:"logger"`
 }
 
-// ProcessorsConfig used for YAML decoding
-type ProcessorsConfig struct {
+// Processors used for YAML decoding
+type Processors struct {
 	Processors map[string]*Processor `yaml:"processors"`
 }
 
-// OutputsConfig used for YAML decoding
-type OutputsConfig struct {
+// outputs used for YAML decoding
+type Outputs struct {
 	Outputs map[string]*Output `yaml:"outputs"`
 }
 
@@ -81,13 +85,13 @@ type Node struct {
 	Next  map[string]*Node `yaml:",inline"`
 }
 
-// PipelinesConfig used for YAML decoding
-type PipelinesConfig struct {
+// Pipelines used for YAML decoding
+type Pipelines struct {
 	Pipelines map[string]*Pipeline `yaml:"pipelines"`
 	Hash      string
 }
 
-// Pipeline used for YAML decoding
+// Pipelines used for YAML decoding
 type Pipeline struct {
 	Concurrency int              `yaml:"concurrency"`
 	Pipeline    map[string]*Node `yaml:"pipeline"`

@@ -3,9 +3,9 @@ package pipeline
 import (
 	"fmt"
 
+	"github.com/sherifabdlnaby/prism/app/component"
 	"github.com/sherifabdlnaby/prism/app/config"
 	"github.com/sherifabdlnaby/prism/app/pipeline/persistence"
-	"github.com/sherifabdlnaby/prism/app/registry"
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
 	"go.uber.org/zap"
 )
@@ -17,7 +17,7 @@ type wrapper struct {
 
 type Manager struct {
 	pipelines map[string]wrapper
-	registry  registry.Registry
+	registry  component.Registry
 	logger    zap.SugaredLogger
 }
 
@@ -26,8 +26,12 @@ func (m *Manager) Pipelines() map[string]wrapper {
 }
 
 // initPipelines Initialize and build all configured pipelines
-func NewManager(c config.PipelinesConfig, logger zap.SugaredLogger) (*Manager, error) {
-	m := Manager{}
+func NewManager(c config.Pipelines, registry component.Registry, logger zap.SugaredLogger) (*Manager, error) {
+	m := Manager{
+		pipelines: make(map[string]wrapper),
+		registry:  registry,
+		logger:    zap.SugaredLogger{},
+	}
 
 	m.logger = *logger.Named("pipeline")
 
@@ -48,6 +52,16 @@ func NewManager(c config.PipelinesConfig, logger zap.SugaredLogger) (*Manager, e
 	}
 
 	return &m, nil
+}
+
+func (m *Manager) PipelinesReceiveChan() map[string]chan<- transaction.Transaction {
+	chans := make(map[string]chan<- transaction.Transaction)
+
+	for key, pipeline := range m.pipelines {
+		chans[key] = pipeline.TransactionChan
+	}
+
+	return chans
 }
 
 // startPipelines start all pipelines and start accepting input

@@ -1,4 +1,4 @@
-package registry
+package component
 
 import (
 	dummyinput "github.com/sherifabdlnaby/prism/internal/input/dummy"

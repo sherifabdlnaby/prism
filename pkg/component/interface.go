@@ -14,5 +14,5 @@ type Base interface {
 	Start() error
 
 	// Stop shutdown down and clean up resources gracefully within a timeout.
-	Close() error
+	Stop() error
 }

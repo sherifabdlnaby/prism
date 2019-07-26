@@ -136,9 +136,9 @@ func (s *S3) writeOnS3(svc *s3.S3, txn transaction.Transaction) {
 	txn.ResponseChan <- response.Ack()
 }
 
-//Close func Send a close signal to stop chan
-// to stop taking transactions and Close everything safely
-func (s *S3) Close() error {
+//Stop func Send a close signal to stop chan
+// to stop taking transactions and Stop everything safely
+func (s *S3) Stop() error {
 	s.wg.Wait()
 	return nil
 }

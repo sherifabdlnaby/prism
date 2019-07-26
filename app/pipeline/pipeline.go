@@ -2,10 +2,10 @@ package pipeline
 
 import (
 	"context"
+	"github.com/sherifabdlnaby/prism/app/component"
 	"github.com/sherifabdlnaby/prism/app/config"
 	"github.com/sherifabdlnaby/prism/app/pipeline/node"
 	"github.com/sherifabdlnaby/prism/app/pipeline/persistence"
-	"github.com/sherifabdlnaby/prism/app/registry"
 	"github.com/sherifabdlnaby/prism/pkg/response"
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
 	"go.uber.org/zap"
@@ -13,11 +13,11 @@ import (
 	"sync"
 )
 
-//Pipeline Holds the recursive tree of Nodes and their next nodes, etc
+//Pipelines Holds the recursive tree of Nodes and their next nodes, etc
 type Pipeline struct {
 	name           string
 	hash           string
-	registry       registry.Registry
+	registry       component.Registry
 	Root           *node.Next
 	NodeMap        map[string]*node.Node
 	receiveTxnChan <-chan transaction.Transaction

@@ -73,8 +73,8 @@ func (w *Webserver) Start() error {
 	return nil
 }
 
-//Close : graceful shutdown.
-func (w *Webserver) Close() error {
+//Stop : graceful shutdown.
+func (w *Webserver) Stop() error {
 	w.logger.Infof("gracefully shutting down http server at %d...", w.config.Port)
 
 	err := w.Server.Shutdown(context.Background())

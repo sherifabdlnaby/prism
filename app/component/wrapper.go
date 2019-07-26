@@ -1,4 +1,4 @@
-package registry
+package component
 
 import (
 	"github.com/sherifabdlnaby/prism/app/resource"
@@ -19,19 +19,19 @@ type Processor interface {
 	processor.Processor
 }
 
-// ProcessorReadOnly wraps a readonly processor Plugin Instance and its resource
+// processorReadOnly wraps a readonly processor Plugin Instance and its resource
 type ProcessorReadOnly struct {
 	processor.ReadOnly
 	Resource resource.Resource
 }
 
-// ProcessorReadWrite wraps a read-write processor Plugin Instance and its resource
+// processorReadWrite wraps a read-write processor Plugin Instance and its resource
 type ProcessorReadWrite struct {
 	processor.ReadWrite
 	Resource resource.Resource
 }
 
-//ProcessorReadWriteStream wraps a read-write-stream processor Plugin Instance and its resource
+//processorReadWriteStream wraps a read-write-stream processor Plugin Instance and its resource
 type ProcessorReadWriteStream struct {
 	processor.ReadWriteStream
 	Resource resource.Resource

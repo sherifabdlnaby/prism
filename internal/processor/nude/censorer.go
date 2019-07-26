@@ -67,8 +67,8 @@ func (d *Censor) Start() error {
 	return nil
 }
 
-// Close validator plugin
-func (d *Censor) Close() error {
+// Stop validator plugin
+func (d *Censor) Stop() error {
 	return nil
 }
 

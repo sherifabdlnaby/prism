@@ -5,17 +5,17 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/sherifabdlnaby/prism/app/component"
 	"github.com/sherifabdlnaby/prism/app/config"
 	"github.com/sherifabdlnaby/prism/app/pipeline/node"
 	"github.com/sherifabdlnaby/prism/app/pipeline/persistence"
-	"github.com/sherifabdlnaby/prism/app/registry"
 	"github.com/sherifabdlnaby/prism/app/resource"
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
 	"go.uber.org/zap"
 )
 
 //NewPipeline Construct a NewPipeline using config.
-func NewPipeline(name string, Config config.Pipeline, registry registry.Registry,
+func NewPipeline(name string, Config config.Pipeline, registry component.Registry,
 	logger zap.SugaredLogger) (*wrapper, error) {
 	var err error
 
@@ -53,7 +53,7 @@ func NewPipeline(name string, Config config.Pipeline, registry registry.Registry
 		return &wrapper{}, err
 	}
 
-	// set begin Node to nexts (Pipeline beginning)
+	// set begin Node to nexts (Pipelines beginning)
 	root.SetNexts(nexts)
 
 	// set pipeline root node
@@ -116,31 +116,33 @@ func (p Pipeline) createNode(componentName, nodeName string, async bool, persist
 	var Node *node.Node
 
 	// check if ProcessReadWrite(and which types)
-	Component := p.registry.GetComponent(componentName)
+	Component := p.registry.Component(componentName)
 	if Component == nil {
 		return nil, fmt.Errorf("plugin [%s] doesn't exists", componentName)
 	}
 
 	switch Component := Component.(type) {
-	case *registry.ProcessorReadWrite, *registry.ProcessorReadOnly, *registry.ProcessorReadWriteStream:
+	case *component.ProcessorReadWrite, *component.ProcessorReadOnly, *component.ProcessorReadWriteStream:
 		if nextsCount == 0 {
 			return nil, fmt.Errorf("plugin [%s] has no nexts(s) of type output, a pipeline path must end with an output plugin", nodeName)
 		}
 
 		switch Component := Component.(type) {
-		case *registry.ProcessorReadWrite:
+		case *component.ProcessorReadWrite:
 			Node = node.NewReadWrite(nodeName, Component, p.Logger)
-		case *registry.ProcessorReadOnly:
+		case *component.ProcessorReadOnly:
 			Node = node.NewReadOnly(nodeName, Component, p.Logger)
-		case *registry.ProcessorReadWriteStream:
+		case *component.ProcessorReadWriteStream:
 			Node = node.NewReadWriteStream(nodeName, Component, p.Logger)
 		}
 
-	case *registry.Output:
+	case *component.Output:
 		if nextsCount > 0 {
 			return nil, fmt.Errorf("plugin [%s] has nexts(s), output plugins must not have nexts(s)", nodeName)
 		}
 		Node = node.NewOutput(nodeName, Component, p.Logger)
+	case *component.Input:
+		return nil, fmt.Errorf("plugin [%s] is an input plugin", nodeName)
 	default:
 		return nil, fmt.Errorf("plugin [%s] doesn't exists", nodeName)
 	}

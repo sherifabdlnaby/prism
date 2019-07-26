@@ -83,7 +83,7 @@ func (d *Dummy) Start() error {
 	return nil
 }
 
-//Close Close plugin gracefully
-func (d *Dummy) Close() error {
+//Stop Stop plugin gracefully
+func (d *Dummy) Stop() error {
 	return nil
 }

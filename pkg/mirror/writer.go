@@ -45,7 +45,7 @@ func (r *Writer) Write(p []byte) (n int, err error) {
 	return
 }
 
-//Close Signal that the writer should no longer accept any input. and return EOF to readers.
+//Stop Signal that the writer should no longer accept any input. and return EOF to readers.
 func (r *Writer) Close() error {
 	atomic.SwapInt64(&r.eofTotal, int64(r.curr))
 	r.error = io.EOF

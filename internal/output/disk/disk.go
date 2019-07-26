@@ -69,9 +69,9 @@ func (d *Disk) Start() error {
 	return nil
 }
 
-//Close func Send a close signal to stop chan
-// to stop taking transactions and Close everything safely
-func (d *Disk) Close() error {
+//Stop func Send a close signal to stop chan
+// to stop taking transactions and Stop everything safely
+func (d *Disk) Stop() error {
 	d.wg.Wait()
 	return nil
 }
