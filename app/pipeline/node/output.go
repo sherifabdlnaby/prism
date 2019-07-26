@@ -1,14 +1,14 @@
 package node
 
 import (
-	"github.com/sherifabdlnaby/prism/app/registry/wrapper"
+	"github.com/sherifabdlnaby/prism/app/registry"
 	"github.com/sherifabdlnaby/prism/pkg/response"
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
 )
 
 //output Wraps an output Type
 type output struct {
-	output *wrapper.Output
+	output *registry.Output
 	*Node
 }
 

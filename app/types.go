@@ -2,15 +2,8 @@ package app
 
 import (
 	"github.com/sherifabdlnaby/prism/app/config"
-	"github.com/sherifabdlnaby/prism/app/pipeline"
-	"github.com/sherifabdlnaby/prism/pkg/transaction"
 	"go.uber.org/zap"
 )
-
-type pipelineWrapper struct {
-	*pipeline.Pipeline
-	TransactionChan chan transaction.Transaction
-}
 
 type logger struct {
 	zap.SugaredLogger

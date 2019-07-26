@@ -73,8 +73,8 @@ func (p *Pipeline) process(txn transaction.Transaction) {
 	p.wg.Done()
 }
 
-//ApplyPersistedAsyncRequests checks pipeline's persisted unfinished transactions and re-apply them
-func (p *Pipeline) ApplyPersistedAsyncRequests() error {
+//recoverAsync checks pipeline's persisted unfinished transactions and re-apply them
+func (p *Pipeline) recoverAsync() error {
 
 	TxnList, err := p.persistence.GetAllTxn()
 	if err != nil {

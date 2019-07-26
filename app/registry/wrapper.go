@@ -1,4 +1,4 @@
-package wrapper
+package registry
 
 import (
 	"github.com/sherifabdlnaby/prism/app/resource"
@@ -16,7 +16,7 @@ type Input struct {
 
 // Processor wraps a processor Plugin Instance
 type Processor interface {
-	processor.Base
+	processor.Processor
 }
 
 // ProcessorReadOnly wraps a readonly processor Plugin Instance and its resource

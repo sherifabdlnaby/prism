@@ -33,8 +33,8 @@ type Detector struct {
 	config config
 }
 
-// NewDetector Return a new Detector Component
-func NewDetector() component.Component {
+// NewDetector Return a new Detector Base
+func NewDetector() component.Base {
 	return &Detector{}
 }
 

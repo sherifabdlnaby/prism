@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/sherifabdlnaby/prism/app/registry/wrapper"
+	"github.com/sherifabdlnaby/prism/app/registry"
 	"github.com/sherifabdlnaby/prism/pkg/payload"
 	"github.com/sherifabdlnaby/prism/pkg/response"
 )
@@ -17,7 +17,10 @@ func (a *App) start() {
 	}
 }
 
-func (a *App) forwardInputToPipeline(input *wrapper.Input) {
+func (a *App) forwardInputToPipeline(input *registry.Input) {
+
+	pipelines := a.pipelineManger.Pipelines()
+
 	for in := range input.InputTransactionChan() {
 
 		//get pipeline tag
@@ -26,7 +29,7 @@ func (a *App) forwardInputToPipeline(input *wrapper.Input) {
 			continue
 		}
 
-		_, ok := a.pipelines[in.PipelineTag]
+		_, ok := pipelines[in.PipelineTag]
 		if !ok {
 			in.ResponseChan <- response.Error(fmt.Errorf("pipeline [%s] is not defined", in.PipelineTag))
 			continue
@@ -36,7 +39,7 @@ func (a *App) forwardInputToPipeline(input *wrapper.Input) {
 		applyDefaultFields(in.Data)
 
 		// Forward
-		a.pipelines[in.PipelineTag].TransactionChan <- in.Transaction
+		pipelines[in.PipelineTag].TransactionChan <- in.Transaction
 	}
 }
 

@@ -21,8 +21,8 @@ type internalImage struct {
 	internal []byte
 }
 
-// NewComponent Return a new Component
-func NewComponent() component.Component {
+// NewComponent Return a new Base
+func NewComponent() component.Base {
 	return &Dummy{}
 }
 

@@ -25,12 +25,12 @@ type Dummy struct {
 	wg           sync.WaitGroup
 }
 
-// NewComponent Return a new Component
-func NewComponent() component.Component {
+// NewComponent Return a new Base
+func NewComponent() component.Base {
 	return &Dummy{}
 }
 
-// InputTransactionChan Return Transaction Chan used to send transaction to this Component
+// InputTransactionChan Return Transaction Chan used to send transaction to this Base
 func (d *Dummy) InputTransactionChan() <-chan transaction.InputTransaction {
 	return d.Transactions
 }

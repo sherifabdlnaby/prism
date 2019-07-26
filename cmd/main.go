@@ -27,7 +27,10 @@ func main() {
 	}
 
 	// Create new app instance
-	app := app.NewApp(config)
+	app, err := app.NewApp(config)
+	if err != nil {
+		panic(err)
+	}
 
 	// start app
 	err = app.Start(config)

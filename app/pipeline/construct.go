@@ -2,27 +2,31 @@ package pipeline
 
 import (
 	"fmt"
+	"strconv"
+	"sync"
+
 	"github.com/sherifabdlnaby/prism/app/config"
 	"github.com/sherifabdlnaby/prism/app/pipeline/node"
 	"github.com/sherifabdlnaby/prism/app/pipeline/persistence"
 	"github.com/sherifabdlnaby/prism/app/registry"
-	"github.com/sherifabdlnaby/prism/app/registry/wrapper"
 	"github.com/sherifabdlnaby/prism/app/resource"
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
 	"go.uber.org/zap"
-	"strconv"
-	"sync"
 )
 
 //NewPipeline Construct a NewPipeline using config.
-func NewPipeline(name string, Config config.Pipeline, registry registry.Registry, tc <-chan transaction.Transaction,
-	logger zap.SugaredLogger, hash string) (*Pipeline, error) {
+func NewPipeline(name string, Config config.Pipeline, registry registry.Registry,
+	logger zap.SugaredLogger) (*wrapper, error) {
 	var err error
+
+	tc := make(chan transaction.Transaction)
+
+	//TODO hash pipelines
 
 	// Create pipeline
 	p := &Pipeline{
 		name:           name,
-		hash:           hash,
+		hash:           "TODOHASHPIPELINE",
 		config:         Config,
 		receiveTxnChan: tc,
 		registry:       registry,
@@ -37,16 +41,16 @@ func NewPipeline(name string, Config config.Pipeline, registry registry.Registry
 	root := node.NewNext(node.NewDummy("dummy", resource.NewResource(Config.Concurrency), p.Logger))
 
 	// create persistence
-	persistence, err := persistence.NewPersistence(name, hash, p.Logger)
+	persistence, err := persistence.NewPersistence(name, "TODOHASHPIPELINE", p.Logger)
 	if err != nil {
-		return &Pipeline{}, err
+		return &wrapper{}, err
 	}
 	p.persistence = persistence
 
 	// Lookup Nexts of this Node
 	nexts, err := p.getNodeNexts(Config.Pipeline, false)
 	if err != nil {
-		return &Pipeline{}, err
+		return &wrapper{}, err
 	}
 
 	// set begin Node to nexts (Pipeline beginning)
@@ -58,7 +62,10 @@ func NewPipeline(name string, Config config.Pipeline, registry registry.Registry
 	// save root node.
 	p.NodeMap[root.Name] = root.Node
 
-	return p, nil
+	return &wrapper{
+		Pipeline:        p,
+		TransactionChan: tc,
+	}, nil
 }
 
 func (p *Pipeline) getNodeNexts(next map[string]*config.Node, forceSync bool) ([]node.Next, error) {
@@ -109,31 +116,31 @@ func (p Pipeline) createNode(componentName, nodeName string, async bool, persist
 	var Node *node.Node
 
 	// check if ProcessReadWrite(and which types)
-	component := p.registry.GetComponent(componentName)
-	if component == nil {
+	Component := p.registry.GetComponent(componentName)
+	if Component == nil {
 		return nil, fmt.Errorf("plugin [%s] doesn't exists", componentName)
 	}
 
-	switch component := component.(type) {
-	case *wrapper.ProcessorReadWrite, *wrapper.ProcessorReadOnly, *wrapper.ProcessorReadWriteStream:
+	switch Component := Component.(type) {
+	case *registry.ProcessorReadWrite, *registry.ProcessorReadOnly, *registry.ProcessorReadWriteStream:
 		if nextsCount == 0 {
 			return nil, fmt.Errorf("plugin [%s] has no nexts(s) of type output, a pipeline path must end with an output plugin", nodeName)
 		}
 
-		switch component := component.(type) {
-		case *wrapper.ProcessorReadWrite:
-			Node = node.NewReadWrite(nodeName, component, p.Logger)
-		case *wrapper.ProcessorReadOnly:
-			Node = node.NewReadOnly(nodeName, component, p.Logger)
-		case *wrapper.ProcessorReadWriteStream:
-			Node = node.NewReadWriteStream(nodeName, component, p.Logger)
+		switch Component := Component.(type) {
+		case *registry.ProcessorReadWrite:
+			Node = node.NewReadWrite(nodeName, Component, p.Logger)
+		case *registry.ProcessorReadOnly:
+			Node = node.NewReadOnly(nodeName, Component, p.Logger)
+		case *registry.ProcessorReadWriteStream:
+			Node = node.NewReadWriteStream(nodeName, Component, p.Logger)
 		}
 
-	case *wrapper.Output:
+	case *registry.Output:
 		if nextsCount > 0 {
 			return nil, fmt.Errorf("plugin [%s] has nexts(s), output plugins must not have nexts(s)", nodeName)
 		}
-		Node = node.NewOutput(nodeName, component, p.Logger)
+		Node = node.NewOutput(nodeName, Component, p.Logger)
 	default:
 		return nil, fmt.Errorf("plugin [%s] doesn't exists", nodeName)
 	}

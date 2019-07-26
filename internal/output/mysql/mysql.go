@@ -21,8 +21,8 @@ type Mysql struct {
 	wg           sync.WaitGroup
 }
 
-// NewComponent Return a new Component
-func NewComponent() component.Component {
+// NewComponent Return a new Base
+func NewComponent() component.Base {
 	return &Mysql{}
 }
 

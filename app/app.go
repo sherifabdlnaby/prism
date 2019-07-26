@@ -2,28 +2,35 @@ package app
 
 import (
 	"github.com/sherifabdlnaby/prism/app/config"
+	"github.com/sherifabdlnaby/prism/app/pipeline"
 	"github.com/sherifabdlnaby/prism/app/registry"
 )
 
 //App is an self contained instance of Prism app.
 type App struct {
-	config    config.Config
-	logger    logger
-	registry  registry.Registry
-	pipelines map[string]pipelineWrapper
+	config         config.Config
+	logger         logger
+	registry       registry.Registry
+	pipelineManger pipeline.Manager
 }
 
 //NewApp Construct a new instance of Prism App using parsed config, instance still need to be initialized and started.
-func NewApp(config config.Config) *App {
+func NewApp(config config.Config) (*App, error) {
 
 	app := &App{
-		config:    config,
-		logger:    *newLoggers(config),
-		registry:  *registry.NewRegistry(),
-		pipelines: make(map[string]pipelineWrapper),
+		config:   config,
+		logger:   *newLoggers(config),
+		registry: *registry.NewRegistry(), //TODO delete when create component manager
 	}
 
-	return app
+	pipelineManager, err := pipeline.NewManager(config.Pipeline, app.logger.SugaredLogger)
+	if err != nil {
+		return nil, err
+	}
+
+	app.pipelineManger = *pipelineManager
+
+	return app, nil
 }
 
 //Start Starts the app according to starting strategy
@@ -62,20 +69,13 @@ func (a *App) startComponents(c config.Config) error {
 		return err
 	}
 
-	a.logger.Info("initializing pipelines...")
-	err = a.initPipelines(c)
-	if err != nil {
-		a.logger.Errorf("error while initializing pipelines: %v", err)
-		return err
-	}
-
-	a.logger.Info("starting pipelines...")
-	err = a.startPipelines()
+	err = a.pipelineManger.StartAll()
 	if err != nil {
 		a.logger.Errorf("error while starting pipelines: %v", err)
 		return err
 	}
 
+	// starting Mux
 	a.start()
 
 	a.logger.Info("starting output plugins...")
@@ -93,7 +93,13 @@ func (a *App) startComponents(c config.Config) error {
 	}
 
 	a.logger.Info("checking for any persisted async requests that need to be done...")
-	err = a.applyPersistedAsyncRequests()
+	err = a.pipelineManger.RecoverAsyncAll()
+	if err != nil {
+		a.logger.Errorf("error while applying persisted async requests: %v", err)
+		return err
+	}
+
+	err = a.pipelineManger.Cleanup()
 	if err != nil {
 		a.logger.Errorf("error while applying persisted async requests: %v", err)
 		return err
@@ -132,7 +138,7 @@ func (a *App) stopComponents() error {
 	///////////////////////////////////////
 
 	a.logger.Info("stopping pipelines...")
-	err = a.stopPipelines()
+	err = a.pipelineManger.StopAll()
 	if err != nil {
 		a.logger.Errorf("failed to stop pipelines: %v", err)
 		return err

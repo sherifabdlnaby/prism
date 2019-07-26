@@ -36,8 +36,8 @@ type Censor struct {
 	config config
 }
 
-// NewCensor Return a new Censor Component
-func NewCensor() component.Component {
+// NewCensor Return a new Censor Base
+func NewCensor() component.Base {
 	return &Censor{}
 }
 

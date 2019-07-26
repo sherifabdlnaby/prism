@@ -4,10 +4,7 @@ import (
 	"fmt"
 
 	"github.com/sherifabdlnaby/prism/app/config"
-	"github.com/sherifabdlnaby/prism/app/pipeline"
-	"github.com/sherifabdlnaby/prism/app/pipeline/persistence"
 	componentConfig "github.com/sherifabdlnaby/prism/pkg/config"
-	"github.com/sherifabdlnaby/prism/pkg/transaction"
 )
 
 // loadPlugins Load all plugins in Config
@@ -114,80 +111,6 @@ func (a *App) startOutputPlugins() error {
 			return err
 		}
 	}
-
-	return nil
-}
-
-// initPipelines Initialize and build all configured pipelines
-func (a *App) initPipelines(c config.Config) error {
-
-	for name, pipConfig := range c.Pipeline.Pipelines {
-
-		// check if pipeline already exists
-		_, ok := a.pipelines[name]
-		if ok {
-			return fmt.Errorf("pipeline with name [%s] already declared", name)
-		}
-
-		tc := make(chan transaction.Transaction)
-		pip, err := pipeline.NewPipeline(name, *pipConfig, a.registry, tc, a.logger.pipelineLogger, c.Pipeline.Hash)
-		if err != nil {
-			return fmt.Errorf("error occurred when constructing pipeline [%s]: %s", name, err.Error())
-		}
-
-		a.pipelines[name] = pipelineWrapper{
-			Pipeline:        pip,
-			TransactionChan: tc,
-		}
-	}
-
-	return nil
-}
-
-// startPipelines start all pipelines and start accepting input
-func (a *App) startPipelines() error {
-
-	for _, value := range a.pipelines {
-		err := value.Start()
-		if err != nil {
-			a.logger.pipelineLogger.Error(err.Error())
-			return err
-		}
-	}
-
-	return nil
-}
-
-// stopPipelines Stop pipelines by calling their Stop() function, any request to these pipelines will return error.
-func (a *App) stopPipelines() error {
-
-	for _, value := range a.pipelines {
-		// close receiving chan
-		close(value.TransactionChan)
-
-		// stop pipeline
-		err := value.Stop()
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// stopPipelines Stop pipelines by calling their Stop() function, any request to these pipelines will return error.
-func (a *App) applyPersistedAsyncRequests() error {
-
-	go func() {
-		for _, pipeline := range a.pipelines {
-			err := pipeline.ApplyPersistedAsyncRequests()
-			if err != nil {
-				a.logger.Errorw("error while applying lost async requests", "error", err.Error())
-			}
-		}
-		persistence.DirectoryCleanup()
-		//TODO make it better
-	}()
 
 	return nil
 }

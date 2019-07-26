@@ -14,7 +14,7 @@ import (
 )
 
 // registered used to key map components names -> constructors.
-var registered = map[string]func() component.Component{
+var registered = map[string]func() component.Base{
 	"dummy_processor": dummyprocessor.NewComponent,
 	"dummy_input":     dummyinput.NewComponent,
 	"http":            http.NewComponent,

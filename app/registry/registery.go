@@ -1,25 +1,21 @@
 package registry
 
-import (
-	"github.com/sherifabdlnaby/prism/app/registry/wrapper"
-)
-
 //Registry Contains Plugin Instances
 type Registry struct {
-	Inputs                   map[string]*wrapper.Input
-	ProcessorReadOnly        map[string]*wrapper.ProcessorReadOnly
-	ProcessorReadWrite       map[string]*wrapper.ProcessorReadWrite
-	ProcessorReadWriteStream map[string]*wrapper.ProcessorReadWriteStream
-	Outputs                  map[string]*wrapper.Output
+	Inputs                   map[string]*Input
+	ProcessorReadOnly        map[string]*ProcessorReadOnly
+	ProcessorReadWrite       map[string]*ProcessorReadWrite
+	ProcessorReadWriteStream map[string]*ProcessorReadWriteStream
+	Outputs                  map[string]*Output
 }
 
 //NewRegistry Register constructor.
 func NewRegistry() *Registry {
 	return &Registry{
-		Inputs:                   make(map[string]*wrapper.Input),
-		ProcessorReadOnly:        make(map[string]*wrapper.ProcessorReadOnly),
-		ProcessorReadWrite:       make(map[string]*wrapper.ProcessorReadWrite),
-		ProcessorReadWriteStream: make(map[string]*wrapper.ProcessorReadWriteStream),
-		Outputs:                  make(map[string]*wrapper.Output),
+		Inputs:                   make(map[string]*Input),
+		ProcessorReadOnly:        make(map[string]*ProcessorReadOnly),
+		ProcessorReadWrite:       make(map[string]*ProcessorReadWrite),
+		ProcessorReadWriteStream: make(map[string]*ProcessorReadWriteStream),
+		Outputs:                  make(map[string]*Output),
 	}
 }

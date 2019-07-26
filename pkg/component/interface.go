@@ -5,9 +5,9 @@ import (
 	"go.uber.org/zap"
 )
 
-// Component defines the basic prism component.
-type Component interface {
-	// Init Initializes Component's configuration
+// Base defines the basic prism component.
+type Base interface {
+	// Init Initializes Base's configuration
 	Init(config.Config, zap.SugaredLogger) error
 
 	// start starts the component

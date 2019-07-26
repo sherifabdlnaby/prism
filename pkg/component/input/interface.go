@@ -12,5 +12,5 @@ type Input interface {
 	// this type.
 	InputTransactionChan() <-chan transaction.InputTransaction
 
-	component.Component
+	component.Base
 }

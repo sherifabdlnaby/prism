@@ -7,10 +7,10 @@ import (
 
 //------------------------------------------------------------------------------
 
-// Output Component used for outputting data to external destination
+// Output Base used for outputting data to external destination
 type Output interface {
 	// InputTransactionChan returns a channel used to send transactions for saving.
 	SetTransactionChan(<-chan transaction.Transaction)
 
-	component.Component
+	component.Base
 }

@@ -22,7 +22,7 @@ type Webserver struct {
 }
 
 //NewComponent returns a new component of type HTTP plugin.
-func NewComponent() component.Component {
+func NewComponent() component.Base {
 	return &Webserver{}
 
 }

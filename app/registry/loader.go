@@ -2,11 +2,10 @@ package registry
 
 import (
 	"fmt"
-	"github.com/sherifabdlnaby/prism/pkg/component"
 
 	"github.com/sherifabdlnaby/prism/app/config"
-	"github.com/sherifabdlnaby/prism/app/registry/wrapper"
 	"github.com/sherifabdlnaby/prism/app/resource"
+	"github.com/sherifabdlnaby/prism/pkg/component"
 	"github.com/sherifabdlnaby/prism/pkg/component/input"
 	"github.com/sherifabdlnaby/prism/pkg/component/output"
 	"github.com/sherifabdlnaby/prism/pkg/component/processor"
@@ -14,8 +13,8 @@ import (
 	"go.uber.org/zap"
 )
 
-func (m *Registry) GetComponent(name string) component.Component {
-	var component component.Component = nil
+func (m *Registry) GetComponent(name string) component.Base {
+	var component component.Base = nil
 
 	component, ok := m.Inputs[name]
 	if !ok {
@@ -38,8 +37,8 @@ func (m *Registry) GetComponent(name string) component.Component {
 	return component
 }
 
-func (m *Registry) GetProcessorsList() []wrapper.Processor {
-	processorsList := make([]wrapper.Processor, 0)
+func (m *Registry) GetProcessorsList() []Processor {
+	processorsList := make([]Processor, 0)
 
 	for _, value := range m.ProcessorReadWrite {
 		processorsList = append(processorsList, value)
@@ -76,7 +75,7 @@ func (m *Registry) LoadInput(name string, config config.Input, Logger zap.Sugare
 		return fmt.Errorf("plugin type [%s] is not an input plugin", config.Plugin)
 	}
 
-	m.Inputs[name] = &wrapper.Input{
+	m.Inputs[name] = &Input{
 		Input:    pluginInstance,
 		Resource: *resource.NewResource(config.Concurrency),
 	}
@@ -84,7 +83,7 @@ func (m *Registry) LoadInput(name string, config config.Input, Logger zap.Sugare
 }
 
 // GetInput Get wrapper.Input Plugin from the loaded plugins.
-func (m *Registry) GetInput(name string) *wrapper.Input {
+func (m *Registry) GetInput(name string) *Input {
 	return m.Inputs[name]
 }
 
@@ -106,17 +105,17 @@ func (m *Registry) LoadProcessor(name string, config config.Processor, Logger za
 
 	switch plugin := pluginInstance.(type) {
 	case processor.ReadWrite:
-		m.ProcessorReadWrite[name] = &wrapper.ProcessorReadWrite{
+		m.ProcessorReadWrite[name] = &ProcessorReadWrite{
 			ReadWrite: plugin,
 			Resource:  *resource.NewResource(config.Concurrency),
 		}
 	case processor.ReadWriteStream:
-		m.ProcessorReadWriteStream[name] = &wrapper.ProcessorReadWriteStream{
+		m.ProcessorReadWriteStream[name] = &ProcessorReadWriteStream{
 			ReadWriteStream: plugin,
 			Resource:        *resource.NewResource(config.Concurrency),
 		}
 	case processor.ReadOnly:
-		m.ProcessorReadOnly[name] = &wrapper.ProcessorReadOnly{
+		m.ProcessorReadOnly[name] = &ProcessorReadOnly{
 			ReadOnly: plugin,
 			Resource: *resource.NewResource(config.Concurrency),
 		}
@@ -128,19 +127,19 @@ func (m *Registry) LoadProcessor(name string, config config.Processor, Logger za
 }
 
 // GetProcessor Get wrapper.ProcessReadWrite Plugin from the loaded plugins.
-func (m *Registry) GetProcessorReadWrite(name string) (a *wrapper.ProcessorReadWrite, b bool) {
+func (m *Registry) GetProcessorReadWrite(name string) (a *ProcessorReadWrite, b bool) {
 	a, b = m.ProcessorReadWrite[name]
 	return
 }
 
 // GetProcessor Get wrapper.ProcessReadWrite Plugin from the loaded plugins.
-func (m *Registry) GetProcessorReadWriteStream(name string) (a *wrapper.ProcessorReadWriteStream, b bool) {
+func (m *Registry) GetProcessorReadWriteStream(name string) (a *ProcessorReadWriteStream, b bool) {
 	a, b = m.ProcessorReadWriteStream[name]
 	return
 }
 
 // GetProcessor Get wrapper.ProcessReadWrite Plugin from the loaded plugins.
-func (m *Registry) GetProcessorReadOnly(name string) (a *wrapper.ProcessorReadOnly, b bool) {
+func (m *Registry) GetProcessorReadOnly(name string) (a *ProcessorReadOnly, b bool) {
 	a, b = m.ProcessorReadOnly[name]
 	return
 }
@@ -167,7 +166,7 @@ func (m *Registry) LoadOutput(name string, config config.Output, Logger zap.Suga
 	txnChan := make(chan transaction.Transaction)
 	pluginInstance.SetTransactionChan(txnChan)
 
-	m.Outputs[name] = &wrapper.Output{
+	m.Outputs[name] = &Output{
 		Output:          pluginInstance,
 		Resource:        *resource.NewResource(config.Concurrency),
 		TransactionChan: txnChan,
@@ -177,7 +176,7 @@ func (m *Registry) LoadOutput(name string, config config.Output, Logger zap.Suga
 }
 
 // GetOutput Get wrapper.Output Plugin from the loaded plugins.
-func (m *Registry) GetOutput(name string) *wrapper.Output {
+func (m *Registry) GetOutput(name string) *Output {
 	return m.Outputs[name]
 }
 
