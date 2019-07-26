@@ -4,11 +4,10 @@ import (
 	"fmt"
 
 	"github.com/sherifabdlnaby/prism/app/config"
-	"github.com/sherifabdlnaby/prism/app/resource"
 	"github.com/sherifabdlnaby/prism/pkg/component/input"
 	"github.com/sherifabdlnaby/prism/pkg/component/output"
 	"github.com/sherifabdlnaby/prism/pkg/component/processor"
-	"github.com/sherifabdlnaby/prism/pkg/transaction"
+	"github.com/sherifabdlnaby/prism/pkg/job"
 )
 
 // LoadInput Load wrapper.Input Plugin in the loaded registry, according to the parsed config.
@@ -30,7 +29,7 @@ func (m *Registry) LoadInput(name string, config config.Input) error {
 
 	m.inputs[name] = &Input{
 		Input:    pluginInstance,
-		Resource: *resource.NewResource(config.Concurrency),
+		Resource: *NewResource(config.Concurrency),
 	}
 	return nil
 }
@@ -55,17 +54,17 @@ func (m *Registry) LoadProcessor(name string, config config.Processor) error {
 	case processor.ReadWrite:
 		m.processorReadWrite[name] = &ProcessorReadWrite{
 			ReadWrite: plugin,
-			Resource:  *resource.NewResource(config.Concurrency),
+			Resource:  *NewResource(config.Concurrency),
 		}
 	case processor.ReadWriteStream:
 		m.processorReadWriteStream[name] = &ProcessorReadWriteStream{
 			ReadWriteStream: plugin,
-			Resource:        *resource.NewResource(config.Concurrency),
+			Resource:        *NewResource(config.Concurrency),
 		}
 	case processor.ReadOnly:
 		m.processorReadOnly[name] = &ProcessorReadOnly{
 			ReadOnly: plugin,
-			Resource: *resource.NewResource(config.Concurrency),
+			Resource: *NewResource(config.Concurrency),
 		}
 	default:
 		return fmt.Errorf("plugin type [%s] is not a processor plugin", config.Plugin)
@@ -93,13 +92,13 @@ func (m *Registry) LoadOutput(name string, config config.Output) error {
 		return fmt.Errorf("plugin type [%s] is not an output plugin", config.Plugin)
 	}
 
-	txnChan := make(chan transaction.Transaction)
-	pluginInstance.SetTransactionChan(txnChan)
+	jobChan := make(chan job.Job)
+	pluginInstance.SetJobChan(jobChan)
 
 	m.outputs[name] = &Output{
-		Output:          pluginInstance,
-		Resource:        *resource.NewResource(config.Concurrency),
-		TransactionChan: txnChan,
+		Output:   pluginInstance,
+		Resource: *NewResource(config.Concurrency),
+		JobChan:  jobChan,
 	}
 
 	return nil

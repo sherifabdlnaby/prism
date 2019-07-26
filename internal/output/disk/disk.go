@@ -10,19 +10,19 @@ import (
 
 	"github.com/sherifabdlnaby/prism/pkg/component"
 	cfg "github.com/sherifabdlnaby/prism/pkg/config"
+	"github.com/sherifabdlnaby/prism/pkg/job"
 	"github.com/sherifabdlnaby/prism/pkg/payload"
 	"github.com/sherifabdlnaby/prism/pkg/response"
-	"github.com/sherifabdlnaby/prism/pkg/transaction"
 	"go.uber.org/zap"
 )
 
 //Disk struct
 type Disk struct {
-	config       config
-	Transactions <-chan transaction.Transaction
-	stopChan     chan struct{}
-	logger       zap.SugaredLogger
-	wg           sync.WaitGroup
+	config   config
+	jobsChan <-chan job.Job
+	stopChan chan struct{}
+	logger   zap.SugaredLogger
+	wg       sync.WaitGroup
 }
 
 // NewComponent Return a new Base
@@ -30,9 +30,9 @@ func NewComponent() component.Base {
 	return &Disk{}
 }
 
-//SetTransactionChan set Transaction chan that this plugin will use to receive transactions
-func (d *Disk) SetTransactionChan(t <-chan transaction.Transaction) {
-	d.Transactions = t
+//SetJobChan set Job chan that this plugin will use to receive jobs
+func (d *Disk) SetJobChan(t <-chan job.Job) {
+	d.jobsChan = t
 }
 
 //Init func Initialize the disk output plugin
@@ -56,34 +56,34 @@ func (d *Disk) Init(config cfg.Config, logger zap.SugaredLogger) error {
 	return nil
 }
 
-// Start the plugin and be ready for taking transactions
+// Start the plugin and be ready for taking jobs
 func (d *Disk) Start() error {
 	d.wg.Add(1)
 	go func() {
 		defer d.wg.Done()
-		for txn := range d.Transactions {
+		for Job := range d.jobsChan {
 			d.wg.Add(1)
-			go d.writeOnDisk(txn)
+			go d.writeOnDisk(Job)
 		}
 	}()
 	return nil
 }
 
 //Stop func Send a close signal to stop chan
-// to stop taking transactions and Stop everything safely
+// to stop taking jobs and Stop everything safely
 func (d *Disk) Stop() error {
 	d.wg.Wait()
 	return nil
 }
 
-//WriteOnDisk func takes the transaction
+//WriteOnDisk func takes the job
 //that to be written on the disk
-func (d *Disk) writeOnDisk(txn transaction.Transaction) {
+func (d *Disk) writeOnDisk(Job job.Job) {
 	defer d.wg.Done()
 
-	filePath, err := d.config.filepath.Evaluate(txn.Data)
+	filePath, err := d.config.filepath.Evaluate(Job.Data)
 	if err != nil {
-		txn.ResponseChan <- response.Error(err)
+		Job.ResponseChan <- response.Error(err)
 		return
 	}
 
@@ -94,11 +94,11 @@ func (d *Disk) writeOnDisk(txn transaction.Transaction) {
 	}
 
 	if err != nil {
-		txn.ResponseChan <- response.Error(err)
+		Job.ResponseChan <- response.Error(err)
 		return
 	}
 
-	switch Payload := txn.Payload.(type) {
+	switch Payload := Job.Payload.(type) {
 	case payload.Bytes:
 		err = ioutil.WriteFile(filePath, Payload, d.config.Permission)
 	case payload.Stream:
@@ -107,12 +107,12 @@ func (d *Disk) writeOnDisk(txn transaction.Transaction) {
 
 	if err != nil {
 		// send response
-		txn.ResponseChan <- response.Error(err)
+		Job.ResponseChan <- response.Error(err)
 		return
 	}
 
 	// send response
-	txn.ResponseChan <- response.Ack()
+	Job.ResponseChan <- response.Ack()
 }
 
 func writeFileFromStream(filename string, reader io.Reader, perm os.FileMode) error {

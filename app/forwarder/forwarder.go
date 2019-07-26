@@ -5,28 +5,28 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/sherifabdlnaby/prism/pkg/job"
 	"github.com/sherifabdlnaby/prism/pkg/payload"
 	"github.com/sherifabdlnaby/prism/pkg/response"
-	"github.com/sherifabdlnaby/prism/pkg/transaction"
 )
 
 type Forwarder struct {
-	inputChans []<-chan transaction.InputTransaction
-	pipelines  map[string]chan<- transaction.Transaction
+	inputChans []<-chan job.Input
+	pipelines  map[string]chan<- job.Job
 }
 
-func NewForwarder(inputChans []<-chan transaction.InputTransaction, pipelines map[string]chan<- transaction.Transaction) *Forwarder {
+func NewForwarder(inputChans []<-chan job.Input, pipelines map[string]chan<- job.Job) *Forwarder {
 	return &Forwarder{inputChans: inputChans, pipelines: pipelines}
 }
 
-//Start starts the Forwarder that forwards the transactions from input to pipelines based on PipelineTag in transaction.
+//Start starts the Forwarder that forwards the jobs from input to pipelines based on PipelineTag in job.
 func (m *Forwarder) Start() {
 	for _, value := range m.inputChans {
 		go m.forwardInputToPipeline(value)
 	}
 }
 
-func (m *Forwarder) forwardInputToPipeline(input <-chan transaction.InputTransaction) {
+func (m *Forwarder) forwardInputToPipeline(input <-chan job.Input) {
 
 	for in := range input {
 
@@ -46,7 +46,7 @@ func (m *Forwarder) forwardInputToPipeline(input <-chan transaction.InputTransac
 		applyDefaultFields(in.Data)
 
 		// Forward
-		m.pipelines[in.PipelineTag] <- in.Transaction
+		m.pipelines[in.PipelineTag] <- in.Job
 	}
 }
 

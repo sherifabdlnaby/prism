@@ -4,10 +4,10 @@ import (
 	"context"
 
 	"github.com/sherifabdlnaby/prism/pkg/bufferspool"
+	"github.com/sherifabdlnaby/prism/pkg/job"
 	"github.com/sherifabdlnaby/prism/pkg/mirror"
 	"github.com/sherifabdlnaby/prism/pkg/payload"
 	"github.com/sherifabdlnaby/prism/pkg/response"
-	"github.com/sherifabdlnaby/prism/pkg/transaction"
 )
 
 //dummy Used at the start of every pipeline.
@@ -16,7 +16,7 @@ type dummy struct {
 }
 
 //job Just forwards the input.
-func (n *dummy) job(t transaction.Transaction) {
+func (n *dummy) job(t job.Job) {
 
 	////////////////////////////////////////////
 	// Acquire resource (limit concurrency of entire pipeline)
@@ -47,7 +47,7 @@ func (n *dummy) job(t transaction.Transaction) {
 	n.resource.Release()
 }
 
-func (n *dummy) jobStream(t transaction.Transaction) {
+func (n *dummy) jobStream(t job.Job) {
 
 	////////////////////////////////////////////
 	// Acquire resource (limit concurrency of entire pipeline)
@@ -68,7 +68,7 @@ func (n *dummy) jobStream(t transaction.Transaction) {
 	if len(n.nexts) == 1 {
 		// micro optimization. no need to put buffer cloner in-front of a single node
 		responseChan = make(chan response.Response)
-		n.nexts[0].TransactionChan <- transaction.Transaction{
+		n.nexts[0].JobChan <- job.Job{
 			Payload:      t.Payload,
 			Data:         t.Data,
 			Context:      t.Context,

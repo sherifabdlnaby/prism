@@ -12,19 +12,19 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/sherifabdlnaby/prism/pkg/component"
 	cfg "github.com/sherifabdlnaby/prism/pkg/config"
+	"github.com/sherifabdlnaby/prism/pkg/job"
 	"github.com/sherifabdlnaby/prism/pkg/payload"
 	"github.com/sherifabdlnaby/prism/pkg/response"
-	"github.com/sherifabdlnaby/prism/pkg/transaction"
 	"go.uber.org/zap"
 )
 
 //S3 struct
 type S3 struct {
-	config       config
-	Transactions <-chan transaction.Transaction
-	stopChan     chan struct{}
-	logger       zap.SugaredLogger
-	wg           sync.WaitGroup
+	config   config
+	jobChan  <-chan job.Job
+	stopChan chan struct{}
+	logger   zap.SugaredLogger
+	wg       sync.WaitGroup
 }
 
 // NewComponent Return a new Base
@@ -32,9 +32,9 @@ func NewComponent() component.Base {
 	return &S3{}
 }
 
-//SetTransactionChan set Transaction chan that this plugin will use to receive transactions
-func (s *S3) SetTransactionChan(t <-chan transaction.Transaction) {
-	s.Transactions = t
+//SetJobChan set Job chan that this plugin will use to receive jobs
+func (s *S3) SetJobChan(t <-chan job.Job) {
+	s.jobChan = t
 }
 
 //Init func Initialize the S3 output plugin
@@ -59,7 +59,7 @@ func (s *S3) Init(config cfg.Config, logger zap.SugaredLogger) error {
 
 }
 
-// Start the plugin and be ready for taking transactions
+// Start the plugin and be ready for taking jobs
 func (s *S3) Start() error {
 
 	creds, err := getCredentials(s)
@@ -79,37 +79,37 @@ func (s *S3) Start() error {
 	}
 
 	go func() {
-		for txn := range s.Transactions {
+		for Job := range s.jobChan {
 			s.wg.Add(1)
-			go s.writeOnS3(client, txn)
+			go s.writeOnS3(client, Job)
 		}
 	}()
 
 	return nil
 }
 
-//writeOnS3 func takes the transaction and session
+//writeOnS3 func takes the job and session
 //that to be written on the amazon S3
-func (s *S3) writeOnS3(svc *s3.S3, txn transaction.Transaction) {
+func (s *S3) writeOnS3(svc *s3.S3, Job job.Job) {
 	defer s.wg.Done()
 
 	var buffer []byte
 	var err error
 
-	switch Payload := txn.Payload.(type) {
+	switch Payload := Job.Payload.(type) {
 	case payload.Bytes:
 		buffer = Payload
 	case payload.Stream:
 		buffer, err = ioutil.ReadAll(Payload)
 		if err != nil {
-			txn.ResponseChan <- response.Error(err)
+			Job.ResponseChan <- response.Error(err)
 			return
 		}
 	}
 
-	filePath, err := s.config.filepath.Evaluate(txn.Data)
+	filePath, err := s.config.filepath.Evaluate(Job.Data)
 	if err != nil {
-		txn.ResponseChan <- response.Error(err)
+		Job.ResponseChan <- response.Error(err)
 		return
 	}
 
@@ -128,16 +128,16 @@ func (s *S3) writeOnS3(svc *s3.S3, txn transaction.Transaction) {
 	})
 
 	if err != nil {
-		txn.ResponseChan <- response.Error(err)
+		Job.ResponseChan <- response.Error(err)
 		return
 	}
 
 	// send response
-	txn.ResponseChan <- response.Ack()
+	Job.ResponseChan <- response.Ack()
 }
 
 //Stop func Send a close signal to stop chan
-// to stop taking transactions and Stop everything safely
+// to stop taking jobs and Stop everything safely
 func (s *S3) Stop() error {
 	s.wg.Wait()
 	return nil

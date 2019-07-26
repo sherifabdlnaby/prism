@@ -10,19 +10,19 @@ import (
 
 	"github.com/sherifabdlnaby/prism/pkg/component"
 	cfg "github.com/sherifabdlnaby/prism/pkg/config"
+	"github.com/sherifabdlnaby/prism/pkg/job"
 	"github.com/sherifabdlnaby/prism/pkg/payload"
 	"github.com/sherifabdlnaby/prism/pkg/response"
-	"github.com/sherifabdlnaby/prism/pkg/transaction"
 	"go.uber.org/zap"
 )
 
 // Dummy Input that read a file from root just for testing.
 type Dummy struct {
-	config       config
-	Transactions chan transaction.InputTransaction
-	stopChan     chan struct{}
-	logger       zap.SugaredLogger
-	wg           sync.WaitGroup
+	config   config
+	jobs     chan job.Input
+	stopChan chan struct{}
+	logger   zap.SugaredLogger
+	wg       sync.WaitGroup
 }
 
 // NewComponent Return a new Base
@@ -30,9 +30,9 @@ func NewComponent() component.Base {
 	return &Dummy{}
 }
 
-// InputTransactionChan Return Transaction Chan used to send transaction to this Base
-func (d *Dummy) InputTransactionChan() <-chan transaction.InputTransaction {
-	return d.Transactions
+// JobChan Return Job Chan used to send job to this Base
+func (d *Dummy) JobChan() <-chan job.Input {
+	return d.jobs
 }
 
 // Init Initializes Plugin
@@ -55,7 +55,7 @@ func (d *Dummy) Init(config cfg.Config, logger zap.SugaredLogger) error {
 		return err
 	}
 
-	d.Transactions = make(chan transaction.InputTransaction)
+	d.jobs = make(chan job.Input)
 	d.stopChan = make(chan struct{}, 1)
 	d.logger = logger
 	return nil
@@ -116,10 +116,10 @@ func (d *Dummy) Start() error {
 					responseChan := make(chan response.Response)
 					if flag {
 						bytes, _ := ioutil.ReadAll(reader)
-						// Send Transaction
-						d.logger.Debugw("SENDING A TRANSACTION (bytes)....", "ID", i)
-						d.Transactions <- transaction.InputTransaction{
-							Transaction: transaction.Transaction{
+						// Send Job
+						d.logger.Debugw("SENDING A JOB (bytes)....", "ID", i)
+						d.jobs <- job.Input{
+							Job: job.Job{
 								Payload:      payload.Bytes(bytes),
 								Data:         payloadData,
 								ResponseChan: responseChan,
@@ -128,9 +128,9 @@ func (d *Dummy) Start() error {
 							PipelineTag: pipeline,
 						}
 					} else {
-						d.logger.Debugw("SENDING A TRANSACTION (stream)...", "ID", i)
-						d.Transactions <- transaction.InputTransaction{
-							Transaction: transaction.Transaction{
+						d.logger.Debugw("SENDING A JOB (stream)...", "ID", i)
+						d.jobs <- job.Input{
+							Job: job.Job{
 								Payload:      reader,
 								Data:         payloadData,
 								ResponseChan: responseChan,
@@ -143,7 +143,7 @@ func (d *Dummy) Start() error {
 					// alternate between stream/data
 					//flag = !flag
 
-					// Wait Transaction
+					// Wait Job
 					response := <-responseChan
 
 					d.logger.Debugw("RECEIVED RESPONSE.", "ID", i, "ack", response.Ack, "error", response.Error, "AckErr", response.AckErr)
@@ -161,6 +161,6 @@ func (d *Dummy) Start() error {
 func (d *Dummy) Stop() error {
 	d.stopChan <- struct{}{}
 	d.wg.Wait()
-	close(d.Transactions)
+	close(d.jobs)
 	return nil
 }

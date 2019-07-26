@@ -2,15 +2,15 @@ package input
 
 import (
 	"github.com/sherifabdlnaby/prism/pkg/component"
-	"github.com/sherifabdlnaby/prism/pkg/transaction"
+	"github.com/sherifabdlnaby/prism/pkg/job"
 )
 
-// Input is a type that sends messages as transactions and waits for a
+// Input is a type that sends messages as jobs and waits for a
 // response back.
 type Input interface {
-	// InputTransactionChan returns a channel used for consuming transactions from
+	// JobChan returns a channel used for consuming jobs from
 	// this type.
-	InputTransactionChan() <-chan transaction.InputTransaction
+	JobChan() <-chan job.Input
 
 	component.Base
 }

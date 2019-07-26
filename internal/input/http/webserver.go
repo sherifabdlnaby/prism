@@ -7,7 +7,7 @@ import (
 
 	"github.com/sherifabdlnaby/prism/pkg/component"
 	cfg "github.com/sherifabdlnaby/prism/pkg/config"
-	"github.com/sherifabdlnaby/prism/pkg/transaction"
+	"github.com/sherifabdlnaby/prism/pkg/job"
 	"go.uber.org/zap"
 )
 
@@ -15,10 +15,10 @@ const version = "1.0.0"
 
 // Webserver take input from HTTP requests
 type Webserver struct {
-	config       config
-	Transactions chan transaction.InputTransaction
-	logger       zap.SugaredLogger
-	Server       *http.Server
+	config config
+	jobs   chan job.Input
+	logger zap.SugaredLogger
+	Server *http.Server
 }
 
 //NewComponent returns a new component of type HTTP plugin.
@@ -27,9 +27,9 @@ func NewComponent() component.Base {
 
 }
 
-//InputTransactionChan return transaction channel used to send transactions on.
-func (w *Webserver) InputTransactionChan() <-chan transaction.InputTransaction {
-	return w.Transactions
+//JobChan return job channel used to send jobs on.
+func (w *Webserver) JobChan() <-chan job.Input {
+	return w.jobs
 }
 
 //Init initializes the web-server and read its config
@@ -50,7 +50,7 @@ func (w *Webserver) Init(config cfg.Config, logger zap.SugaredLogger) error {
 		}
 		w.config.Paths[key] = value
 	}
-	w.Transactions = make(chan transaction.InputTransaction)
+	w.jobs = make(chan job.Input)
 	w.logger = logger
 
 	w.buildServer()
@@ -82,6 +82,6 @@ func (w *Webserver) Stop() error {
 		return err
 	}
 
-	close(w.Transactions)
+	close(w.jobs)
 	return nil
 }

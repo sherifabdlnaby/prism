@@ -7,18 +7,18 @@ import (
 	_ "github.com/go-sql-driver/mysql" ///go-sql-driver for mysql
 	"github.com/sherifabdlnaby/prism/pkg/component"
 	cfg "github.com/sherifabdlnaby/prism/pkg/config"
+	"github.com/sherifabdlnaby/prism/pkg/job"
 	"github.com/sherifabdlnaby/prism/pkg/response"
-	"github.com/sherifabdlnaby/prism/pkg/transaction"
 	"go.uber.org/zap"
 )
 
 //Mysql struct
 type Mysql struct {
-	config       config
-	Transactions <-chan transaction.Transaction
-	stopChan     chan struct{}
-	logger       zap.SugaredLogger
-	wg           sync.WaitGroup
+	config   config
+	jobChan  <-chan job.Job
+	stopChan chan struct{}
+	logger   zap.SugaredLogger
+	wg       sync.WaitGroup
 }
 
 // NewComponent Return a new Base
@@ -26,9 +26,9 @@ func NewComponent() component.Base {
 	return &Mysql{}
 }
 
-//SetTransactionChan set Transaction chan that this plugin will use to receive transactions
-func (m *Mysql) SetTransactionChan(t <-chan transaction.Transaction) {
-	m.Transactions = t
+//SetJobChan set Job chan that this plugin will use to receive jobs
+func (m *Mysql) SetJobChan(t <-chan job.Job) {
+	m.jobChan = t
 }
 
 //Init func Initialize Mysql output plugin
@@ -50,33 +50,33 @@ func (m *Mysql) Init(config cfg.Config, logger zap.SugaredLogger) error {
 	return nil
 }
 
-//WriteOnMysql func takes the transaction
+//WriteOnMysql func takes the job
 //that to be written on Mysql db
-func (m *Mysql) writeOnMysql(db *sql.DB, txn transaction.Transaction) {
+func (m *Mysql) writeOnMysql(db *sql.DB, job job.Job) {
 	defer m.wg.Done()
 
-	query, err := m.config.query.Evaluate(txn.Data)
+	query, err := m.config.query.Evaluate(job.Data)
 	if err != nil {
-		txn.ResponseChan <- response.Error(err)
+		job.ResponseChan <- response.Error(err)
 		return
 	}
 	stmtQuery, err := db.Prepare(query)
 	if err != nil {
-		txn.ResponseChan <- response.Error(err)
+		job.ResponseChan <- response.Error(err)
 		return
 	}
 	defer stmtQuery.Close()
 
 	_, err = stmtQuery.Exec()
 	if err != nil {
-		txn.ResponseChan <- response.Error(err)
+		job.ResponseChan <- response.Error(err)
 		return
 	}
 
-	txn.ResponseChan <- response.Ack()
+	job.ResponseChan <- response.Ack()
 }
 
-// Start the plugin and be ready for taking transactions
+// Start the plugin and be ready for taking jobs
 func (m *Mysql) Start() error {
 	dataSourceName := m.config.Username + ":" + m.config.Password + "@/" + m.config.DBName
 	db, err := sql.Open("mysql", dataSourceName)
@@ -92,16 +92,16 @@ func (m *Mysql) Start() error {
 	m.wg.Add(1)
 	go func() {
 		defer m.wg.Done()
-		for txn := range m.Transactions {
+		for Job := range m.jobChan {
 			m.wg.Add(1)
-			go m.writeOnMysql(db, txn)
+			go m.writeOnMysql(db, Job)
 		}
 	}()
 	return nil
 }
 
 //Stop func Send a close signal to stop chan
-// to stop taking transactions and Stop everything safely
+// to stop taking jobs and Stop everything safely
 func (m *Mysql) Stop() error {
 	m.stopChan <- struct{}{}
 	m.wg.Wait()

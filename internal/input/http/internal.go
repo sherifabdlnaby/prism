@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 
 	"github.com/didip/tollbooth"
+	"github.com/sherifabdlnaby/prism/pkg/job"
 	"github.com/sherifabdlnaby/prism/pkg/payload"
 	responseT "github.com/sherifabdlnaby/prism/pkg/response"
-	"github.com/sherifabdlnaby/prism/pkg/transaction"
 )
 
 // buildServer build handlers and server
@@ -86,7 +86,7 @@ func buildHandlers(w *Webserver) http.Handler {
 	return mux
 }
 
-//handle will formulate request into a transaction and await err
+//handle will formulate request into a job and await err
 func (w *Webserver) handle(rw http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
 
@@ -147,8 +147,8 @@ func (w *Webserver) handle(rw http.ResponseWriter, r *http.Request) {
 		data["_filename"] = filename[0 : len(filename)-len(filepath.Ext(filename))]
 
 		responseChan := make(chan responseT.Response)
-		w.Transactions <- transaction.InputTransaction{
-			Transaction: transaction.Transaction{
+		w.jobs <- job.Input{
+			Job: job.Job{
 				Payload:      payload.Stream(part),
 				Data:         data,
 				Context:      r.Context(),
@@ -186,7 +186,7 @@ func (w *Webserver) handle(rw http.ResponseWriter, r *http.Request) {
 	w.respondError(r, rw, errMethodNotAllowed)
 }
 
-//handle will formulate request into a transaction and await err
+//handle will formulate request into a job and await err
 func (w *Webserver) index(rw http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet {
 		w.respondJSON(r, rw, http.StatusOK, map[string]interface{}{

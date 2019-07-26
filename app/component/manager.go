@@ -5,7 +5,7 @@ import (
 
 	"github.com/sherifabdlnaby/prism/app/config"
 	cfg "github.com/sherifabdlnaby/prism/pkg/config"
-	"github.com/sherifabdlnaby/prism/pkg/transaction"
+	"github.com/sherifabdlnaby/prism/pkg/job"
 	"go.uber.org/zap"
 )
 
@@ -234,7 +234,7 @@ func (m *Manager) StopOutput(name string) error {
 	}
 
 	// close its receive channel
-	close(output.TransactionChan)
+	close(output.JobChan)
 
 	err := output.Stop()
 	if err != nil {
@@ -283,10 +283,10 @@ func (m *Manager) StopAllProcessors() error {
 	return nil
 }
 
-func (m *Manager) InputsReceiveChans() []<-chan transaction.InputTransaction {
-	chans := make([]<-chan transaction.InputTransaction, 0)
+func (m *Manager) InputsReceiveChans() []<-chan job.Input {
+	chans := make([]<-chan job.Input, 0)
 	for _, in := range m.registry.inputs {
-		chans = append(chans, in.InputTransactionChan())
+		chans = append(chans, in.JobChan())
 	}
 	return chans
 }

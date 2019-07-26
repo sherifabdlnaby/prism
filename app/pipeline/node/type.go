@@ -4,17 +4,16 @@ import (
 	"sync"
 
 	"github.com/sherifabdlnaby/prism/app/component"
-	"github.com/sherifabdlnaby/prism/app/resource"
-	"github.com/sherifabdlnaby/prism/pkg/transaction"
+	"github.com/sherifabdlnaby/prism/pkg/job"
 	"go.uber.org/zap"
 )
 
 type Type interface {
-	job(t transaction.Transaction)
-	jobStream(t transaction.Transaction)
+	job(t job.Job)
+	jobStream(t job.Job)
 }
 
-func newBase(name string, nodeType Type, resource *resource.Resource, logger zap.SugaredLogger) *Node {
+func newBase(name string, nodeType Type, resource *component.Resource, logger zap.SugaredLogger) *Node {
 	return &Node{
 		Name:     name,
 		async:    false,
@@ -59,7 +58,7 @@ func NewOutput(name string, out *component.Output, logger zap.SugaredLogger) *No
 }
 
 //NewDummy Construct a new Dummy Node
-func NewDummy(name string, r *resource.Resource, logger zap.SugaredLogger) *Node {
+func NewDummy(name string, r *component.Resource, logger zap.SugaredLogger) *Node {
 	nodeType := &dummy{}
 	base := newBase(name, nodeType, r, logger)
 	nodeType.Node = base

@@ -6,8 +6,8 @@ import (
 	"github.com/boltdb/bolt"
 	"github.com/google/uuid"
 	"github.com/sherifabdlnaby/prism/app/config"
+	"github.com/sherifabdlnaby/prism/pkg/job"
 	"github.com/sherifabdlnaby/prism/pkg/payload"
-	"github.com/sherifabdlnaby/prism/pkg/transaction"
 	"go.uber.org/zap"
 	"io"
 	"io/ioutil"
@@ -109,25 +109,25 @@ func DirectoryCleanup() {
 
 }
 
-func (p *Persistence) GetAllTxn() ([]transaction.Async, error) {
-	TxnList := make([]transaction.Async, 0)
+func (p *Persistence) GetAllJobs() ([]job.Async, error) {
+	JobList := make([]job.Async, 0)
 
 	err := db.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(p.bucket))
 		err := b.ForEach(func(k, v []byte) error {
-			asyncTxn := &transaction.Async{}
-			err := json.Unmarshal(v, asyncTxn)
+			asyncJob := &job.Async{}
+			err := json.Unmarshal(v, asyncJob)
 			if err != nil {
 				return err
 			}
 			// open tmp file
-			tmpFile, err := os.Open(asyncTxn.Filepath)
+			tmpFile, err := os.Open(asyncJob.Filepath)
 			if err != nil {
 				p.logger.Errorw("an error occurred while applying persisted async requests", "error", err.Error())
 			}
 
-			asyncTxn.TmpFile = tmpFile
-			TxnList = append(TxnList, *asyncTxn)
+			asyncJob.TmpFile = tmpFile
+			JobList = append(JobList, *asyncJob)
 			return nil
 		})
 		return err
@@ -136,13 +136,13 @@ func (p *Persistence) GetAllTxn() ([]transaction.Async, error) {
 		return nil, err
 	}
 
-	return TxnList, nil
+	return JobList, nil
 }
 
-func (p *Persistence) DeleteTxn(asyncTxn *transaction.Async) error {
+func (p *Persistence) DeleteJob(asyncJob *job.Async) error {
 	err := db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(p.bucket))
-		err := b.Delete([]byte(asyncTxn.ID))
+		err := b.Delete([]byte(asyncJob.ID))
 		if err != nil {
 			return err
 		}
@@ -154,33 +154,35 @@ func (p *Persistence) DeleteTxn(asyncTxn *transaction.Async) error {
 	}
 
 	// Delete from filesystem
-	err = os.Remove(asyncTxn.Filepath)
+	err = os.Remove(asyncJob.Filepath)
 	if err != nil {
-		return fmt.Errorf("failed to remove tmpFile after finalzing async transaction, error: %s", err.Error())
+		return fmt.Errorf("failed to remove tmpFile after finalzing async job, error: %s", err.Error())
 	}
 
 	return nil
 }
 
-func (p *Persistence) SaveTxn(node string, t transaction.Transaction) (*transaction.Async, payload.Payload, error) {
+func (p *Persistence) SaveJob(node string, t job.Job) (*job.Async, payload.Payload, error) {
 
 	// --------------------- Write To Temp File -------------------------------------
 
 	filepath, newPayload, err := writeToTmpFile(t.Payload)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to save async transaction to tmp file, error: %s", err.Error())
+		return nil, nil, fmt.Errorf("failed to save async job to tmp file, error: %s", err.Error())
 	}
 
-	// --------------------- Create Async Txn ---------------------------------------
+	// --------------------- Create Async Job ---------------------------------------
 
-	// Check if newPayload is a file, as so it must be saved with asyncTxn to be closed when it's done.
+	// TODO USE FINALIZER
+
+	// Check if newPayload is a file, as so it must be closed when it's done.
 	tmpFile, ok := newPayload.(*os.File)
 	if !ok {
 		tmpFile = nil
 	}
 
-	// Create Async Txn
-	asyncTxn := &transaction.Async{
+	// Create Async Job
+	asyncJob := &job.Async{
 		ID:       uuid.New().String(),
 		Node:     node,
 		Filepath: filepath,
@@ -190,7 +192,7 @@ func (p *Persistence) SaveTxn(node string, t transaction.Transaction) (*transact
 
 	// --------------------- Save to DB ---------------------------------------------
 
-	encodedBytes, err := json.Marshal(asyncTxn)
+	encodedBytes, err := json.Marshal(asyncJob)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -198,7 +200,7 @@ func (p *Persistence) SaveTxn(node string, t transaction.Transaction) (*transact
 	// Persist to Database
 	err = db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(p.bucket))
-		err := b.Put([]byte(asyncTxn.ID), encodedBytes)
+		err := b.Put([]byte(asyncJob.ID), encodedBytes)
 		return err
 	})
 
@@ -206,7 +208,7 @@ func (p *Persistence) SaveTxn(node string, t transaction.Transaction) (*transact
 		return nil, nil, err
 	}
 
-	return asyncTxn, newPayload, nil
+	return asyncJob, newPayload, nil
 }
 
 func writeToTmpFile(Payload payload.Payload) (filepath string, newPayload payload.Payload, err error) {
@@ -258,6 +260,6 @@ func writeToTmpFile(Payload payload.Payload) (filepath string, newPayload payloa
 
 		return filepath, newPayload, err
 	default:
-		return "", nil, fmt.Errorf("invalid transaction Payload type, must be Payload.Bytes or Payload.Stream")
+		return "", nil, fmt.Errorf("invalid job Payload type, must be Payload.Bytes or Payload.Stream")
 	}
 }

@@ -47,7 +47,7 @@ func (v *Selector) Evaluate(data map[string]interface{}) (string, error) {
 	if len(v.parts) == 1 {
 		val := dataMap.Get(v.parts[0].string)
 		if val.IsNil() {
-			return "", fmt.Errorf("base [%s] is not found in transaction", v.parts[0].string)
+			return "", fmt.Errorf("base [%s] is not found in job", v.parts[0].string)
 		}
 		return val.String(), nil
 	}
@@ -62,7 +62,7 @@ func (v *Selector) Evaluate(data map[string]interface{}) (string, error) {
 
 		partValue = dataMap.Get(part.string)
 		if partValue.IsNil() {
-			return "", fmt.Errorf("base [%s] is not found in transaction", part.string)
+			return "", fmt.Errorf("base [%s] is not found in job", part.string)
 		}
 
 		builder.WriteString(partValue.String())

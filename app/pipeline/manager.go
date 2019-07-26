@@ -6,13 +6,13 @@ import (
 	"github.com/sherifabdlnaby/prism/app/component"
 	"github.com/sherifabdlnaby/prism/app/config"
 	"github.com/sherifabdlnaby/prism/app/pipeline/persistence"
-	"github.com/sherifabdlnaby/prism/pkg/transaction"
+	"github.com/sherifabdlnaby/prism/pkg/job"
 	"go.uber.org/zap"
 )
 
 type wrapper struct {
 	*Pipeline
-	TransactionChan chan transaction.Transaction
+	jobChan chan job.Job
 }
 
 type Manager struct {
@@ -54,11 +54,11 @@ func NewManager(c config.Pipelines, registry component.Registry, logger zap.Suga
 	return &m, nil
 }
 
-func (m *Manager) PipelinesReceiveChan() map[string]chan<- transaction.Transaction {
-	chans := make(map[string]chan<- transaction.Transaction)
+func (m *Manager) PipelinesReceiveChan() map[string]chan<- job.Job {
+	chans := make(map[string]chan<- job.Job)
 
 	for key, pipeline := range m.pipelines {
-		chans[key] = pipeline.TransactionChan
+		chans[key] = pipeline.jobChan
 	}
 
 	return chans

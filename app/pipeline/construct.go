@@ -9,8 +9,7 @@ import (
 	"github.com/sherifabdlnaby/prism/app/config"
 	"github.com/sherifabdlnaby/prism/app/pipeline/node"
 	"github.com/sherifabdlnaby/prism/app/pipeline/persistence"
-	"github.com/sherifabdlnaby/prism/app/resource"
-	"github.com/sherifabdlnaby/prism/pkg/transaction"
+	"github.com/sherifabdlnaby/prism/pkg/job"
 	"go.uber.org/zap"
 )
 
@@ -19,7 +18,7 @@ func NewPipeline(name string, Config config.Pipeline, registry component.Registr
 	logger zap.SugaredLogger) (*wrapper, error) {
 	var err error
 
-	tc := make(chan transaction.Transaction)
+	tc := make(chan job.Job)
 
 	//TODO hash pipelines
 
@@ -28,7 +27,7 @@ func NewPipeline(name string, Config config.Pipeline, registry component.Registr
 		name:           name,
 		hash:           "TODOHASHPIPELINE",
 		config:         Config,
-		receiveTxnChan: tc,
+		receiveJobChan: tc,
 		registry:       registry,
 		Root:           nil,
 		persistence:    persistence.Persistence{},
@@ -38,7 +37,7 @@ func NewPipeline(name string, Config config.Pipeline, registry component.Registr
 	}
 
 	// Node Beginning Dummy Node
-	root := node.NewNext(node.NewDummy("dummy", resource.NewResource(Config.Concurrency), p.Logger))
+	root := node.NewNext(node.NewDummy("dummy", component.NewResource(Config.Concurrency), p.Logger))
 
 	// create persistence
 	persistence, err := persistence.NewPersistence(name, "TODOHASHPIPELINE", p.Logger)
@@ -63,8 +62,8 @@ func NewPipeline(name string, Config config.Pipeline, registry component.Registr
 	p.NodeMap[root.Name] = root.Node
 
 	return &wrapper{
-		Pipeline:        p,
-		TransactionChan: tc,
+		Pipeline: p,
+		jobChan:  tc,
 	}, nil
 }
 

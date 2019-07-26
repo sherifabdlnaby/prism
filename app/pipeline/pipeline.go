@@ -6,8 +6,8 @@ import (
 	"github.com/sherifabdlnaby/prism/app/config"
 	"github.com/sherifabdlnaby/prism/app/pipeline/node"
 	"github.com/sherifabdlnaby/prism/app/pipeline/persistence"
+	"github.com/sherifabdlnaby/prism/pkg/job"
 	"github.com/sherifabdlnaby/prism/pkg/response"
-	"github.com/sherifabdlnaby/prism/pkg/transaction"
 	"go.uber.org/zap"
 	"io"
 	"sync"
@@ -20,7 +20,7 @@ type Pipeline struct {
 	registry       component.Registry
 	Root           *node.Next
 	NodeMap        map[string]*node.Node
-	receiveTxnChan <-chan transaction.Transaction
+	receiveJobChan <-chan job.Job
 	persistence    persistence.Persistence
 	wg             sync.WaitGroup
 	config         config.Pipeline
@@ -37,7 +37,7 @@ func (p *Pipeline) Start() error {
 	}
 
 	go func() {
-		for value := range p.receiveTxnChan {
+		for value := range p.receiveJobChan {
 			go p.process(value)
 		}
 	}()
@@ -45,7 +45,7 @@ func (p *Pipeline) Start() error {
 	return nil
 }
 
-// Stop stops the pipeline, that means that any transaction received on this pipeline after stopping will return
+// Stop stops the pipeline, that means that any job received on this pipeline after stopping will return
 // error response unless re-started again.
 func (p *Pipeline) Stop() error {
 	// Wait all running jobs to return
@@ -60,43 +60,43 @@ func (p *Pipeline) Stop() error {
 	return nil
 }
 
-func (p *Pipeline) process(txn transaction.Transaction) {
+func (p *Pipeline) process(Job job.Job) {
 	p.wg.Add(1)
 	responseChan := make(chan response.Response)
-	p.Root.TransactionChan <- transaction.Transaction{
-		Payload:      txn.Payload,
-		Data:         txn.Data,
+	p.Root.JobChan <- job.Job{
+		Payload:      Job.Payload,
+		Data:         Job.Data,
 		ResponseChan: responseChan,
-		Context:      txn.Context,
+		Context:      Job.Context,
 	}
-	txn.ResponseChan <- <-responseChan
+	Job.ResponseChan <- <-responseChan
 	p.wg.Done()
 }
 
-//recoverAsync checks pipeline's persisted unfinished transactions and re-apply them
+//recoverAsync checks pipeline's persisted unfinished jobs and re-apply them
 func (p *Pipeline) recoverAsync() error {
 
-	TxnList, err := p.persistence.GetAllTxn()
+	JobsList, err := p.persistence.GetAllJobs()
 	if err != nil {
-		p.Logger.Infow("error occurred while reading in-disk transactions", "error", err.Error())
+		p.Logger.Infow("error occurred while reading in-disk jobs", "error", err.Error())
 		return err
 	}
 
-	p.Logger.Infof("re-applying %d async requests found", len(TxnList))
-	for _, asyncTxn := range TxnList {
-		p.applyAsyncTxn(asyncTxn)
+	p.Logger.Infof("re-applying %d async requests found", len(JobsList))
+	for _, asyncJobs := range JobsList {
+		p.applyAsyncJob(asyncJobs)
 	}
 
 	return nil
 }
 
-func (p *Pipeline) applyAsyncTxn(asyncTxn transaction.Async) {
+func (p *Pipeline) applyAsyncJob(asyncJob job.Async) {
 
-	// Send Transaction to the Async Node
+	// Send Job to the Async Node
 	responseChan := make(chan response.Response)
-	p.NodeMap[asyncTxn.Node].ProcessTransaction(transaction.Transaction{
-		Payload:      io.Reader(asyncTxn.TmpFile),
-		Data:         asyncTxn.Data,
+	p.NodeMap[asyncJob.Node].ProcessJob(job.Job{
+		Payload:      io.Reader(asyncJob.TmpFile),
+		Data:         asyncJob.Data,
 		Context:      context.Background(),
 		ResponseChan: responseChan,
 	})
@@ -114,13 +114,13 @@ func (p *Pipeline) applyAsyncTxn(asyncTxn transaction.Async) {
 	}
 
 	// ------------------ Clean UP ------------------ //
-	err := asyncTxn.Finalize()
+	err := asyncJob.Finalize()
 	if err != nil {
 		p.Logger.Errorw("an error occurred while applying finalizing async requests", "error", err.Error())
 	}
 
 	// Delete Entry from DB
-	err = p.persistence.DeleteTxn(&asyncTxn)
+	err = p.persistence.DeleteJob(&asyncJob)
 	if err != nil {
 		p.Logger.Errorw("an error occurred while applying persisted async requests", "error", err.Error())
 	}

@@ -4,9 +4,9 @@ import (
 	"context"
 
 	"github.com/sherifabdlnaby/prism/pkg/component/processor"
+	"github.com/sherifabdlnaby/prism/pkg/job"
 	"github.com/sherifabdlnaby/prism/pkg/payload"
 	"github.com/sherifabdlnaby/prism/pkg/response"
-	"github.com/sherifabdlnaby/prism/pkg/transaction"
 )
 
 //readWrite Wraps a readwrite Type
@@ -15,8 +15,8 @@ type readWrite struct {
 	*Node
 }
 
-//job Process transaction by calling Decode-> Process-> Encode->
-func (n *readWrite) job(t transaction.Transaction) {
+//job Process job by calling Decode-> Process-> Encode->
+func (n *readWrite) job(t job.Job) {
 
 	////////////////////////////////////////////
 	// Acquire resource (limit concurrency)
@@ -66,7 +66,7 @@ func (n *readWrite) job(t transaction.Transaction) {
 	t.ResponseChan <- Response
 }
 
-func (n *readWrite) jobStream(t transaction.Transaction) {
+func (n *readWrite) jobStream(t job.Job) {
 
 	////////////////////////////////////////////
 	// Acquire resource (limit concurrency)
