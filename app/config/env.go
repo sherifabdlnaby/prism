@@ -17,13 +17,6 @@ var (
 		desc: "Path for persistence db files' directory",
 	}
 
-	// EnvPrismTmpDir is Environment Variable that points to the configuration directory (default: ./config)
-	EnvPrismTmpDir = Env{
-		env:  "PRISM_TMP_DIR",
-		def:  "./data/images",
-		desc: "Path for configuration files' directory",
-	}
-
 	// EnvPrism is Environment Variable that represents either prod or dev environment
 	EnvPrism = Env{
 		env:  "PRISM_ENV",

@@ -12,30 +12,40 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"time"
 )
 
 var db *bolt.DB
 var initialized bool
+var dbDir string
+var dataDir string
+var existingFiles []os.FileInfo
 
 func initializePersistence() error {
 	if !initialized {
-		dataDir := config.EnvPrismDataDir.Lookup()
+		dbDir = config.EnvPrismDataDir.Lookup()
+		dataDir = dbDir + "/images"
 
-		// open pipeline DB
 		err := os.MkdirAll(dataDir, os.ModePerm)
 		if err != nil {
 			return err
 		}
 
-		err = os.MkdirAll(config.EnvPrismTmpDir.Lookup(), os.ModePerm)
+		err = os.MkdirAll(dbDir, os.ModePerm)
 		if err != nil {
 			return err
 		}
 
-		db, err = bolt.Open(dataDir+"/async.db", 0600, &bolt.Options{Timeout: 1 * time.Second})
+		db, err = bolt.Open(dbDir+"/async.db", 0600, &bolt.Options{Timeout: 1 * time.Second})
 		if err != nil {
 			return fmt.Errorf("error while opening persistence DB file %s", err.Error())
+		}
+
+		//save current files
+		existingFiles, err = ioutil.ReadDir(dataDir)
+		if err != nil {
+			return err
 		}
 
 		initialized = true
@@ -73,6 +83,30 @@ func NewPersistence(name, hash string, logger zap.SugaredLogger) (Persistence, e
 	}
 
 	return per, nil
+}
+
+func DirectoryCleanup() {
+
+	// Here we remove any files we read before applying the requests,
+	// this for the narrow possibility that a system crash happened after removing it from DB but before deleting it from the file,
+	// as the DB is the source of truth, any remaining file after applying everything shall be removed.
+	// Need to check if they're not removed After we read them as applying itself could have removed its own files.
+	// Bottom line this function remove any image that has no entry in the DB.
+	for _, file := range existingFiles {
+		if !file.IsDir() {
+			// get abs Path
+			filePath := dataDir + "/" + file.Name()
+			filePath, _ = filepath.Abs(filePath)
+			ext := filepath.Ext(filePath)
+			if _, err := os.Stat(filePath); !os.IsNotExist(err) && ext == ".pri" {
+				err := os.Remove(filePath)
+				if err != nil {
+					//TODO log here
+				}
+			}
+		}
+	}
+
 }
 
 func (p *Persistence) GetAllTxn() ([]transaction.Async, error) {
@@ -177,8 +211,7 @@ func (p *Persistence) SaveTxn(node string, t transaction.Transaction) (*transact
 
 func writeToTmpFile(Payload payload.Payload) (filepath string, newPayload payload.Payload, err error) {
 
-	dirPath := config.EnvPrismTmpDir.Lookup()
-	tmpFile, err := ioutil.TempFile(dirPath, "*.prism")
+	tmpFile, err := ioutil.TempFile(dataDir, "*.pri")
 	if err != nil {
 		return "", nil, err
 	}

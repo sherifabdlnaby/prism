@@ -2,13 +2,12 @@ package app
 
 import (
 	"fmt"
+
 	"github.com/sherifabdlnaby/prism/app/config"
 	"github.com/sherifabdlnaby/prism/app/pipeline"
+	"github.com/sherifabdlnaby/prism/app/pipeline/persistence"
 	componentConfig "github.com/sherifabdlnaby/prism/pkg/config"
 	"github.com/sherifabdlnaby/prism/pkg/transaction"
-	"io/ioutil"
-	"os"
-	"path/filepath"
 )
 
 // loadPlugins Load all plugins in Config
@@ -122,24 +121,21 @@ func (a *App) startOutputPlugins() error {
 // initPipelines Initialize and build all configured pipelines
 func (a *App) initPipelines(c config.Config) error {
 
-	for key, pipConfig := range c.Pipeline.Pipelines {
+	for name, pipConfig := range c.Pipeline.Pipelines {
 
 		// check if pipeline already exists
-		_, ok := a.pipelines[key]
+		_, ok := a.pipelines[name]
 		if ok {
-			return fmt.Errorf("pipeline with name [%s] already declared", key)
-		}
-
-		pip, err := pipeline.NewPipeline(key, *pipConfig, a.registry, *a.logger.processingLogger.Named(key), c.Pipeline.Hash)
-
-		if err != nil {
-			return fmt.Errorf("error occurred when constructing pipeline [%s]: %s", key, err.Error())
+			return fmt.Errorf("pipeline with name [%s] already declared", name)
 		}
 
 		tc := make(chan transaction.Transaction)
-		pip.SetTransactionChan(tc)
+		pip, err := pipeline.NewPipeline(name, *pipConfig, a.registry, tc, a.logger.pipelineLogger, c.Pipeline.Hash)
+		if err != nil {
+			return fmt.Errorf("error occurred when constructing pipeline [%s]: %s", name, err.Error())
+		}
 
-		a.pipelines[key] = pipelineWrapper{
+		a.pipelines[name] = pipelineWrapper{
 			Pipeline:        pip,
 			TransactionChan: tc,
 		}
@@ -181,41 +177,16 @@ func (a *App) stopPipelines() error {
 
 // stopPipelines Stop pipelines by calling their Stop() function, any request to these pipelines will return error.
 func (a *App) applyPersistedAsyncRequests() error {
-	tmpPath := config.EnvPrismTmpDir.Lookup()
-
-	//save current files
-	files, err := ioutil.ReadDir(tmpPath)
-	if err != nil {
-		return err
-	}
 
 	go func() {
-		for _, value := range a.pipelines {
-			err := value.ApplyPersistedAsyncRequests()
+		for _, pipeline := range a.pipelines {
+			err := pipeline.ApplyPersistedAsyncRequests()
 			if err != nil {
 				a.logger.Errorw("error while applying lost async requests", "error", err.Error())
 			}
 		}
-
-		// Here we remove any files we read before applying the requests,
-		// this for the narrow possibility that a system crash happened after removing it from DB but before deleting it from the file,
-		// as the DB is the source of truth, any remaining file after applying everything shall be removed.
-		// Need to check if they're not removed After we read them as applying itself could have removed its own files.
-		// Bottom line this function remove any image that has no entry in the DB.
-		for _, file := range files {
-			if !file.IsDir() {
-				// get abs Path
-				filePath := tmpPath + "/" + file.Name()
-				filePath, _ = filepath.Abs(filePath)
-				if _, err := os.Stat(filePath); !os.IsNotExist(err) {
-					err := os.Remove(filePath)
-					if err != nil {
-						a.logger.Errorw("error while cleaning up tmp images", "error", err.Error())
-					}
-				}
-			}
-		}
-
+		persistence.DirectoryCleanup()
+		//TODO make it better
 	}()
 
 	return nil
