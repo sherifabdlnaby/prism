@@ -15,8 +15,8 @@ type dummy struct {
 	*Node
 }
 
-//job Just forwards the input.
-func (n *dummy) job(t job.Job) {
+//process Just forwards the input.
+func (n *dummy) process(t job.Job) {
 
 	////////////////////////////////////////////
 	// Acquire resource (limit concurrency of entire pipeline)
@@ -47,7 +47,7 @@ func (n *dummy) job(t job.Job) {
 	n.resource.Release()
 }
 
-func (n *dummy) jobStream(t job.Job) {
+func (n *dummy) processStream(t job.Job) {
 
 	////////////////////////////////////////////
 	// Acquire resource (limit concurrency of entire pipeline)

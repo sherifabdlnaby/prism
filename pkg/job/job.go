@@ -39,13 +39,31 @@ type Input struct {
 type Async struct {
 	ID, Node, Filepath string
 	Data               payload.Data
-	// ----- Used to close files after async request is done
-	TmpFile *os.File `json:"-"`
+	Job                Job                      `json:"-"`
+	JobResponseChan    <-chan response.Response `json:"-"`
 }
 
-func (a Async) Finalize() error {
-	if a.TmpFile != nil {
-		return a.TmpFile.Close()
+func (a *Async) Load(Payload payload.Payload) error {
+	var err error
+	newPayload := Payload
+	responseChan := make(chan response.Response, 1)
+
+	if Payload == nil {
+		// open tmp file
+		newPayload, err = os.Open(a.Filepath)
+		if err != nil {
+			return err
+		}
 	}
+
+	a.Job = Job{
+		Payload:      newPayload,
+		Data:         a.Data,
+		Context:      context.Background(),
+		ResponseChan: responseChan,
+	}
+
+	a.JobResponseChan = responseChan
+
 	return nil
 }

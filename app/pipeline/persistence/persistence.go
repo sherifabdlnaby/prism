@@ -3,17 +3,18 @@ package persistence
 import (
 	"encoding/json"
 	"fmt"
+	"io"
+	"io/ioutil"
+	"os"
+	"path/filepath"
+	"time"
+
 	"github.com/boltdb/bolt"
 	"github.com/google/uuid"
 	"github.com/sherifabdlnaby/prism/app/config"
 	"github.com/sherifabdlnaby/prism/pkg/job"
 	"github.com/sherifabdlnaby/prism/pkg/payload"
 	"go.uber.org/zap"
-	"io"
-	"io/ioutil"
-	"os"
-	"path/filepath"
-	"time"
 )
 
 var db *bolt.DB
@@ -109,7 +110,7 @@ func DirectoryCleanup() {
 
 }
 
-func (p *Persistence) GetAllJobs() ([]job.Async, error) {
+func (p *Persistence) GetAllAsyncJobs() ([]job.Async, error) {
 	JobList := make([]job.Async, 0)
 
 	err := db.View(func(tx *bolt.Tx) error {
@@ -120,13 +121,12 @@ func (p *Persistence) GetAllJobs() ([]job.Async, error) {
 			if err != nil {
 				return err
 			}
-			// open tmp file
-			tmpFile, err := os.Open(asyncJob.Filepath)
+
+			err = asyncJob.Load(nil)
 			if err != nil {
-				p.logger.Errorw("an error occurred while applying persisted async requests", "error", err.Error())
+				return err
 			}
 
-			asyncJob.TmpFile = tmpFile
 			JobList = append(JobList, *asyncJob)
 			return nil
 		})
@@ -139,7 +139,7 @@ func (p *Persistence) GetAllJobs() ([]job.Async, error) {
 	return JobList, nil
 }
 
-func (p *Persistence) DeleteJob(asyncJob *job.Async) error {
+func (p *Persistence) DeleteAsyncJob(asyncJob *job.Async) error {
 	err := db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(p.bucket))
 		err := b.Delete([]byte(asyncJob.ID))
@@ -162,24 +162,15 @@ func (p *Persistence) DeleteJob(asyncJob *job.Async) error {
 	return nil
 }
 
-func (p *Persistence) SaveJob(node string, t job.Job) (*job.Async, payload.Payload, error) {
+func (p *Persistence) CreateAsyncJob(node string, t job.Job) (*job.Async, error) {
 
 	// --------------------- Write To Temp File -------------------------------------
-
 	filepath, newPayload, err := writeToTmpFile(t.Payload)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to save async job to tmp file, error: %s", err.Error())
+		return nil, fmt.Errorf("failed to save async job to tmp file, error: %s", err.Error())
 	}
 
 	// --------------------- Create Async Job ---------------------------------------
-
-	// TODO USE FINALIZER
-
-	// Check if newPayload is a file, as so it must be closed when it's done.
-	tmpFile, ok := newPayload.(*os.File)
-	if !ok {
-		tmpFile = nil
-	}
 
 	// Create Async Job
 	asyncJob := &job.Async{
@@ -187,14 +178,18 @@ func (p *Persistence) SaveJob(node string, t job.Job) (*job.Async, payload.Paylo
 		Node:     node,
 		Filepath: filepath,
 		Data:     t.Data,
-		TmpFile:  tmpFile,
+	}
+
+	err = asyncJob.Load(newPayload)
+	if err != nil {
+		return nil, err
 	}
 
 	// --------------------- Save to DB ---------------------------------------------
 
 	encodedBytes, err := json.Marshal(asyncJob)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	// Persist to Database
@@ -205,10 +200,10 @@ func (p *Persistence) SaveJob(node string, t job.Job) (*job.Async, payload.Paylo
 	})
 
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	return asyncJob, newPayload, nil
+	return asyncJob, nil
 }
 
 func writeToTmpFile(Payload payload.Payload) (filepath string, newPayload payload.Payload, err error) {
@@ -217,7 +212,6 @@ func writeToTmpFile(Payload payload.Payload) (filepath string, newPayload payloa
 	if err != nil {
 		return "", nil, err
 	}
-
 	filepath = tmpFile.Name()
 
 	// Write Data to Disk
@@ -234,24 +228,17 @@ func writeToTmpFile(Payload payload.Payload) (filepath string, newPayload payloa
 			return "", nil, err
 		}
 
-		err = tmpFile.Close()
-		if err != nil {
-			return "", nil, err
-		}
-
 		return filepath, Payload, err
 	case payload.Stream:
 		// Drain Stream Into File
 		_, err = io.Copy(tmpFile, Payload)
 		if err != nil {
-			_ = tmpFile.Close()
 			return "", nil, err
 		}
 
 		// Get to start of the file
 		_, err = tmpFile.Seek(0, 0)
 		if err != nil {
-			_ = tmpFile.Close()
 			return "", nil, err
 		}
 

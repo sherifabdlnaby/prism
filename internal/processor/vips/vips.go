@@ -110,6 +110,9 @@ func (d *Vips) Process(in payload.DecodedImage, data payload.Data) (payload.Deco
 
 	img := vimage.image.Clone()
 
+	//TODO use clone instead when finishing forking BIMG to be ready to use intermediate results.
+	//img := vimage.image.Clone()
+
 	// apply configs
 	err := d.config.Operations.Apply(params, data)
 	if err != nil {

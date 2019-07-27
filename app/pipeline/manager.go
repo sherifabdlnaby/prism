@@ -115,7 +115,7 @@ func (m *Manager) Recover(name string) error {
 		return err
 	}
 
-	err = pipeline.recoverAsync()
+	err = pipeline.recoverAsyncJobs()
 	if err != nil {
 		m.logger.Error(err.Error())
 		return err

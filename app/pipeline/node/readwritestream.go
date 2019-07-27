@@ -11,14 +11,14 @@ import (
 	"github.com/sherifabdlnaby/prism/pkg/response"
 )
 
-//readWrite Wraps a readwrite Type
+//readWrite Wraps a readwrite core
 type readWriteStream struct {
 	processor processor.ReadWriteStream
 	*Node
 }
 
-//job Process job by calling Decode-> Process-> Encode->
-func (n *readWriteStream) job(t job.Job) {
+//process Process process by calling Decode-> Process-> Encode->
+func (n *readWriteStream) process(t job.Job) {
 
 	////////////////////////////////////////////
 	// Acquire resource (limit concurrency)
@@ -73,7 +73,7 @@ func (n *readWriteStream) job(t job.Job) {
 	t.ResponseChan <- Response
 }
 
-func (n *readWriteStream) jobStream(t job.Job) {
+func (n *readWriteStream) processStream(t job.Job) {
 
 	////////////////////////////////////////////
 	// Acquire resource (limit concurrency)

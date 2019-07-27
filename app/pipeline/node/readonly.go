@@ -11,14 +11,14 @@ import (
 	"github.com/sherifabdlnaby/prism/pkg/response"
 )
 
-//readOnly Wraps a readOnly Type
+//readOnly Wraps a readOnly core
 type readOnly struct {
 	processor processor.ReadOnly
 	*Node
 }
 
-//job Process job by calling Decode-> Process-> Encode->
-func (n *readOnly) job(t job.Job) {
+//process Process process by calling Decode-> Process-> Encode->
+func (n *readOnly) process(t job.Job) {
 
 	////////////////////////////////////////////
 	// Acquire resource (limit concurrency)
@@ -62,7 +62,7 @@ func (n *readOnly) job(t job.Job) {
 	t.ResponseChan <- Response
 }
 
-func (n *readOnly) jobStream(t job.Job) {
+func (n *readOnly) processStream(t job.Job) {
 
 	////////////////////////////////////////////
 	// Acquire resource (limit concurrency)

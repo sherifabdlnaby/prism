@@ -6,14 +6,14 @@ import (
 	"github.com/sherifabdlnaby/prism/pkg/response"
 )
 
-//output Wraps an output Type
+//output Wraps an output core
 type output struct {
 	output *component.Output
 	*Node
 }
 
-//job output job will send the job to output plugin and await its result.
-func (n *output) job(t job.Job) {
+//process output process will send the process to output plugin and await its result.
+func (n *output) process(t job.Job) {
 	err := n.resource.Acquire(t.Context)
 	if err != nil {
 		t.ResponseChan <- response.NoAck(err)
@@ -34,6 +34,6 @@ func (n *output) job(t job.Job) {
 	n.resource.Release()
 }
 
-func (n *output) jobStream(t job.Job) {
-	n.job(t)
+func (n *output) processStream(t job.Job) {
+	n.process(t)
 }

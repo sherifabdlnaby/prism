@@ -3,7 +3,6 @@ package pipeline
 import (
 	"fmt"
 	"strconv"
-	"sync"
 
 	"github.com/sherifabdlnaby/prism/app/component"
 	"github.com/sherifabdlnaby/prism/app/config"
@@ -18,7 +17,7 @@ func NewPipeline(name string, Config config.Pipeline, registry component.Registr
 	logger zap.SugaredLogger) (*wrapper, error) {
 	var err error
 
-	tc := make(chan job.Job)
+	jobChan := make(chan job.Job)
 
 	//TODO hash pipelines
 
@@ -26,18 +25,12 @@ func NewPipeline(name string, Config config.Pipeline, registry component.Registr
 	p := &Pipeline{
 		name:           name,
 		hash:           "TODOHASHPIPELINE",
-		config:         Config,
-		receiveJobChan: tc,
-		registry:       registry,
+		receiveJobChan: jobChan,
 		Root:           nil,
 		persistence:    persistence.Persistence{},
 		NodeMap:        make(map[string]*node.Node),
-		wg:             sync.WaitGroup{},
 		Logger:         *logger.Named(name),
 	}
-
-	// Node Beginning Dummy Node
-	root := node.NewNext(node.NewDummy("dummy", component.NewResource(Config.Concurrency), p.Logger))
 
 	// create persistence
 	persistence, err := persistence.NewPersistence(name, "TODOHASHPIPELINE", p.Logger)
@@ -47,27 +40,29 @@ func NewPipeline(name string, Config config.Pipeline, registry component.Registr
 	p.persistence = persistence
 
 	// Lookup Nexts of this Node
-	nexts, err := p.getNodeNexts(Config.Pipeline, false)
+	nexts, err := p.getNodeNexts(Config.Pipeline, registry, false)
 	if err != nil {
 		return &wrapper{}, err
 	}
 
-	// set begin Node to nexts (Pipelines beginning)
-	root.SetNexts(nexts)
-
 	// set pipeline root node
-	p.Root = root
+	// Node Beginning Dummy Node
+	rootJobChan := make(chan job.Job)
+	p.Root = &node.Next{
+		Node:    node.NewDummy("dummy", component.NewResource(Config.Concurrency), false, nexts, p.createAsyncJob, rootJobChan, p.Logger),
+		JobChan: rootJobChan,
+	}
 
 	// save root node.
-	p.NodeMap[root.Name] = root.Node
+	p.NodeMap[p.Root.Name] = p.Root.Node
 
 	return &wrapper{
 		Pipeline: p,
-		jobChan:  tc,
+		jobChan:  jobChan,
 	}, nil
 }
 
-func (p *Pipeline) getNodeNexts(next map[string]*config.Node, forceSync bool) ([]node.Next, error) {
+func (p *Pipeline) getNodeNexts(next map[string]*config.Node, registry component.Registry, forceSync bool) ([]node.Next, error) {
 	nexts := make([]node.Next, 0)
 
 	for name, n := range next {
@@ -75,26 +70,25 @@ func (p *Pipeline) getNodeNexts(next map[string]*config.Node, forceSync bool) ([
 		//
 		async, forceSync := evaluateAsync(n.Async, forceSync)
 
-		// create node of the configure components
-		currNode, err := p.createNode(name, p.getUniqueNodeName(name), async, p.persistence, len(n.Next))
-		if err != nil {
-			return nil, err
-		}
-
 		// add nodeNexts
-		nodeNexts, err := p.getNodeNexts(n.Next, forceSync)
+		nodeNexts, err := p.getNodeNexts(n.Next, registry, forceSync)
 		if err != nil {
 			return nil, err
 		}
 
-		// set nodeNexts
-		currNode.SetNexts(nodeNexts)
+		jobChan := make(chan job.Job)
 
-		// create a next wrapper
-		next := node.NewNext(currNode)
+		// create node of the configure components
+		currNode, err := p.createNode(name, p.getUniqueNodeName(name), async, registry, nodeNexts, jobChan, len(n.Next))
+		if err != nil {
+			return nil, err
+		}
 
 		// append to nodeNexts
-		nexts = append(nexts, *next)
+		nexts = append(nexts, node.Next{
+			Node:    currNode,
+			JobChan: jobChan,
+		})
 	}
 
 	return nexts, nil
@@ -110,12 +104,12 @@ func (p Pipeline) getUniqueNodeName(name string) string {
 	}
 }
 
-func (p Pipeline) createNode(componentName, nodeName string, async bool, persistence persistence.Persistence,
-	nextsCount int) (*node.Node, error) {
+func (p Pipeline) createNode(componentName, nodeName string, async bool, registry component.Registry,
+	nexts []node.Next, jobChan chan job.Job, nextsCount int) (*node.Node, error) {
+
 	var Node *node.Node
 
-	// check if ProcessReadWrite(and which types)
-	Component := p.registry.Component(componentName)
+	Component := registry.Component(componentName)
 	if Component == nil {
 		return nil, fmt.Errorf("plugin [%s] doesn't exists", componentName)
 	}
@@ -128,27 +122,28 @@ func (p Pipeline) createNode(componentName, nodeName string, async bool, persist
 
 		switch Component := Component.(type) {
 		case *component.ProcessorReadWrite:
-			Node = node.NewReadWrite(nodeName, Component, p.Logger)
+			Node = node.NewReadWrite(nodeName, Component, async, nexts, p.createAsyncJob, jobChan, p.Logger)
 		case *component.ProcessorReadOnly:
-			Node = node.NewReadOnly(nodeName, Component, p.Logger)
+			Node = node.NewReadOnly(nodeName, Component, async, nexts, p.createAsyncJob, jobChan, p.Logger)
 		case *component.ProcessorReadWriteStream:
-			Node = node.NewReadWriteStream(nodeName, Component, p.Logger)
+			Node = node.NewReadWriteStream(nodeName, Component, async, nexts, p.createAsyncJob, jobChan, p.Logger)
 		}
 
 	case *component.Output:
 		if nextsCount > 0 {
 			return nil, fmt.Errorf("plugin [%s] has nexts(s), output plugins must not have nexts(s)", nodeName)
 		}
-		Node = node.NewOutput(nodeName, Component, p.Logger)
+		Node = node.NewOutput(nodeName, Component, async, nexts, p.createAsyncJob, jobChan, p.Logger)
 	case *component.Input:
 		return nil, fmt.Errorf("plugin [%s] is an input plugin", nodeName)
 	default:
 		return nil, fmt.Errorf("plugin [%s] doesn't exists", nodeName)
 	}
 
-	Node.SetAsync(async)
-
-	Node.SetPersistence(p.persistence)
+	// Assert check.
+	if Node == nil {
+		return nil, fmt.Errorf("failed to create Node [%s]", componentName)
+	}
 
 	// save in map
 	p.NodeMap[nodeName] = Node

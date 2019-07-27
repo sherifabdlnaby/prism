@@ -1,29 +1,24 @@
 package pipeline
 
 import (
-	"context"
-	"github.com/sherifabdlnaby/prism/app/component"
-	"github.com/sherifabdlnaby/prism/app/config"
+	"sync"
+
 	"github.com/sherifabdlnaby/prism/app/pipeline/node"
 	"github.com/sherifabdlnaby/prism/app/pipeline/persistence"
 	"github.com/sherifabdlnaby/prism/pkg/job"
 	"github.com/sherifabdlnaby/prism/pkg/response"
 	"go.uber.org/zap"
-	"io"
-	"sync"
 )
 
 //Pipelines Holds the recursive tree of Nodes and their next nodes, etc
 type Pipeline struct {
 	name           string
 	hash           string
-	registry       component.Registry
 	Root           *node.Next
-	NodeMap        map[string]*node.Node
 	receiveJobChan <-chan job.Job
+	NodeMap        map[string]*node.Node
 	persistence    persistence.Persistence
-	wg             sync.WaitGroup
-	config         config.Pipeline
+	activeJobs     sync.WaitGroup
 	Logger         zap.SugaredLogger
 }
 
@@ -38,7 +33,7 @@ func (p *Pipeline) Start() error {
 
 	go func() {
 		for value := range p.receiveJobChan {
-			go p.process(value)
+			go p.handleJob(value)
 		}
 	}()
 
@@ -49,7 +44,7 @@ func (p *Pipeline) Start() error {
 // error response unless re-started again.
 func (p *Pipeline) Stop() error {
 	// Wait all running jobs to return
-	p.wg.Wait()
+	p.activeJobs.Wait()
 
 	//Stop
 	err := p.Root.Stop()
@@ -60,9 +55,9 @@ func (p *Pipeline) Stop() error {
 	return nil
 }
 
-func (p *Pipeline) process(Job job.Job) {
-	p.wg.Add(1)
+func (p *Pipeline) handleJob(Job job.Job) {
 	responseChan := make(chan response.Response)
+	p.activeJobs.Add(1)
 	p.Root.JobChan <- job.Job{
 		Payload:      Job.Payload,
 		Data:         Job.Data,
@@ -70,13 +65,13 @@ func (p *Pipeline) process(Job job.Job) {
 		Context:      Job.Context,
 	}
 	Job.ResponseChan <- <-responseChan
-	p.wg.Done()
+	p.activeJobs.Done()
 }
 
-//recoverAsync checks pipeline's persisted unfinished jobs and re-apply them
-func (p *Pipeline) recoverAsync() error {
+//recoverAsyncJobs checks pipeline's persisted unfinished jobs and re-apply them
+func (p *Pipeline) recoverAsyncJobs() error {
 
-	JobsList, err := p.persistence.GetAllJobs()
+	JobsList, err := p.persistence.GetAllAsyncJobs()
 	if err != nil {
 		p.Logger.Infow("error occurred while reading in-disk jobs", "error", err.Error())
 		return err
@@ -84,25 +79,22 @@ func (p *Pipeline) recoverAsync() error {
 
 	p.Logger.Infof("re-applying %d async requests found", len(JobsList))
 	for _, asyncJobs := range JobsList {
-		p.applyAsyncJob(asyncJobs)
+		go func() {
+			// TODO make this respect pipeline overall concurrent factor
+			// TODO make this concurrent
+			p.reapplyAsyncJob(asyncJobs)
+		}()
 	}
 
 	return nil
 }
 
-func (p *Pipeline) applyAsyncJob(asyncJob job.Async) {
+func (p *Pipeline) reapplyAsyncJob(asyncJob job.Async) {
 
-	// Send Job to the Async Node
-	responseChan := make(chan response.Response)
-	p.NodeMap[asyncJob.Node].ProcessJob(job.Job{
-		Payload:      io.Reader(asyncJob.TmpFile),
-		Data:         asyncJob.Data,
-		Context:      context.Background(),
-		ResponseChan: responseChan,
-	})
+	p.NodeMap[asyncJob.Node].Process(asyncJob.Job)
 
 	// Wait Response
-	response := <-responseChan
+	response := <-asyncJob.JobResponseChan
 
 	// log progress
 	if !response.Ack {
@@ -114,13 +106,37 @@ func (p *Pipeline) applyAsyncJob(asyncJob job.Async) {
 	}
 
 	// ------------------ Clean UP ------------------ //
-	err := asyncJob.Finalize()
+
+	// Delete Entry from DB
+	err := p.persistence.DeleteAsyncJob(&asyncJob)
 	if err != nil {
-		p.Logger.Errorw("an error occurred while applying finalizing async requests", "error", err.Error())
+		p.Logger.Errorw("an error occurred while applying persisted async requests", "error", err.Error())
+	}
+}
+
+func (p *Pipeline) createAsyncJob(nodeName string, j job.Job) (*job.Async, error) {
+
+	asyncJob, err := p.persistence.CreateAsyncJob(nodeName, j)
+	if err != nil {
+		return nil, err
+	}
+
+	// --------------------------------------------------------------
+
+	go p.receiveAsyncResponse(asyncJob)
+
+	return asyncJob, nil
+}
+
+func (p *Pipeline) receiveAsyncResponse(asyncJob *job.Async) {
+
+	response := <-asyncJob.JobResponseChan
+	if response.Error != nil {
+		p.Logger.Errorw("error occurred when processing an async request", "error", response.Error.Error())
 	}
 
 	// Delete Entry from DB
-	err = p.persistence.DeleteJob(&asyncJob)
+	err := p.persistence.DeleteAsyncJob(asyncJob)
 	if err != nil {
 		p.Logger.Errorw("an error occurred while applying persisted async requests", "error", err.Error())
 	}
