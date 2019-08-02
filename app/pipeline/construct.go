@@ -13,7 +13,7 @@ import (
 )
 
 //NewPipeline Construct a NewPipeline using config.
-func NewPipeline(name string, Config config.Pipeline, registry component.Registry,
+func NewPipeline(name string, Config config.Pipeline, repo persistence.Repository, registry component.Registry,
 	logger zap.SugaredLogger) (*wrapper, error) {
 	var err error
 
@@ -27,17 +27,17 @@ func NewPipeline(name string, Config config.Pipeline, registry component.Registr
 		hash:           "TODOHASHPIPELINE",
 		receiveJobChan: jobChan,
 		Root:           nil,
-		persistence:    persistence.Persistence{},
+		bucket:         persistence.Bucket{},
 		NodeMap:        make(map[string]*node.Node),
 		Logger:         *logger.Named(name),
 	}
 
-	// create persistence
-	persistence, err := persistence.NewPersistence(name, "TODOHASHPIPELINE", p.Logger)
+	// create bucket
+	persistence, err := repo.Bucket(name, "TODOHASHPIPELINE", p.Logger)
 	if err != nil {
 		return &wrapper{}, err
 	}
-	p.persistence = persistence
+	p.bucket = *persistence
 
 	// Lookup Nexts of this Node
 	nexts, err := p.getNodeNexts(Config.Pipeline, registry, false)

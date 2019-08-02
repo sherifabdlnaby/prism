@@ -16,9 +16,10 @@ type wrapper struct {
 }
 
 type Manager struct {
-	pipelines map[string]wrapper
-	registry  component.Registry
-	logger    zap.SugaredLogger
+	pipelines   map[string]wrapper
+	persistence persistence.Repository
+	registry    component.Registry
+	logger      zap.SugaredLogger
 }
 
 func (m *Manager) Pipelines() map[string]wrapper {
@@ -35,6 +36,12 @@ func NewManager(c config.Pipelines, registry component.Registry, logger zap.Suga
 
 	m.logger = *logger.Named("pipeline")
 
+	repo, err := persistence.NewRepository(config.EnvPrismDataDir.Lookup(), m.logger)
+	if err != nil {
+		return nil, fmt.Errorf("error occurred when constructing pipeline persistence: %s", err.Error())
+	}
+	m.persistence = *repo
+
 	for name, pipConfig := range c.Pipelines {
 
 		// check if pipeline already exists
@@ -43,7 +50,7 @@ func NewManager(c config.Pipelines, registry component.Registry, logger zap.Suga
 			return nil, fmt.Errorf("pipeline with name [%s] already declared", name)
 		}
 
-		pip, err := NewPipeline(name, *pipConfig, m.registry, m.logger)
+		pip, err := NewPipeline(name, *pipConfig, m.persistence, m.registry, m.logger)
 		if err != nil {
 			return nil, fmt.Errorf("error occurred when constructing pipeline [%s]: %s", name, err.Error())
 		}
@@ -160,11 +167,5 @@ func (m *Manager) RecoverAsyncAll() error {
 		}
 	}
 
-	return nil
-}
-
-// stopPipelines Stop pipelines by calling their Stop() function, any request to these pipelines will return error.
-func (m *Manager) Cleanup() error {
-	persistence.DirectoryCleanup()
 	return nil
 }

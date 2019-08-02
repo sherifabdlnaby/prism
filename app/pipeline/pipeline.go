@@ -17,7 +17,7 @@ type Pipeline struct {
 	Root           *node.Next
 	receiveJobChan <-chan job.Job
 	NodeMap        map[string]*node.Node
-	persistence    persistence.Persistence
+	bucket         persistence.Bucket
 	activeJobs     sync.WaitGroup
 	Logger         zap.SugaredLogger
 }
@@ -71,20 +71,40 @@ func (p *Pipeline) handleJob(Job job.Job) {
 //recoverAsyncJobs checks pipeline's persisted unfinished jobs and re-apply them
 func (p *Pipeline) recoverAsyncJobs() error {
 
-	JobsList, err := p.persistence.GetAllAsyncJobs()
+	JobsList, err := p.bucket.GetAllAsyncJobs()
 	if err != nil {
 		p.Logger.Infow("error occurred while reading in-disk jobs", "error", err.Error())
 		return err
 	}
+	if len(JobsList) <= 0 {
+		return nil
+	}
+
+	wg := sync.WaitGroup{}
 
 	p.Logger.Infof("re-applying %d async requests found", len(JobsList))
-	for _, asyncJobs := range JobsList {
-		go func() {
+	for _, Job := range JobsList {
+		wg.Add(1)
+		go func(Job job.Async) {
+			defer wg.Done()
 			// TODO make this respect pipeline overall concurrent factor
-			// TODO make this concurrent
-			p.reapplyAsyncJob(asyncJobs)
-		}()
+			// Do the Job
+			p.reapplyAsyncJob(Job)
+
+			// Delete it from bucket
+			err := p.bucket.DeleteAsyncJob(&Job)
+			if err != nil {
+				p.Logger.Errorw("an error occurred while applying persisted async requests", "error", err.Error())
+			}
+		}(Job)
 	}
+
+	//cleanup after all jobs are done
+	go func() {
+		wg.Wait()
+		p.bucket.Cleanup()
+		p.Logger.Info("finished processing jobs in persistent queue")
+	}()
 
 	return nil
 }
@@ -105,18 +125,11 @@ func (p *Pipeline) reapplyAsyncJob(asyncJob job.Async) {
 		}
 	}
 
-	// ------------------ Clean UP ------------------ //
-
-	// Delete Entry from DB
-	err := p.persistence.DeleteAsyncJob(&asyncJob)
-	if err != nil {
-		p.Logger.Errorw("an error occurred while applying persisted async requests", "error", err.Error())
-	}
 }
 
 func (p *Pipeline) createAsyncJob(nodeName string, j job.Job) (*job.Async, error) {
 
-	asyncJob, err := p.persistence.CreateAsyncJob(nodeName, j)
+	asyncJob, err := p.bucket.CreateAsyncJob(nodeName, j)
 	if err != nil {
 		return nil, err
 	}
@@ -135,8 +148,8 @@ func (p *Pipeline) receiveAsyncResponse(asyncJob *job.Async) {
 		p.Logger.Errorw("error occurred when processing an async request", "error", response.Error.Error())
 	}
 
-	// Delete Entry from DB
-	err := p.persistence.DeleteAsyncJob(asyncJob)
+	// Delete Entry from Repository
+	err := p.bucket.DeleteAsyncJob(asyncJob)
 	if err != nil {
 		p.Logger.Errorw("an error occurred while applying persisted async requests", "error", err.Error())
 	}

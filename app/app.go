@@ -81,12 +81,6 @@ func (a *App) Start(config config.Config) error {
 		return err
 	}
 
-	err = a.pipelines.Cleanup()
-	if err != nil {
-		a.logger.Errorf("error while applying persisted async requests: %v", err)
-		return err
-	}
-
 	a.logger.Info("starting input plugins...")
 	err = a.components.StartAllInputs()
 	if err != nil {
