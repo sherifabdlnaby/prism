@@ -34,3 +34,8 @@ func (r *Resource) Acquire(ctx context.Context) error {
 func (r *Resource) Release() {
 	r.sema.Release(1)
 }
+
+// Release resource
+func (r *Resource) Current() int {
+	return int(r.sema.Current())
+}

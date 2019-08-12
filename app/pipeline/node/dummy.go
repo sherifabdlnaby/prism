@@ -1,8 +1,6 @@
 package node
 
 import (
-	"context"
-
 	"github.com/sherifabdlnaby/prism/pkg/bufferspool"
 	"github.com/sherifabdlnaby/prism/pkg/job"
 	"github.com/sherifabdlnaby/prism/pkg/mirror"
@@ -19,43 +17,18 @@ type dummy struct {
 func (n *dummy) process(t job.Job) {
 
 	////////////////////////////////////////////
-	// Acquire resource (limit concurrency of entire pipeline)
-	err := n.resource.Acquire(t.Context)
-	if err != nil {
-		t.ResponseChan <- response.NoAck(err)
-		return
-	}
-
-	////////////////////////////////////////////
 	// DUMMY NODE WON'T DO WORK SO JUST FORWARD.
 
-	////////////////////////////////////////////
-	// Send to next nodes
-
-	ctx, cancel := context.WithCancel(t.Context)
-	defer cancel()
-
-	responseChan := n.sendNexts(ctx, t.Payload.(payload.Bytes), t.Data)
+	responseChan := n.sendNexts(t.Context, t.Payload.(payload.Bytes), t.Data)
 
 	// Await Responses
 	Response := n.waitResponses(responseChan)
 
 	// Send Response back.
 	t.ResponseChan <- Response
-
-	// dummy Node release after receive response as it is used to limit the entire pipeline concurrency.
-	n.resource.Release()
 }
 
 func (n *dummy) processStream(t job.Job) {
-
-	////////////////////////////////////////////
-	// Acquire resource (limit concurrency of entire pipeline)
-	err := n.resource.Acquire(t.Context)
-	if err != nil {
-		t.ResponseChan <- response.NoAck(err)
-		return
-	}
 
 	////////////////////////////////////////////
 	// DUMMY NODE WON'T DO WORK SO JUST FORWARD.
@@ -91,7 +64,4 @@ func (n *dummy) processStream(t job.Job) {
 
 	// Send Response back.
 	t.ResponseChan <- Response
-
-	// dummy Node release after receive response as it is used to limit the entire pipeline concurrency.
-	n.resource.Release()
 }

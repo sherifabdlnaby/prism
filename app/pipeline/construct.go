@@ -9,12 +9,10 @@ import (
 	"github.com/sherifabdlnaby/prism/app/pipeline/node"
 	"github.com/sherifabdlnaby/prism/app/pipeline/persistence"
 	"github.com/sherifabdlnaby/prism/pkg/job"
-	"go.uber.org/zap"
 )
 
 //NewPipeline Construct a NewPipeline using config.
-func NewPipeline(name string, Config config.Pipeline, repo persistence.Repository, registry component.Registry,
-	logger zap.SugaredLogger) (*wrapper, error) {
+func (m *Manager) NewPipeline(name string, Config config.Pipeline) (*wrapper, error) {
 	var err error
 
 	jobChan := make(chan job.Job)
@@ -22,25 +20,26 @@ func NewPipeline(name string, Config config.Pipeline, repo persistence.Repositor
 	//TODO hash pipelines
 
 	// Create pipeline
-	p := &Pipeline{
+	p := &pipeline{
 		name:           name,
 		hash:           "TODOHASHPIPELINE",
+		root:           nil,
+		resource:       *component.NewResource(Config.Concurrency),
 		receiveJobChan: jobChan,
-		Root:           nil,
+		nodeMap:        make(map[string]*node.Node),
 		bucket:         persistence.Bucket{},
-		NodeMap:        make(map[string]*node.Node),
-		Logger:         *logger.Named(name),
+		logger:         *m.logger.Named(name),
 	}
 
 	// create bucket
-	persistence, err := repo.Bucket(name, "TODOHASHPIPELINE", p.Logger)
+	persistence, err := m.persistence.Bucket(name, "TODOHASHPIPELINE", p.logger)
 	if err != nil {
 		return &wrapper{}, err
 	}
 	p.bucket = *persistence
 
 	// Lookup Nexts of this Node
-	nexts, err := p.getNodeNexts(Config.Pipeline, registry, false)
+	nexts, err := p.getNodeNexts(Config.Pipeline, m.registry, false)
 	if err != nil {
 		return &wrapper{}, err
 	}
@@ -48,21 +47,18 @@ func NewPipeline(name string, Config config.Pipeline, repo persistence.Repositor
 	// set pipeline root node
 	// Node Beginning Dummy Node
 	rootJobChan := make(chan job.Job)
-	p.Root = &node.Next{
-		Node:    node.NewDummy("dummy", component.NewResource(Config.Concurrency), false, nexts, p.createAsyncJob, rootJobChan, p.Logger),
+	p.root = &node.Next{
+		Node:    node.NewDummy(nexts, rootJobChan, p.logger),
 		JobChan: rootJobChan,
 	}
 
-	// save root node.
-	p.NodeMap[p.Root.Name] = p.Root.Node
-
 	return &wrapper{
-		Pipeline: p,
+		pipeline: p,
 		jobChan:  jobChan,
 	}, nil
 }
 
-func (p *Pipeline) getNodeNexts(next map[string]*config.Node, registry component.Registry, forceSync bool) ([]node.Next, error) {
+func (p *pipeline) getNodeNexts(next map[string]*config.Node, registry component.Registry, forceSync bool) ([]node.Next, error) {
 	nexts := make([]node.Next, 0)
 
 	for name, n := range next {
@@ -94,9 +90,9 @@ func (p *Pipeline) getNodeNexts(next map[string]*config.Node, registry component
 	return nexts, nil
 }
 
-func (p Pipeline) getUniqueNodeName(name string) string {
+func (p *pipeline) getUniqueNodeName(name string) string {
 	for i := 0; ; {
-		_, ok := p.NodeMap[name]
+		_, ok := p.nodeMap[name]
 		if !ok {
 			return name
 		}
@@ -104,7 +100,7 @@ func (p Pipeline) getUniqueNodeName(name string) string {
 	}
 }
 
-func (p Pipeline) createNode(componentName, nodeName string, async bool, registry component.Registry,
+func (p *pipeline) createNode(componentName, nodeName string, async bool, registry component.Registry,
 	nexts []node.Next, jobChan chan job.Job, nextsCount int) (*node.Node, error) {
 
 	var Node *node.Node
@@ -122,18 +118,18 @@ func (p Pipeline) createNode(componentName, nodeName string, async bool, registr
 
 		switch Component := Component.(type) {
 		case *component.ProcessorReadWrite:
-			Node = node.NewReadWrite(nodeName, Component, async, nexts, p.createAsyncJob, jobChan, p.Logger)
+			Node = node.NewReadWrite(nodeName, Component, async, nexts, p.createAsyncJob, jobChan, p.logger)
 		case *component.ProcessorReadOnly:
-			Node = node.NewReadOnly(nodeName, Component, async, nexts, p.createAsyncJob, jobChan, p.Logger)
+			Node = node.NewReadOnly(nodeName, Component, async, nexts, p.createAsyncJob, jobChan, p.logger)
 		case *component.ProcessorReadWriteStream:
-			Node = node.NewReadWriteStream(nodeName, Component, async, nexts, p.createAsyncJob, jobChan, p.Logger)
+			Node = node.NewReadWriteStream(nodeName, Component, async, nexts, p.createAsyncJob, jobChan, p.logger)
 		}
 
 	case *component.Output:
 		if nextsCount > 0 {
 			return nil, fmt.Errorf("plugin [%s] has nexts(s), output plugins must not have nexts(s)", nodeName)
 		}
-		Node = node.NewOutput(nodeName, Component, async, nexts, p.createAsyncJob, jobChan, p.Logger)
+		Node = node.NewOutput(nodeName, Component, async, nexts, p.createAsyncJob, jobChan, p.logger)
 	case *component.Input:
 		return nil, fmt.Errorf("plugin [%s] is an input plugin", nodeName)
 	default:
@@ -146,7 +142,7 @@ func (p Pipeline) createNode(componentName, nodeName string, async bool, registr
 	}
 
 	// save in map
-	p.NodeMap[nodeName] = Node
+	p.nodeMap[nodeName] = Node
 
 	return Node, nil
 }

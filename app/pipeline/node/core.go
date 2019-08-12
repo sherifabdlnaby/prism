@@ -15,7 +15,7 @@ func newBase(name string, core core, async bool, nexts []Next,
 	createAsync createAsyncFunc, jobChan <-chan job.Job, resource *component.Resource,
 	logger zap.SugaredLogger) *Node {
 	return &Node{
-		Name:           name,
+		name:           name,
 		async:          async,
 		nexts:          nexts,
 		core:           core,
@@ -63,10 +63,9 @@ func NewOutput(name string, out *component.Output, async bool, nexts []Next,
 }
 
 //NewDummy Construct a new Dummy Node
-func NewDummy(name string, r *component.Resource, async bool, nexts []Next,
-	createAsync createAsyncFunc, jobChan <-chan job.Job, logger zap.SugaredLogger) *Node {
+func NewDummy(nexts []Next, jobChan <-chan job.Job, logger zap.SugaredLogger) *Node {
 	core := &dummy{}
-	base := newBase(name, core, async, nexts, createAsync, jobChan, r, logger)
+	base := newBase("", core, false, nexts, nil, jobChan, nil, logger)
 	core.Node = base
 	return core.Node
 }

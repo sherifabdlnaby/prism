@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/sherifabdlnaby/prism/app/component"
 	"github.com/sherifabdlnaby/prism/app/config"
@@ -11,7 +12,7 @@ import (
 )
 
 type wrapper struct {
-	*Pipeline
+	*pipeline
 	jobChan chan job.Job
 }
 
@@ -50,7 +51,7 @@ func NewManager(c config.Pipelines, registry component.Registry, logger zap.Suga
 			return nil, fmt.Errorf("pipeline with name [%s] already declared", name)
 		}
 
-		pip, err := NewPipeline(name, *pipConfig, m.persistence, m.registry, m.logger)
+		pip, err := m.NewPipeline(name, *pipConfig)
 		if err != nil {
 			return nil, fmt.Errorf("error occurred when constructing pipeline [%s]: %s", name, err.Error())
 		}
@@ -102,13 +103,29 @@ func (m *Manager) Stop(name string) error {
 		return err
 	}
 
-	err = pipeline.Stop()
-	if err != nil {
-		m.logger.Error(err.Error())
-		return err
-	}
+	errChan := make(chan error)
+	go func() {
 
-	return nil
+		close(pipeline.jobChan)
+
+		err = pipeline.Stop()
+		if err != nil {
+			m.logger.Error(err.Error())
+		}
+
+		errChan <- err
+	}()
+
+	for {
+		select {
+		case <-time.Tick(1 * time.Second):
+			// Print how many active job for visibility
+			m.logger.Infof("stopping pipeline [%s]... (jobs in progress: %d)", pipeline.name, pipeline.ActiveJobs())
+		case err := <-errChan:
+			return err
+		}
+
+	}
 }
 
 // stopPipelines Stop pipelines by calling their Stop() function, any request to these pipelines will return error.
@@ -133,39 +150,73 @@ func (m *Manager) Recover(name string) error {
 
 // startPipelines start all pipelines and start accepting input
 func (m *Manager) StartAll() error {
+	errChan := make(chan error)
 
+	// stop pipelines concurrently
 	for name := range m.pipelines {
-		err := m.Start(name)
-		if err != nil {
-			return err
+		go func(name string) {
+			err := m.Start(name)
+			errChan <- err
+		}(name)
+	}
+
+	// wait for errors
+	var err error
+	for i := 0; i < len(m.pipelines); i++ {
+		err1 := <-errChan
+		if err1 != nil {
+			err = err1
 		}
 	}
 
-	return nil
+	return err
 }
 
 // stopPipelines Stop pipelines by calling their Stop() function, any request to these pipelines will return error.
 func (m *Manager) StopAll() error {
 
+	errChan := make(chan error)
+
+	// stop pipelines concurrently
 	for name := range m.pipelines {
-		err := m.Stop(name)
-		if err != nil {
-			return err
+		go func(name string) {
+			err := m.Stop(name)
+			errChan <- err
+		}(name)
+	}
+
+	// wait for errors
+	var err error
+	for i := 0; i < len(m.pipelines); i++ {
+		err1 := <-errChan
+		if err1 != nil {
+			err = err1
 		}
 	}
 
-	return nil
+	return err
 }
 
 // stopPipelines Stop pipelines by calling their Stop() function, any request to these pipelines will return error.
 func (m *Manager) RecoverAsyncAll() error {
+	errChan := make(chan error)
 
+	// recover pipelines concurrently
 	for name := range m.pipelines {
-		err := m.Recover(name)
-		if err != nil {
-			return err
+		go func(name string) {
+			err := m.Recover(name)
+			errChan <- err
+		}(name)
+	}
+
+	// wait for errors
+	var err error
+	for i := 0; i < len(m.pipelines); i++ {
+		err1 := <-errChan
+		if err1 != nil {
+			err = err1
 		}
 	}
 
-	return nil
+	return err
 }
