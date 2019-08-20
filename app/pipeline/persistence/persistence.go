@@ -11,6 +11,7 @@ import (
 
 	"github.com/boltdb/bolt"
 	"github.com/google/uuid"
+	"github.com/sherifabdlnaby/prism/app/pipeline/node"
 	"github.com/sherifabdlnaby/prism/pkg/job"
 	"github.com/sherifabdlnaby/prism/pkg/payload"
 	"go.uber.org/zap"
@@ -179,7 +180,7 @@ func (b *Bucket) DeleteAsyncJob(asyncJob *job.Async) error {
 	return nil
 }
 
-func (b *Bucket) CreateAsyncJob(node string, t job.Job) (*job.Async, error) {
+func (b *Bucket) CreateAsyncJob(nodeID node.ID, t job.Job) (*job.Async, error) {
 
 	// --------------------- Write To Temp File -------------------------------------
 	filepath, newPayload, err := b.writeToTmpFile(t.Payload)
@@ -192,7 +193,7 @@ func (b *Bucket) CreateAsyncJob(node string, t job.Job) (*job.Async, error) {
 	// Create Async Job
 	asyncJob := &job.Async{
 		ID:       uuid.New().String(),
-		Node:     node,
+		NodeID:   string(nodeID),
 		Filepath: filepath,
 		Data:     t.Data,
 	}

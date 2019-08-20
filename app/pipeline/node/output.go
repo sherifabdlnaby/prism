@@ -12,28 +12,28 @@ type output struct {
 	*Node
 }
 
-//process output process will send the process to output plugin and await its result.
-func (n *output) process(t job.Job) {
-	err := n.resource.Acquire(t.Context)
+//process output process will send the process to output plugin and await its resulj.
+func (n *output) process(j job.Job) {
+	err := n.resource.Acquire(j.Context)
 	if err != nil {
-		t.ResponseChan <- response.NoAck(err)
+		j.ResponseChan <- response.NoAck(err)
 		return
 	}
 
 	responseChan := make(chan response.Response)
 
 	n.output.JobChan <- job.Job{
-		Payload:      t.Payload,
-		Data:         t.Data,
+		Payload:      j.Payload,
+		Data:         j.Data,
 		ResponseChan: responseChan,
-		Context:      t.Context,
+		Context:      j.Context,
 	}
 
-	t.ResponseChan <- <-responseChan
+	j.ResponseChan <- <-responseChan
 
 	n.resource.Release()
 }
 
-func (n *output) processStream(t job.Job) {
-	n.process(t)
+func (n *output) processStream(j job.Job) {
+	n.process(j)
 }

@@ -17,7 +17,6 @@ require (
 	github.com/pkg/errors v0.8.1 // indirect
 	github.com/sherifabdlnaby/bimg v1.3.0
 	github.com/sherifabdlnaby/objx v0.2.0
-	github.com/sherifabdlnaby/semaphore v1.1.0
 	github.com/spf13/cast v1.3.0
 	github.com/stretchr/objx v0.2.0 // indirect
 	go.uber.org/atomic v1.4.0 // indirect
@@ -25,6 +24,7 @@ require (
 	go.uber.org/zap v1.9.1
 	golang.org/x/image v0.0.0-20190616094056-33659d3de4f5
 	golang.org/x/net v0.0.0-20190613194153-d28f0bde5980 // indirect
+	golang.org/x/sync v0.0.0-20190423024810-112230192c58
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4 // indirect
 	google.golang.org/appengine v1.6.1 // indirect
 	gopkg.in/go-playground/assert.v1 v1.2.1 // indirect

@@ -3,6 +3,7 @@ package pipeline
 import (
 	"fmt"
 	"strconv"
+	"sync"
 
 	"github.com/sherifabdlnaby/prism/app/component"
 	"github.com/sherifabdlnaby/prism/app/config"
@@ -21,14 +22,15 @@ func (m *Manager) NewPipeline(name string, Config config.Pipeline) (*wrapper, er
 
 	// Create pipeline
 	p := &pipeline{
-		name:           name,
-		hash:           "TODOHASHPIPELINE",
-		root:           nil,
-		resource:       *component.NewResource(Config.Concurrency),
-		receiveJobChan: jobChan,
-		nodeMap:        make(map[string]*node.Node),
-		bucket:         persistence.Bucket{},
-		logger:         *m.logger.Named(name),
+		name:            name,
+		hash:            "TODOHASHPIPELINE",
+		resource:        *component.NewResource(Config.Concurrency),
+		receiveJobChan:  jobChan,
+		handleAsyncJobs: make(chan *job.Async),
+		nodeMap:         make(map[node.ID]*node.Node),
+		bucket:          persistence.Bucket{},
+		activeJobs:      sync.WaitGroup{},
+		logger:          *m.logger.Named(name),
 	}
 
 	// create bucket
@@ -75,7 +77,7 @@ func (p *pipeline) getNodeNexts(next map[string]*config.Node, registry component
 		jobChan := make(chan job.Job)
 
 		// create node of the configure components
-		currNode, err := p.createNode(name, p.getUniqueNodeName(name), async, registry, nodeNexts, jobChan, len(n.Next))
+		currNode, err := p.createNode(p.getUniqueNodeID(name), name, async, registry, nodeNexts, jobChan, len(n.Next))
 		if err != nil {
 			return nil, err
 		}
@@ -90,17 +92,17 @@ func (p *pipeline) getNodeNexts(next map[string]*config.Node, registry component
 	return nexts, nil
 }
 
-func (p *pipeline) getUniqueNodeName(name string) string {
+func (p *pipeline) getUniqueNodeID(name string) node.ID {
 	for i := 0; ; {
-		_, ok := p.nodeMap[name]
+		_, ok := p.nodeMap[node.ID(name)]
 		if !ok {
-			return name
+			return node.ID(name)
 		}
 		name += "_" + strconv.Itoa(i)
 	}
 }
 
-func (p *pipeline) createNode(componentName, nodeName string, async bool, registry component.Registry,
+func (p *pipeline) createNode(ID node.ID, componentName string, async bool, registry component.Registry,
 	nexts []node.Next, jobChan chan job.Job, nextsCount int) (*node.Node, error) {
 
 	var Node *node.Node
@@ -113,27 +115,27 @@ func (p *pipeline) createNode(componentName, nodeName string, async bool, regist
 	switch Component := Component.(type) {
 	case *component.ProcessorReadWrite, *component.ProcessorReadOnly, *component.ProcessorReadWriteStream:
 		if nextsCount == 0 {
-			return nil, fmt.Errorf("plugin [%s] has no nexts(s) of type output, a pipeline path must end with an output plugin", nodeName)
+			return nil, fmt.Errorf("plugin [%s] has no nexts(s) of type output, a pipeline path must end with an output plugin", ID)
 		}
 
 		switch Component := Component.(type) {
 		case *component.ProcessorReadWrite:
-			Node = node.NewReadWrite(nodeName, Component, async, nexts, p.createAsyncJob, jobChan, p.logger)
+			Node = node.NewReadWrite(ID, Component, async, nexts, p.convertToAsync, jobChan, p.logger)
 		case *component.ProcessorReadOnly:
-			Node = node.NewReadOnly(nodeName, Component, async, nexts, p.createAsyncJob, jobChan, p.logger)
+			Node = node.NewReadOnly(ID, Component, async, nexts, p.convertToAsync, jobChan, p.logger)
 		case *component.ProcessorReadWriteStream:
-			Node = node.NewReadWriteStream(nodeName, Component, async, nexts, p.createAsyncJob, jobChan, p.logger)
+			Node = node.NewReadWriteStream(ID, Component, async, nexts, p.convertToAsync, jobChan, p.logger)
 		}
 
 	case *component.Output:
 		if nextsCount > 0 {
-			return nil, fmt.Errorf("plugin [%s] has nexts(s), output plugins must not have nexts(s)", nodeName)
+			return nil, fmt.Errorf("plugin [%s] has nexts(s), output plugins must not have nexts(s)", ID)
 		}
-		Node = node.NewOutput(nodeName, Component, async, nexts, p.createAsyncJob, jobChan, p.logger)
+		Node = node.NewOutput(ID, Component, async, nexts, p.convertToAsync, jobChan, p.logger)
 	case *component.Input:
-		return nil, fmt.Errorf("plugin [%s] is an input plugin", nodeName)
+		return nil, fmt.Errorf("plugin [%s] is an input plugin", ID)
 	default:
-		return nil, fmt.Errorf("plugin [%s] doesn't exists", nodeName)
+		return nil, fmt.Errorf("plugin [%s] doesn't exists", ID)
 	}
 
 	// Assert check.
@@ -142,7 +144,7 @@ func (p *pipeline) createNode(componentName, nodeName string, async bool, regist
 	}
 
 	// save in map
-	p.nodeMap[nodeName] = Node
+	p.nodeMap[ID] = Node
 
 	return Node, nil
 }

@@ -3,7 +3,7 @@ package component
 import (
 	"context"
 
-	"github.com/sherifabdlnaby/semaphore"
+	"golang.org/x/sync/semaphore"
 )
 
 //Resource contains types required to control access to a resource
@@ -33,9 +33,4 @@ func (r *Resource) Acquire(ctx context.Context) error {
 // Release resource
 func (r *Resource) Release() {
 	r.sema.Release(1)
-}
-
-// Release resource
-func (r *Resource) Current() int {
-	return int(r.sema.Current())
 }

@@ -56,7 +56,7 @@ func (d *Dummy) DecodeStream(in payload.Stream, data payload.Data) (payload.Deco
 	return out, response.ACK
 }
 
-//Process Simulate Processing the Image
+//process Simulate Processing the Image
 func (d *Dummy) Process(in payload.DecodedImage, data payload.Data) (payload.DecodedImage, response.Response) {
 	//literally do nothing lol
 	time.Sleep(1000 + time.Duration(rand.Intn(1500))*time.Millisecond)

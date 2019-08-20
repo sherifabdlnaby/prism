@@ -13,22 +13,22 @@ type dummy struct {
 	*Node
 }
 
-//process Just forwards the input.
-func (n *dummy) process(t job.Job) {
+//process Just forwards the inpuj.
+func (n *dummy) process(j job.Job) {
 
 	////////////////////////////////////////////
 	// DUMMY NODE WON'T DO WORK SO JUST FORWARD.
 
-	responseChan := n.sendNexts(t.Context, t.Payload.(payload.Bytes), t.Data)
+	responseChan := n.sendNexts(j.Context, j.Payload.(payload.Bytes), j.Data)
 
 	// Await Responses
 	Response := n.waitResponses(responseChan)
 
 	// Send Response back.
-	t.ResponseChan <- Response
+	j.ResponseChan <- Response
 }
 
-func (n *dummy) processStream(t job.Job) {
+func (n *dummy) processStream(j job.Job) {
 
 	////////////////////////////////////////////
 	// DUMMY NODE WON'T DO WORK SO JUST FORWARD.
@@ -42,9 +42,9 @@ func (n *dummy) processStream(t job.Job) {
 		// micro optimization. no need to put buffer cloner in-front of a single node
 		responseChan = make(chan response.Response)
 		n.nexts[0].JobChan <- job.Job{
-			Payload:      t.Payload,
-			Data:         t.Data,
-			Context:      t.Context,
+			Payload:      j.Payload,
+			Data:         j.Data,
+			Context:      j.Context,
 			ResponseChan: responseChan,
 		}
 	} else {
@@ -53,15 +53,15 @@ func (n *dummy) processStream(t job.Job) {
 		defer bufferspool.Put(buffer)
 
 		// Create a reader cloner from incoming stream (to clone the reader stream as it comes in)
-		stream := t.Payload.(payload.Stream)
+		stream := j.Payload.(payload.Stream)
 		readerCloner := mirror.NewReader(stream, buffer)
 
-		responseChan = n.sendNextsStream(t.Context, readerCloner, t.Data)
+		responseChan = n.sendNextsStream(j.Context, readerCloner, j.Data)
 	}
 
 	// Await Responses
 	Response := n.waitResponses(responseChan)
 
 	// Send Response back.
-	t.ResponseChan <- Response
+	j.ResponseChan <- Response
 }

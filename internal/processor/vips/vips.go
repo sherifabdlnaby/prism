@@ -99,7 +99,7 @@ func (d *Vips) DecodeStream(in payload.Stream, data payload.Data) (payload.Decod
 	}, response.ACK
 }
 
-//Process Process vips image according to internal configuration of Vips plugin
+//process process vips image according to internal configuration of Vips plugin
 func (d *Vips) Process(in payload.DecodedImage, data payload.Data) (payload.DecodedImage, response.Response) {
 	// TODO fix bimg fork to not need this
 	//  (this happen probably because shrink on load requires src buffer to still be alive )

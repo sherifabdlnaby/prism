@@ -37,10 +37,10 @@ type Input struct {
 
 // Async to be persisted in local DB
 type Async struct {
-	ID, Node, Filepath string
-	Data               payload.Data
-	Job                Job                      `json:"-"`
-	JobResponseChan    <-chan response.Response `json:"-"`
+	ID, Filepath, NodeID string
+	Data                 payload.Data
+	Job                  Job                      `json:"-"`
+	JobResponseChan      <-chan response.Response `json:"-"`
 }
 
 func (a *Async) Load(Payload payload.Payload) error {

@@ -130,7 +130,7 @@ func (d *Validator) DecodeStream(in payload.Stream, data payload.Data) (payload.
 	}, response.Ack()
 }
 
-// Process will validate that the image is as configured. adding format and dimensions to payload.Dataa
+// process will validate that the image is as configured. adding format and dimensions to payload.Dataa
 func (d *Validator) Process(in payload.DecodedImage, data payload.Data) response.Response {
 	header := in.(header)
 

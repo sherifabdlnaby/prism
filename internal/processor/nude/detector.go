@@ -79,7 +79,7 @@ func (d *Detector) DecodeStream(in payload.Stream, data payload.Data) (payload.D
 	return image, response.Ack()
 }
 
-// Process Process will process the image and calculate skin regions and the likelihood it's a nude image, according to
+// process process will process the image and calculate skin regions and the likelihood it's a nude image, according to
 // configuration, process will either send a NoAck to Drop the image according to configuration,
 // otherwise will add "nude" boolean to payload.Data
 func (d *Detector) Process(in payload.DecodedImage, data payload.Data) response.Response {

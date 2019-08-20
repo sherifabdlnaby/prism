@@ -15,14 +15,14 @@ type readWrite struct {
 	*Node
 }
 
-//process Process process by calling Decode-> Process-> Encode->
-func (n *readWrite) process(t job.Job) {
+//process process process by calling Decode-> process-> Encode->
+func (n *readWrite) process(j job.Job) {
 
 	////////////////////////////////////////////
 	// Acquire resource (limit concurrency)
-	err := n.resource.Acquire(t.Context)
+	err := n.resource.Acquire(j.Context)
 	if err != nil {
-		t.ResponseChan <- response.NoAck(err)
+		j.ResponseChan <- response.NoAck(err)
 		return
 	}
 
@@ -30,49 +30,49 @@ func (n *readWrite) process(t job.Job) {
 	// PROCESS ( DECODE -> PROCESS -> ENCODE )
 
 	/// DECODE
-	decoded, Response := n.processor.Decode(t.Payload.(payload.Bytes), t.Data)
+	decoded, Response := n.processor.Decode(j.Payload.(payload.Bytes), j.Data)
 	if !Response.Ack {
-		t.ResponseChan <- Response
+		j.ResponseChan <- Response
 		n.resource.Release()
 		return
 	}
 
 	/// PROCESS
-	decodedPayload, Response := n.processor.Process(decoded, t.Data)
+	decodedPayload, Response := n.processor.Process(decoded, j.Data)
 	if !Response.Ack {
-		t.ResponseChan <- Response
+		j.ResponseChan <- Response
 		n.resource.Release()
 		return
 	}
 
 	/// ENCODE
-	output, Response := n.processor.Encode(decodedPayload, t.Data)
+	output, Response := n.processor.Encode(decodedPayload, j.Data)
 	n.resource.Release()
 	if !Response.Ack {
-		t.ResponseChan <- Response
+		j.ResponseChan <- Response
 		return
 	}
 
-	ctx, cancel := context.WithCancel(t.Context)
+	ctx, cancel := context.WithCancel(j.Context)
 	defer cancel()
 
 	// send to next channels
-	responseChan := n.sendNexts(ctx, output, t.Data)
+	responseChan := n.sendNexts(ctx, output, j.Data)
 
 	// Await Responses
 	Response = n.waitResponses(responseChan)
 
 	// Send Response back.
-	t.ResponseChan <- Response
+	j.ResponseChan <- Response
 }
 
-func (n *readWrite) processStream(t job.Job) {
+func (n *readWrite) processStream(j job.Job) {
 
 	////////////////////////////////////////////
 	// Acquire resource (limit concurrency)
-	err := n.resource.Acquire(t.Context)
+	err := n.resource.Acquire(j.Context)
 	if err != nil {
-		t.ResponseChan <- response.NoAck(err)
+		j.ResponseChan <- response.NoAck(err)
 		return
 	}
 
@@ -80,39 +80,39 @@ func (n *readWrite) processStream(t job.Job) {
 	// PROCESS ( DECODE -> PROCESS -> ENCODE )
 
 	/// DECODE
-	stream := t.Payload.(payload.Stream)
-	decoded, Response := n.processor.DecodeStream(stream, t.Data)
+	stream := j.Payload.(payload.Stream)
+	decoded, Response := n.processor.DecodeStream(stream, j.Data)
 	if !Response.Ack {
-		t.ResponseChan <- Response
+		j.ResponseChan <- Response
 		n.resource.Release()
 		return
 	}
 
 	/// PROCESS
-	decodedPayload, Response := n.processor.Process(decoded, t.Data)
+	decodedPayload, Response := n.processor.Process(decoded, j.Data)
 	if !Response.Ack {
-		t.ResponseChan <- Response
+		j.ResponseChan <- Response
 		n.resource.Release()
 		return
 	}
 
 	/// ENCODE
-	output, Response := n.processor.Encode(decodedPayload, t.Data)
+	output, Response := n.processor.Encode(decodedPayload, j.Data)
 	n.resource.Release()
 	if !Response.Ack {
-		t.ResponseChan <- Response
+		j.ResponseChan <- Response
 		return
 	}
 
-	ctx, cancel := context.WithCancel(t.Context)
+	ctx, cancel := context.WithCancel(j.Context)
 	defer cancel()
 
 	// send to next channels
-	responseChan := n.sendNexts(ctx, output, t.Data)
+	responseChan := n.sendNexts(ctx, output, j.Data)
 
 	// Await Responses
 	Response = n.waitResponses(responseChan)
 
 	// Send Response back.
-	t.ResponseChan <- Response
+	j.ResponseChan <- Response
 }

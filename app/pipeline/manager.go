@@ -118,7 +118,7 @@ func (m *Manager) Stop(name string) error {
 
 	for {
 		select {
-		case <-time.Tick(1 * time.Second):
+		case <-time.Tick(50 * time.Millisecond):
 			// Print how many active job for visibility
 			m.logger.Infof("stopping pipeline [%s]... (jobs in progress: %d)", pipeline.name, pipeline.ActiveJobs())
 		case err := <-errChan:

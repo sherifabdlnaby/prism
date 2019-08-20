@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"sync"
+	"sync/atomic"
 
 	"github.com/sherifabdlnaby/prism/app/component"
 	"github.com/sherifabdlnaby/prism/app/pipeline/node"
@@ -13,16 +14,20 @@ import (
 
 //Pipelines Holds the recursive tree of Nodes and their next nodes, etc
 type pipeline struct {
-	name           string
-	hash           string
-	root           *node.Next
-	resource       component.Resource
-	receiveJobChan <-chan job.Job
-	nodeMap        map[string]*node.Node
-	bucket         persistence.Bucket
-	activeJobs     sync.WaitGroup
-	logger         zap.SugaredLogger
+	name            string
+	hash            string
+	root            *node.Next
+	resource        component.Resource
+	receiveJobChan  <-chan job.Job
+	handleAsyncJobs chan *job.Async
+	nodeMap         map[node.ID]*node.Node
+	bucket          persistence.Bucket
+	activeJobs      sync.WaitGroup
+	jobsCounter     int32
+	logger          zap.SugaredLogger
 }
+
+const root node.ID = ""
 
 //Start starts the pipeline and start accepting Input
 func (p *pipeline) Start() error {
@@ -33,11 +38,8 @@ func (p *pipeline) Start() error {
 		return err
 	}
 
-	go func() {
-		for value := range p.receiveJobChan {
-			go p.handleJob(value)
-		}
-	}()
+	go p.asyncResponsesManager()
+	go p.serve()
 
 	return nil
 }
@@ -58,13 +60,16 @@ func (p *pipeline) Stop() error {
 	return nil
 }
 
-func (p *pipeline) ActiveJobs() int {
-	return p.resource.Current()
+func (p *pipeline) serve() {
+	for value := range p.receiveJobChan {
+		go p.handleJob(value, root)
+	}
 }
 
-func (p *pipeline) handleJob(Job job.Job) {
+func (p *pipeline) handleJob(Job job.Job, nodeID node.ID) {
 
 	p.activeJobs.Add(1)
+	atomic.AddInt32(&p.jobsCounter, 1)
 	err := p.resource.Acquire(Job.Context)
 	if err != nil {
 		Job.ResponseChan <- response.NoAck(err)
@@ -73,44 +78,71 @@ func (p *pipeline) handleJob(Job job.Job) {
 
 	// -----------------------------------------
 
-	responseChan := make(chan response.Response)
-	p.root.JobChan <- job.Job{
-		Payload:      Job.Payload,
-		Data:         Job.Data,
-		ResponseChan: responseChan,
-		Context:      Job.Context,
+	responseChan := make(chan response.Response, 1)
+
+	// If node name supplied, send job to said node, else root.
+	if nodeID == root {
+		p.root.HandleJob(job.Job{
+			Payload:      Job.Payload,
+			Data:         Job.Data,
+			ResponseChan: responseChan,
+			Context:      Job.Context,
+		})
+	} else {
+		p.nodeMap[nodeID].HandleJob(job.Job{
+			Payload:      Job.Payload,
+			Data:         Job.Data,
+			ResponseChan: responseChan,
+			Context:      Job.Context,
+		})
 	}
+
+	// await response
 	Job.ResponseChan <- <-responseChan
 
 	// -----------------------------------------
 
 	p.resource.Release()
+	atomic.AddInt32(&p.jobsCounter, -1)
 	p.activeJobs.Done()
 }
 
-func (p *pipeline) createAsyncJob(nodeName string, j job.Job) (*job.Async, error) {
+func (p *pipeline) convertToAsync(ID node.ID, j job.Job) (*job.Job, error) {
 
-	asyncJob, err := p.bucket.CreateAsyncJob(nodeName, j)
+	asyncJob, err := p.bucket.CreateAsyncJob(ID, j)
 	if err != nil {
 		return nil, err
 	}
 
-	// --------------------------------------------------------------
+	p.startAsyncJob(asyncJob)
 
-	p.activeJobs.Add(1)
-	p.resource.Acquire(asyncJob.Job.Context)
+	// Respond to Awaiting sender as now the new process is gonna be handled by Async Manager
+	j.ResponseChan <- response.ACK
 
-	go func() {
-		p.receiveAsyncResponse(asyncJob)
-		p.resource.Release()
-		p.activeJobs.Done()
-	}()
-
-	return asyncJob, nil
+	return &asyncJob.Job, nil
 }
 
-// TODO refactor
-func (p *pipeline) receiveAsyncResponse(asyncJob *job.Async) {
+func (p *pipeline) startAsyncJob(asyncJob *job.Async) {
+	// Acquire Resources
+	p.activeJobs.Add(1)
+
+	atomic.AddInt32(&p.jobsCounter, 1)
+
+	// Send Async JOB to async handler to deal with its response
+	p.handleAsyncJobs <- asyncJob
+}
+
+func (p *pipeline) asyncResponsesManager() {
+	for asyncJob := range p.handleAsyncJobs {
+		go p.waitAndFinalizeAsyncJob(*asyncJob)
+	}
+}
+
+func (p *pipeline) waitAndFinalizeAsyncJob(asyncJob job.Async) {
+	defer func() {
+		atomic.AddInt32(&p.jobsCounter, -1)
+		p.activeJobs.Done()
+	}()
 
 	response := <-asyncJob.JobResponseChan
 	if response.Error != nil {
@@ -118,75 +150,14 @@ func (p *pipeline) receiveAsyncResponse(asyncJob *job.Async) {
 	}
 
 	// Delete Entry from Repository
-	err := p.bucket.DeleteAsyncJob(asyncJob)
+	err := p.bucket.DeleteAsyncJob(&asyncJob)
 	if err != nil {
 		p.logger.Errorw("an error occurred while applying persisted async requests", "error", err.Error())
 	}
 
+	p.logger.Debug("DONE WITH ", asyncJob.Data["count"])
 }
 
-//recoverAsyncJobs checks pipeline's persisted unfinished jobs and re-apply them
-func (p *pipeline) recoverAsyncJobs() error {
-
-	JobsList, err := p.bucket.GetAllAsyncJobs()
-	if err != nil {
-		p.logger.Infow("error occurred while reading in-disk jobs", "error", err.Error())
-		return err
-	}
-	if len(JobsList) <= 0 {
-		return nil
-	}
-
-	wg := sync.WaitGroup{}
-
-	p.logger.Infof("re-applying %d async requests found", len(JobsList))
-	for _, Job := range JobsList {
-		wg.Add(1)
-		go func(Job job.Async) {
-			defer wg.Done()
-			// Do the Job
-			p.handleJobAsync(Job)
-		}(Job)
-	}
-
-	//cleanup after all jobs are done
-	go func() {
-		wg.Wait()
-		p.bucket.Cleanup()
-		p.logger.Info("finished processing jobs in persistent queue")
-	}()
-
-	return nil
-}
-
-func (p *pipeline) handleJobAsync(asyncJob job.Async) {
-	p.activeJobs.Add(1)
-
-	err := p.resource.Acquire(asyncJob.Job.Context)
-	if err != nil {
-		p.logger.Errorw("an error occurred while applying persisted async requests", "error", err.Error())
-	}
-
-	p.nodeMap[asyncJob.Node].Process(asyncJob.Job)
-
-	// Wait Response
-	response := <-asyncJob.JobResponseChan
-
-	// log progress
-	if !response.Ack {
-		if response.Error != nil {
-			p.logger.Warnw("an async request that are re-done failed", "error", response.Error)
-		} else if response.AckErr != nil {
-			p.logger.Warnw("an async request that are re-done was dropped", "reason", response.AckErr)
-		}
-	}
-
-	// Delete it from bucket
-	err = p.bucket.DeleteAsyncJob(&asyncJob)
-	if err != nil {
-		p.logger.Errorw("an error occurred while deleting temp file ", "error", err.Error())
-	}
-
-	p.resource.Release()
-	p.activeJobs.Done()
+func (p *pipeline) ActiveJobs() int {
+	return int(p.jobsCounter)
 }
